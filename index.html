@@ -705,7 +705,7 @@
                     <h1 data-i18n="heroTitle">Your server, brighter with <span>Luma</span>.</h1>
                     <p data-i18n="heroSubtitle">Moderation, AI assistance, modmail, tickets, analytics, and reaction roles in a clean all-in-one Discord bot designed to feel kawaii, futuristic, and seriously powerful.</p>
                     <div class="hero-actions">
-                        <button class="btn btn-primary" data-i18n="heroPrimaryBtn">Invite to Discord</button>
+                        <button class="btn btn-primary" id="heroInviteBtn" data-i18n="heroPrimaryBtn">Invite to Discord</button>
                         <button class="btn btn-secondary" data-i18n="heroSecondaryBtn">View Commands</button>
                     </div>
                 </div>
@@ -837,7 +837,7 @@
             <div class="cta-card">
                 <h2 data-i18n="ctaTitle">Ready to light up your Discord server?</h2>
                 <p data-i18n="ctaSub">Invite Luma and unlock futuristic moderation, AI comfort, and kawaii-styled control in minutes.</p>
-                <button class="explosive-btn" data-i18n="ctaBtn">Invite Luma Now</button>
+                <button class="explosive-btn" id="ctaInviteBtn" data-i18n="ctaBtn">Invite Luma Now</button>
             </div>
         </section>
     </main>
@@ -1049,6 +1049,7 @@
         };
 
         let currentLanguage = "en";
+        const inviteUrl = "https://discord.com/oauth2/authorize?client_id=1476329967674724494&permissions=8&integration_type=0&scope=bot";
 
         function setLanguage(lang) {
             currentLanguage = i18n[lang] ? lang : "en";
@@ -1183,6 +1184,21 @@
                 return;
             }
             setLanguage("en");
+        })();
+
+        (function initInviteButtons() {
+            const heroInviteBtn = document.getElementById("heroInviteBtn");
+            const ctaInviteBtn = document.getElementById("ctaInviteBtn");
+
+            [heroInviteBtn, ctaInviteBtn].forEach((btn) => {
+                if (!btn) {
+                    return;
+                }
+
+                btn.addEventListener("click", () => {
+                    window.open(inviteUrl, "_blank", "noopener,noreferrer");
+                });
+            });
         })();
     </script>
 </body>

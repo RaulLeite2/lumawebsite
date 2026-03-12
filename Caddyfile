@@ -1,7 +1,6 @@
-{$PORT:8080}
+:{$PORT:8080}
 
 root * /srv
-file_server
-encode gzip zstd
-
 try_files {path} /index.html
+encode gzip zstd
+file_server
