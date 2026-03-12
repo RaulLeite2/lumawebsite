@@ -1,0 +1,1189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luma Discord Bot</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-main: #0d0d1a;
+            --accent-hot: #ff1493;
+            --accent-soft: #5865f2;
+            --text-main: #f0e6ff;
+            --glass-bg: rgba(240, 230, 255, 0.08);
+            --glass-border: rgba(240, 230, 255, 0.22);
+            --section-pad: clamp(3.5rem, 7vw, 6.5rem);
+            --shadow-glow: 0 0 45px rgba(255, 20, 147, 0.35);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: "Plus Jakarta Sans", sans-serif;
+            color: var(--text-main);
+            background: radial-gradient(circle at 10% 10%, rgba(88, 101, 242, 0.16), transparent 35%),
+                        radial-gradient(circle at 90% 25%, rgba(255, 20, 147, 0.14), transparent 38%),
+                        var(--bg-main);
+            min-height: 100vh;
+            overflow-x: hidden;
+            line-height: 1.55;
+        }
+
+        .bg-grid {
+            position: fixed;
+            inset: 0;
+            background-image: linear-gradient(rgba(240, 230, 255, 0.03) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(240, 230, 255, 0.03) 1px, transparent 1px);
+            background-size: 34px 34px;
+            pointer-events: none;
+            z-index: -2;
+            mask-image: radial-gradient(circle at center, black, transparent 78%);
+        }
+
+        .gradient-orb {
+            position: fixed;
+            width: 46vmax;
+            height: 46vmax;
+            border-radius: 50%;
+            filter: blur(85px);
+            opacity: 0.35;
+            z-index: -3;
+            animation: orbDrift 18s ease-in-out infinite alternate;
+        }
+
+        .gradient-orb.one {
+            top: -18vmax;
+            left: -12vmax;
+            background: radial-gradient(circle, rgba(255, 20, 147, 0.56), transparent 68%);
+        }
+
+        .gradient-orb.two {
+            bottom: -20vmax;
+            right: -10vmax;
+            background: radial-gradient(circle, rgba(88, 101, 242, 0.5), transparent 70%);
+            animation-direction: alternate-reverse;
+        }
+
+        @keyframes orbDrift {
+            from {
+                transform: translate3d(0, 0, 0) scale(1);
+            }
+            to {
+                transform: translate3d(2.5rem, -1rem, 0) scale(1.08);
+            }
+        }
+
+        .container {
+            width: min(1150px, 92vw);
+            margin: 0 auto;
+        }
+
+        .hero {
+            position: relative;
+            padding: clamp(2rem, 4vw, 3rem) 0 var(--section-pad);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+        }
+
+        .hero::before {
+            content: "";
+            position: absolute;
+            inset: 14% 8% auto;
+            height: 62%;
+            background: linear-gradient(130deg, rgba(255, 20, 147, 0.16), rgba(88, 101, 242, 0.12));
+            border: 1px solid rgba(240, 230, 255, 0.12);
+            border-radius: 34px;
+            z-index: -1;
+            backdrop-filter: blur(16px);
+        }
+
+        nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: clamp(2.2rem, 4vw, 3.2rem);
+        }
+
+        .brand {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.65rem;
+            font-weight: 800;
+            letter-spacing: 0.02em;
+            font-size: 1.1rem;
+        }
+
+        .brand-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--accent-hot);
+            box-shadow: 0 0 16px var(--accent-hot);
+        }
+
+        .status-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(240, 230, 255, 0.08);
+            border: 1px solid rgba(240, 230, 255, 0.26);
+            padding: 0.45rem 0.9rem;
+            border-radius: 999px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .nav-right {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .lang-switch {
+            display: inline-flex;
+            gap: 0.35rem;
+            padding: 0.2rem;
+            border-radius: 999px;
+            background: rgba(240, 230, 255, 0.07);
+            border: 1px solid rgba(240, 230, 255, 0.22);
+        }
+
+        .lang-btn {
+            border: 0;
+            color: var(--text-main);
+            background: transparent;
+            border-radius: 999px;
+            padding: 0.3rem 0.55rem;
+            font-size: 0.76rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            cursor: pointer;
+            transition: background 180ms ease;
+        }
+
+        .lang-btn.active {
+            background: rgba(255, 20, 147, 0.22);
+        }
+
+        .status-light {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #5cffad;
+            animation: blink 1.25s ease-in-out infinite;
+            box-shadow: 0 0 14px #5cffad;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .hero-grid {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr;
+            gap: clamp(1.8rem, 5vw, 4rem);
+            align-items: center;
+        }
+
+        .hero-copy h1 {
+            font-size: clamp(2rem, 5vw, 4.1rem);
+            line-height: 1.06;
+            margin-bottom: 1rem;
+            letter-spacing: -0.02em;
+        }
+
+        .hero-copy h1 span {
+            background: linear-gradient(135deg, #ff1493, #9ca5ff 55%, #f0e6ff);
+            background-size: 200% 200%;
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            animation: smoothGradient 6s linear infinite;
+        }
+
+        @keyframes smoothGradient {
+            0% { background-position: 0% 50%; }
+            100% { background-position: 100% 50%; }
+        }
+
+        .hero-copy p {
+            max-width: 56ch;
+            color: rgba(240, 230, 255, 0.88);
+            margin-bottom: 1.8rem;
+        }
+
+        .hero-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.85rem;
+        }
+
+        .btn {
+            border: 0;
+            border-radius: 999px;
+            padding: 0.82rem 1.35rem;
+            color: #fff;
+            font-family: inherit;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 180ms ease, box-shadow 180ms ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(120deg, var(--accent-hot), #b81ad8 50%, var(--accent-soft));
+            box-shadow: var(--shadow-glow);
+        }
+
+        .btn-secondary {
+            background: rgba(240, 230, 255, 0.08);
+            border: 1px solid rgba(240, 230, 255, 0.25);
+        }
+
+        .btn:hover {
+            transform: translateY(-3px);
+        }
+
+        .hero-visual {
+            position: relative;
+            padding: 1.2rem;
+        }
+
+        .avatar-shell {
+            position: relative;
+            background: linear-gradient(160deg, rgba(255, 20, 147, 0.2), rgba(88, 101, 242, 0.2));
+            border: 1px solid rgba(240, 230, 255, 0.25);
+            border-radius: 28px;
+            padding: clamp(1.2rem, 2vw, 1.8rem);
+            backdrop-filter: blur(16px);
+            box-shadow: inset 0 0 36px rgba(240, 230, 255, 0.05), 0 30px 50px rgba(0, 0, 0, 0.35);
+        }
+
+        .avatar-shell img {
+            width: min(100%, 380px);
+            aspect-ratio: 1 / 1;
+            object-fit: cover;
+            border-radius: 20px;
+            border: 1px solid rgba(240, 230, 255, 0.18);
+            display: block;
+            margin: 0 auto;
+            background: rgba(13, 13, 26, 0.65);
+        }
+
+        .avatar-label {
+            margin-top: 0.9rem;
+            text-align: center;
+            font-size: 0.9rem;
+            opacity: 0.88;
+        }
+
+        .hero-particles {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            overflow: hidden;
+            border-radius: 28px;
+        }
+
+        .hero-particles span {
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            opacity: 0.72;
+            animation: floatParticle linear infinite;
+        }
+
+        @keyframes floatParticle {
+            from {
+                transform: translate3d(var(--x-start), 110%, 0) scale(0.9);
+            }
+            to {
+                transform: translate3d(var(--x-end), -15%, 0) scale(1.25);
+            }
+        }
+
+        section {
+            padding: var(--section-pad) 0;
+        }
+
+        .section-title {
+            font-size: clamp(1.6rem, 3vw, 2.7rem);
+            margin-bottom: 0.8rem;
+            letter-spacing: -0.02em;
+        }
+
+        .section-kicker {
+            font-size: 0.86rem;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            font-weight: 700;
+            color: #ff7dc3;
+            margin-bottom: 0.65rem;
+        }
+
+        .section-sub {
+            color: rgba(240, 230, 255, 0.82);
+            max-width: 64ch;
+            margin-bottom: 2rem;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 1rem;
+        }
+
+        .feature-card {
+            position: relative;
+            padding: 1.2rem;
+            border-radius: 18px;
+            border: 1px solid var(--glass-border);
+            background: var(--glass-bg);
+            backdrop-filter: blur(14px);
+            transform-style: preserve-3d;
+            transition: transform 250ms ease, border-color 250ms ease, box-shadow 250ms ease;
+            overflow: hidden;
+        }
+
+        .feature-card::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(130deg, transparent 35%, rgba(255, 20, 147, 0.1), transparent 70%);
+            opacity: 0;
+            transition: opacity 250ms ease;
+            pointer-events: none;
+        }
+
+        .feature-card:hover {
+            border-color: rgba(255, 20, 147, 0.55);
+            box-shadow: 0 20px 40px rgba(8, 8, 18, 0.42);
+        }
+
+        .feature-card:hover::after {
+            opacity: 1;
+        }
+
+        .feature-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 12px;
+            display: inline-grid;
+            place-items: center;
+            background: rgba(88, 101, 242, 0.26);
+            border: 1px solid rgba(240, 230, 255, 0.2);
+            margin-bottom: 0.85rem;
+        }
+
+        .feature-card h3 {
+            font-size: 1.02rem;
+            margin-bottom: 0.3rem;
+        }
+
+        .feature-card p {
+            font-size: 0.92rem;
+            opacity: 0.86;
+        }
+
+        .discord-mockup {
+            display: grid;
+            grid-template-columns: 1fr 1.1fr;
+            gap: 1.1rem;
+            align-items: stretch;
+        }
+
+        .panel {
+            border-radius: 20px;
+            border: 1px solid var(--glass-border);
+            background: rgba(240, 230, 255, 0.06);
+            backdrop-filter: blur(14px);
+            padding: 1rem;
+        }
+
+        .channels {
+            display: grid;
+            gap: 0.55rem;
+        }
+
+        .channel {
+            border-radius: 12px;
+            background: rgba(240, 230, 255, 0.05);
+            padding: 0.55rem 0.75rem;
+            font-size: 0.9rem;
+            border: 1px solid rgba(240, 230, 255, 0.1);
+        }
+
+        .channel.active {
+            border-color: rgba(255, 20, 147, 0.45);
+            color: #ffc2e8;
+        }
+
+        .terminal {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .terminal-window {
+            background: rgba(9, 9, 18, 0.88);
+            border-radius: 16px;
+            border: 1px solid rgba(240, 230, 255, 0.14);
+            padding: 0.95rem;
+            min-height: 205px;
+            font-family: Consolas, monospace;
+            font-size: 0.94rem;
+            white-space: pre-wrap;
+        }
+
+        .typing-line {
+            color: #ffd2ec;
+        }
+
+        .cursor {
+            display: inline-block;
+            width: 8px;
+            background: #ff1493;
+            margin-left: 2px;
+            animation: cursorBlink 1s steps(2) infinite;
+        }
+
+        @keyframes cursorBlink {
+            0%, 49% { opacity: 1; }
+            50%, 100% { opacity: 0; }
+        }
+
+        .ai-section {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .ai-section .wave {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 0;
+            opacity: 0.45;
+            pointer-events: none;
+        }
+
+        .ai-showcase {
+            display: grid;
+            grid-template-columns: 1.1fr 1fr;
+            gap: 1.3rem;
+            align-items: center;
+        }
+
+        .ai-bubble {
+            border-radius: 18px;
+            border: 1px solid rgba(240, 230, 255, 0.22);
+            background: rgba(240, 230, 255, 0.07);
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .ai-mascot {
+            background: linear-gradient(160deg, rgba(88, 101, 242, 0.2), rgba(255, 20, 147, 0.14));
+            border-radius: 22px;
+            border: 1px solid rgba(240, 230, 255, 0.24);
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .ai-mascot img {
+            width: min(100%, 320px);
+            border-radius: 16px;
+            border: 1px solid rgba(240, 230, 255, 0.22);
+            background: rgba(13, 13, 26, 0.6);
+        }
+
+        .moderation-wrap {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.2rem;
+        }
+
+        .timeline {
+            list-style: none;
+            border-left: 2px solid rgba(88, 101, 242, 0.42);
+            margin-left: 0.5rem;
+            padding-left: 1.2rem;
+            display: grid;
+            gap: 1.1rem;
+        }
+
+        .timeline li {
+            position: relative;
+            background: rgba(240, 230, 255, 0.07);
+            border: 1px solid rgba(240, 230, 255, 0.2);
+            border-radius: 14px;
+            padding: 0.85rem;
+        }
+
+        .timeline li::before {
+            content: "";
+            position: absolute;
+            width: 11px;
+            height: 11px;
+            background: var(--accent-hot);
+            border-radius: 50%;
+            left: -1.64rem;
+            top: 1rem;
+            box-shadow: 0 0 16px rgba(255, 20, 147, 0.9);
+        }
+
+        .mascot-card {
+            border-radius: 20px;
+            background: rgba(240, 230, 255, 0.06);
+            border: 1px solid rgba(240, 230, 255, 0.22);
+            padding: 1rem;
+        }
+
+        .mascot-card img {
+            width: 100%;
+            border-radius: 14px;
+            border: 1px solid rgba(240, 230, 255, 0.18);
+            background: rgba(13, 13, 26, 0.68);
+        }
+
+        .cta {
+            padding-bottom: calc(var(--section-pad) + 1.5rem);
+        }
+
+        .cta-card {
+            position: relative;
+            overflow: hidden;
+            border-radius: 26px;
+            border: 1px solid rgba(240, 230, 255, 0.3);
+            background: linear-gradient(130deg, rgba(88, 101, 242, 0.25), rgba(255, 20, 147, 0.25));
+            padding: clamp(1.5rem, 4vw, 3rem);
+            text-align: center;
+            backdrop-filter: blur(18px);
+        }
+
+        .cta-card h2 {
+            font-size: clamp(1.6rem, 3vw, 2.8rem);
+            margin-bottom: 0.7rem;
+        }
+
+        .cta-card p {
+            opacity: 0.9;
+            margin-bottom: 1.3rem;
+        }
+
+        .explosive-btn {
+            position: relative;
+            border: 0;
+            border-radius: 999px;
+            padding: 0.95rem 1.7rem;
+            color: #fff;
+            font-size: 0.97rem;
+            font-family: inherit;
+            font-weight: 800;
+            cursor: pointer;
+            background: linear-gradient(130deg, #ff1493, #7a45ff, #5865f2);
+            background-size: 180% 180%;
+            box-shadow: 0 18px 32px rgba(255, 20, 147, 0.32);
+            transition: transform 220ms ease, box-shadow 220ms ease;
+            animation: smoothGradient 5s linear infinite;
+        }
+
+        .explosive-btn::before,
+        .explosive-btn::after {
+            content: "";
+            position: absolute;
+            inset: -6px;
+            border-radius: inherit;
+            border: 1px solid rgba(240, 230, 255, 0.3);
+            transform: scale(0.9);
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .explosive-btn:hover {
+            transform: translateY(-4px) scale(1.02);
+            box-shadow: 0 25px 40px rgba(255, 20, 147, 0.42);
+        }
+
+        .explosive-btn:hover::before {
+            animation: explode 600ms ease-out;
+        }
+
+        .explosive-btn:hover::after {
+            animation: explode 600ms ease-out 120ms;
+        }
+
+        @keyframes explode {
+            0% {
+                opacity: 0.8;
+                transform: scale(1);
+            }
+            100% {
+                opacity: 0;
+                transform: scale(1.4);
+            }
+        }
+
+        .reveal {
+            opacity: 0;
+            transform: translateY(26px);
+            transition: opacity 650ms ease, transform 650ms ease;
+        }
+
+        .reveal.revealed {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        footer {
+            padding: 1.2rem 0 2rem;
+            text-align: center;
+            color: rgba(240, 230, 255, 0.6);
+            font-size: 0.85rem;
+        }
+
+        @media (max-width: 980px) {
+            .hero-grid,
+            .features-grid,
+            .discord-mockup,
+            .ai-showcase,
+            .moderation-wrap {
+                grid-template-columns: 1fr;
+            }
+
+            .hero {
+                min-height: auto;
+                padding-top: 1.25rem;
+            }
+
+            .hero::before {
+                inset: 7% 0 auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-grid"></div>
+    <div class="gradient-orb one"></div>
+    <div class="gradient-orb two"></div>
+
+    <header class="hero">
+        <div class="container">
+            <nav>
+                <div class="brand">
+                    <span class="brand-dot"></span>
+                    Luma
+                </div>
+                <div class="nav-right">
+                    <div class="lang-switch" aria-label="Language switcher">
+                        <button class="lang-btn active" data-lang="en">EN</button>
+                        <button class="lang-btn" data-lang="pt">PT</button>
+                        <button class="lang-btn" data-lang="es">ES</button>
+                    </div>
+                    <div class="status-chip">
+                        <span class="status-light"></span>
+                        <span data-i18n="statusOnline">Online</span>
+                    </div>
+                </div>
+            </nav>
+
+            <div class="hero-grid">
+                <div class="hero-copy reveal">
+                    <h1 data-i18n="heroTitle">Your server, brighter with <span>Luma</span>.</h1>
+                    <p data-i18n="heroSubtitle">Moderation, AI assistance, modmail, tickets, analytics, and reaction roles in a clean all-in-one Discord bot designed to feel kawaii, futuristic, and seriously powerful.</p>
+                    <div class="hero-actions">
+                        <button class="btn btn-primary" data-i18n="heroPrimaryBtn">Invite to Discord</button>
+                        <button class="btn btn-secondary" data-i18n="heroSecondaryBtn">View Commands</button>
+                    </div>
+                </div>
+
+                <div class="hero-visual reveal">
+                    <div class="avatar-shell">
+                        <img src="assets/mascote-principal.png" alt="Luma main mascot avatar placeholder" data-i18n-alt="heroMascotAlt">
+                        <p class="avatar-label" data-i18n="heroMascotLabel">Placeholder: Mascote Principal (hero avatar)</p>
+                        <div class="hero-particles" id="heroParticles" aria-hidden="true"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <section class="features container reveal" id="features">
+            <p class="section-kicker" data-i18n="featuresKicker">Core Features</p>
+            <h2 class="section-title" data-i18n="featuresTitle">Glass Morphism Modules</h2>
+            <p class="section-sub" data-i18n="featuresSub">Each module is crafted to plug into your server flow with zero clutter and playful precision.</p>
+            <div class="features-grid">
+                <article class="feature-card" data-tilt>
+                    <div class="feature-icon">🛡️</div>
+                    <h3 data-i18n="featureModerationTitle">Moderation</h3>
+                    <p data-i18n="featureModerationDesc">Smart warnings, anti-spam controls, and clean action logs.</p>
+                </article>
+                <article class="feature-card" data-tilt>
+                    <div class="feature-icon">✨</div>
+                    <h3 data-i18n="featureAiTitle">AI Assistant</h3>
+                    <p data-i18n="featureAiDesc">Context-aware AI prompts and helper commands for your community.</p>
+                </article>
+                <article class="feature-card" data-tilt>
+                    <div class="feature-icon">📨</div>
+                    <h3 data-i18n="featureModmailTitle">Modmail</h3>
+                    <p data-i18n="featureModmailDesc">Private member support channels routed safely to your team.</p>
+                </article>
+                <article class="feature-card" data-tilt>
+                    <div class="feature-icon">🎟️</div>
+                    <h3 data-i18n="featureTicketsTitle">Tickets</h3>
+                    <p data-i18n="featureTicketsDesc">Structured support tickets with status and transcript flow.</p>
+                </article>
+                <article class="feature-card" data-tilt>
+                    <div class="feature-icon">📊</div>
+                    <h3 data-i18n="featureStatsTitle">Stats</h3>
+                    <p data-i18n="featureStatsDesc">Activity insights that help moderators act with confidence.</p>
+                </article>
+                <article class="feature-card" data-tilt>
+                    <div class="feature-icon">🎭</div>
+                    <h3 data-i18n="featureRolesTitle">Reaction Roles</h3>
+                    <p data-i18n="featureRolesDesc">Role panels with emoji mapping and quick setup commands.</p>
+                </article>
+            </div>
+        </section>
+
+        <section class="container reveal" id="commands">
+            <p class="section-kicker" data-i18n="commandsKicker">Discord Experience</p>
+            <h2 class="section-title" data-i18n="commandsTitle">Command UI Mockup</h2>
+            <p class="section-sub" data-i18n="commandsSub">A focused Discord-like command panel with live typewriter command examples.</p>
+            <div class="discord-mockup">
+                <div class="panel channels">
+                    <div class="channel" data-i18n="channelGeneral"># general</div>
+                    <div class="channel active" data-i18n="channelCommands"># bot-commands</div>
+                    <div class="channel" data-i18n="channelModLog"># moderation-log</div>
+                    <div class="channel" data-i18n="channelTickets"># support-tickets</div>
+                    <div class="channel"># roles</div>
+                </div>
+                <div class="panel terminal">
+                    <div class="terminal-window">
+<span class="typing-line" id="typedText"></span><span class="cursor"></span>
+                    </div>
+                    <p><span data-i18n="commandsTry">Try:</span> <strong>/help</strong> <strong>/ticket open</strong> <strong>/ai ask</strong> <strong>/mod warn</strong></p>
+                </div>
+            </div>
+        </section>
+
+        <section class="ai-section reveal" id="ai">
+            <svg class="wave" viewBox="0 0 1440 220" preserveAspectRatio="none" aria-hidden="true">
+                <path fill="rgba(88, 101, 242, 0.24)" d="M0,96L40,106.7C80,117,160,139,240,154.7C320,171,400,181,480,176C560,171,640,149,720,128C800,107,880,85,960,74.7C1040,64,1120,64,1200,74.7C1280,85,1360,107,1400,117.3L1440,128L1440,0L1400,0C1360,0,1280,0,1200,0C1120,0,1040,0,960,0C880,0,800,0,720,0C640,0,560,0,480,0C400,0,320,0,240,0C160,0,80,0,40,0L0,0Z"></path>
+            </svg>
+            <div class="container">
+                <p class="section-kicker" data-i18n="aiKicker">AI Power</p>
+                <h2 class="section-title" data-i18n="aiTitle">AI Mascot Showcase</h2>
+                <p class="section-sub" data-i18n="aiSub">Use Luma AI for summaries, moderation suggestions, and high-quality assisted replies.</p>
+                <div class="ai-showcase">
+                    <div>
+                        <div class="ai-bubble" data-i18n="aiBubble1">"Summarize the last 50 messages and identify unresolved support issues."</div>
+                        <div class="ai-bubble" data-i18n="aiBubble2">"Draft a friendly warning for off-topic spam with clear next steps."</div>
+                        <div class="ai-bubble" data-i18n="aiBubble3">"Generate role descriptions with a cute but professional tone."</div>
+                    </div>
+                    <div class="ai-mascot">
+                        <img src="assets/mascote-ia.png" alt="Luma AI mascot placeholder" data-i18n-alt="aiMascotAlt">
+                        <p class="avatar-label" data-i18n="aiMascotLabel">Placeholder: Mascote IA</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="container reveal" id="moderation">
+            <p class="section-kicker" data-i18n="modKicker">Moderation Flow</p>
+            <h2 class="section-title" data-i18n="modTitle">Timeline Actions</h2>
+            <p class="section-sub" data-i18n="modSub">Transparent moderation history with clear outcomes and timestamps for the team.</p>
+            <div class="moderation-wrap">
+                <ul class="timeline">
+                    <li>
+                        <strong data-i18n="timeline1Title">14:21 - Spam Detected</strong>
+                        <p data-i18n="timeline1Desc">Auto-filter removed repeated invite links from #general.</p>
+                    </li>
+                    <li>
+                        <strong data-i18n="timeline2Title">14:24 - Warning Issued</strong>
+                        <p data-i18n="timeline2Desc">/mod warn sent with reason and policy reference.</p>
+                    </li>
+                    <li>
+                        <strong data-i18n="timeline3Title">14:31 - Modmail Opened</strong>
+                        <p data-i18n="timeline3Desc">Member appealed and support thread was linked automatically.</p>
+                    </li>
+                    <li>
+                        <strong data-i18n="timeline4Title">14:42 - Case Closed</strong>
+                        <p data-i18n="timeline4Desc">Moderator updated status and archived transcript.</p>
+                    </li>
+                </ul>
+                <aside class="mascot-card">
+                    <img src="assets/mascote-moderacao.png" alt="Luma moderation mascot placeholder" data-i18n-alt="modMascotAlt">
+                    <p class="avatar-label" data-i18n="modMascotLabel">Placeholder: Mascote Moderacao</p>
+                </aside>
+            </div>
+        </section>
+
+        <section class="cta container reveal" id="invite">
+            <div class="cta-card">
+                <h2 data-i18n="ctaTitle">Ready to light up your Discord server?</h2>
+                <p data-i18n="ctaSub">Invite Luma and unlock futuristic moderation, AI comfort, and kawaii-styled control in minutes.</p>
+                <button class="explosive-btn" data-i18n="ctaBtn">Invite Luma Now</button>
+            </div>
+        </section>
+    </main>
+
+    <footer data-i18n="footerText">
+        Placeholders ready: Mascote Principal, Mascote IA, Mascote Moderacao, Hero Background (optional), Icon Set.
+    </footer>
+
+    <script>
+        const i18n = {
+            en: {
+                pageTitle: "Luma Discord Bot",
+                statusOnline: "Online",
+                heroTitle: "Your server, brighter with <span>Luma</span>.",
+                heroSubtitle: "Moderation, AI assistance, modmail, tickets, analytics, and reaction roles in a clean all-in-one Discord bot designed to feel kawaii, futuristic, and seriously powerful.",
+                heroPrimaryBtn: "Invite to Discord",
+                heroSecondaryBtn: "View Commands",
+                heroMascotAlt: "Luma main mascot avatar placeholder",
+                heroMascotLabel: "Placeholder: Mascote Principal (hero avatar)",
+                featuresKicker: "Core Features",
+                featuresTitle: "Glass Morphism Modules",
+                featuresSub: "Each module is crafted to plug into your server flow with zero clutter and playful precision.",
+                featureModerationTitle: "Moderation",
+                featureModerationDesc: "Smart warnings, anti-spam controls, and clean action logs.",
+                featureAiTitle: "AI Assistant",
+                featureAiDesc: "Context-aware AI prompts and helper commands for your community.",
+                featureModmailTitle: "Modmail",
+                featureModmailDesc: "Private member support channels routed safely to your team.",
+                featureTicketsTitle: "Tickets",
+                featureTicketsDesc: "Structured support tickets with status and transcript flow.",
+                featureStatsTitle: "Stats",
+                featureStatsDesc: "Activity insights that help moderators act with confidence.",
+                featureRolesTitle: "Reaction Roles",
+                featureRolesDesc: "Role panels with emoji mapping and quick setup commands.",
+                commandsKicker: "Discord Experience",
+                commandsTitle: "Command UI Mockup",
+                commandsSub: "A focused Discord-like command panel with live typewriter command examples.",
+                channelGeneral: "# general",
+                channelCommands: "# bot-commands",
+                channelModLog: "# moderation-log",
+                channelTickets: "# support-tickets",
+                commandsTry: "Try:",
+                aiKicker: "AI Power",
+                aiTitle: "AI Mascot Showcase",
+                aiSub: "Use Luma AI for summaries, moderation suggestions, and high-quality assisted replies.",
+                aiBubble1: "\"Summarize the last 50 messages and identify unresolved support issues.\"",
+                aiBubble2: "\"Draft a friendly warning for off-topic spam with clear next steps.\"",
+                aiBubble3: "\"Generate role descriptions with a cute but professional tone.\"",
+                aiMascotAlt: "Luma AI mascot placeholder",
+                aiMascotLabel: "Placeholder: Mascote IA",
+                modKicker: "Moderation Flow",
+                modTitle: "Timeline Actions",
+                modSub: "Transparent moderation history with clear outcomes and timestamps for the team.",
+                timeline1Title: "14:21 - Spam Detected",
+                timeline1Desc: "Auto-filter removed repeated invite links from #general.",
+                timeline2Title: "14:24 - Warning Issued",
+                timeline2Desc: "/mod warn sent with reason and policy reference.",
+                timeline3Title: "14:31 - Modmail Opened",
+                timeline3Desc: "Member appealed and support thread was linked automatically.",
+                timeline4Title: "14:42 - Case Closed",
+                timeline4Desc: "Moderator updated status and archived transcript.",
+                modMascotAlt: "Luma moderation mascot placeholder",
+                modMascotLabel: "Placeholder: Mascote Moderacao",
+                ctaTitle: "Ready to light up your Discord server?",
+                ctaSub: "Invite Luma and unlock futuristic moderation, AI comfort, and kawaii-styled control in minutes.",
+                ctaBtn: "Invite Luma Now",
+                footerText: "Placeholders ready: Mascote Principal, Mascote IA, Mascote Moderacao, Hero Background (optional), Icon Set.",
+                typewriter: [
+                    "> /help",
+                    "Luma: Here are your available modules and quick starts.",
+                    "> /ai ask summarize #announcements",
+                    "Luma: Summary complete. 3 key action items found.",
+                    "> /ticket open issue: role-sync",
+                    "Luma: Ticket #1042 created in #support-tickets."
+                ]
+            },
+            pt: {
+                pageTitle: "Luma Bot para Discord",
+                statusOnline: "Online",
+                heroTitle: "Seu servidor, mais brilhante com <span>Luma</span>.",
+                heroSubtitle: "Moderação, assistência com IA, modmail, tickets, análises e cargos por reação em um bot Discord completo, com visual kawaii, futurista e profissional.",
+                heroPrimaryBtn: "Convidar para o Discord",
+                heroSecondaryBtn: "Ver Comandos",
+                heroMascotAlt: "Placeholder do avatar da mascote principal da Luma",
+                heroMascotLabel: "Placeholder: Mascote Principal (avatar da hero)",
+                featuresKicker: "Recursos Principais",
+                featuresTitle: "Módulos em Glass Morphism",
+                featuresSub: "Cada módulo foi feito para se encaixar no fluxo do seu servidor com clareza e precisão.",
+                featureModerationTitle: "Moderação",
+                featureModerationDesc: "Avisos inteligentes, anti-spam e logs limpos de ações.",
+                featureAiTitle: "Assistente de IA",
+                featureAiDesc: "Prompts com contexto e comandos úteis para sua comunidade.",
+                featureModmailTitle: "Modmail",
+                featureModmailDesc: "Canais privados de suporte direcionados com segurança para a staff.",
+                featureTicketsTitle: "Tickets",
+                featureTicketsDesc: "Fluxo estruturado de suporte com status e histórico.",
+                featureStatsTitle: "Estatísticas",
+                featureStatsDesc: "Insights de atividade para decisões mais rápidas da moderação.",
+                featureRolesTitle: "Cargos por Reação",
+                featureRolesDesc: "Painéis de cargos com mapeamento de emojis e setup rápido.",
+                commandsKicker: "Experiência Discord",
+                commandsTitle: "Mockup de Comandos",
+                commandsSub: "Um painel focado no estilo Discord com exemplos em typewriter ao vivo.",
+                channelGeneral: "# geral",
+                channelCommands: "# comandos-bot",
+                channelModLog: "# log-moderacao",
+                channelTickets: "# tickets-suporte",
+                commandsTry: "Teste:",
+                aiKicker: "Poder da IA",
+                aiTitle: "Vitrine da Mascote IA",
+                aiSub: "Use a IA da Luma para resumos, sugestões de moderação e respostas assistidas de alta qualidade.",
+                aiBubble1: "\"Resuma as últimas 50 mensagens e identifique problemas de suporte não resolvidos.\"",
+                aiBubble2: "\"Crie um aviso amigável para spam off-topic com próximos passos claros.\"",
+                aiBubble3: "\"Gere descrições de cargos com tom fofo e profissional.\"",
+                aiMascotAlt: "Placeholder da mascote IA da Luma",
+                aiMascotLabel: "Placeholder: Mascote IA",
+                modKicker: "Fluxo de Moderação",
+                modTitle: "Ações em Linha do Tempo",
+                modSub: "Histórico de moderação transparente com resultados claros e horários para a equipe.",
+                timeline1Title: "14:21 - Spam Detectado",
+                timeline1Desc: "O filtro automático removeu links de convite repetidos em #geral.",
+                timeline2Title: "14:24 - Aviso Aplicado",
+                timeline2Desc: "Comando /mod warn enviado com motivo e referência da política.",
+                timeline3Title: "14:31 - Modmail Aberto",
+                timeline3Desc: "Membro recorreu e a thread de suporte foi vinculada automaticamente.",
+                timeline4Title: "14:42 - Caso Encerrado",
+                timeline4Desc: "Moderador atualizou o status e arquivou a transcrição.",
+                modMascotAlt: "Placeholder da mascote de moderação da Luma",
+                modMascotLabel: "Placeholder: Mascote Moderacao",
+                ctaTitle: "Pronto para iluminar seu servidor no Discord?",
+                ctaSub: "Convide a Luma e desbloqueie moderação futurista, conforto com IA e controle kawaii em minutos.",
+                ctaBtn: "Convidar Luma Agora",
+                footerText: "Placeholders prontos: Mascote Principal, Mascote IA, Mascote Moderacao, Hero Background (opcional), Icon Set.",
+                typewriter: [
+                    "> /help",
+                    "Luma: Aqui estao seus modulos disponiveis e inicios rapidos.",
+                    "> /ai ask resumir #anuncios",
+                    "Luma: Resumo concluido. 3 itens de acao encontrados.",
+                    "> /ticket open problema: role-sync",
+                    "Luma: Ticket #1042 criado em #tickets-suporte."
+                ]
+            },
+            es: {
+                pageTitle: "Luma Bot para Discord",
+                statusOnline: "En linea",
+                heroTitle: "Tu servidor, mas brillante con <span>Luma</span>.",
+                heroSubtitle: "Moderacion, asistencia con IA, modmail, tickets, analiticas y roles por reaccion en un bot de Discord todo en uno, kawaii, futurista y profesional.",
+                heroPrimaryBtn: "Invitar a Discord",
+                heroSecondaryBtn: "Ver Comandos",
+                heroMascotAlt: "Placeholder del avatar de la mascota principal de Luma",
+                heroMascotLabel: "Placeholder: Mascote Principal (avatar hero)",
+                featuresKicker: "Funciones Clave",
+                featuresTitle: "Modulos Glass Morphism",
+                featuresSub: "Cada modulo esta creado para encajar en el flujo de tu servidor con cero ruido y mucha precision.",
+                featureModerationTitle: "Moderacion",
+                featureModerationDesc: "Advertencias inteligentes, anti-spam y registros de acciones limpios.",
+                featureAiTitle: "Asistente IA",
+                featureAiDesc: "Prompts con contexto y comandos utiles para tu comunidad.",
+                featureModmailTitle: "Modmail",
+                featureModmailDesc: "Canales privados de soporte dirigidos de forma segura a tu staff.",
+                featureTicketsTitle: "Tickets",
+                featureTicketsDesc: "Soporte estructurado con estado y flujo de transcript.",
+                featureStatsTitle: "Estadisticas",
+                featureStatsDesc: "Insights de actividad para que la moderacion actue con confianza.",
+                featureRolesTitle: "Roles por Reaccion",
+                featureRolesDesc: "Paneles de roles con mapeo de emojis y configuracion rapida.",
+                commandsKicker: "Experiencia Discord",
+                commandsTitle: "Mockup de Comandos",
+                commandsSub: "Un panel estilo Discord con ejemplos de comandos en typewriter en vivo.",
+                channelGeneral: "# general",
+                channelCommands: "# comandos-bot",
+                channelModLog: "# log-moderacion",
+                channelTickets: "# tickets-soporte",
+                commandsTry: "Prueba:",
+                aiKicker: "Poder IA",
+                aiTitle: "Showcase de Mascota IA",
+                aiSub: "Usa la IA de Luma para resumenes, sugerencias de moderacion y respuestas asistidas de alta calidad.",
+                aiBubble1: "\"Resume los ultimos 50 mensajes e identifica problemas de soporte sin resolver.\"",
+                aiBubble2: "\"Redacta una advertencia amable por spam off-topic con pasos claros.\"",
+                aiBubble3: "\"Genera descripciones de roles con tono kawaii y profesional.\"",
+                aiMascotAlt: "Placeholder de la mascota IA de Luma",
+                aiMascotLabel: "Placeholder: Mascote IA",
+                modKicker: "Flujo de Moderacion",
+                modTitle: "Acciones en Timeline",
+                modSub: "Historial de moderacion transparente con resultados claros y marcas de tiempo para el equipo.",
+                timeline1Title: "14:21 - Spam Detectado",
+                timeline1Desc: "El filtro automatico elimino enlaces de invitacion repetidos de #general.",
+                timeline2Title: "14:24 - Advertencia Emitida",
+                timeline2Desc: "Se envio /mod warn con razon y referencia de politica.",
+                timeline3Title: "14:31 - Modmail Abierto",
+                timeline3Desc: "Un miembro apelo y el hilo de soporte se enlazo automaticamente.",
+                timeline4Title: "14:42 - Caso Cerrado",
+                timeline4Desc: "El moderador actualizo el estado y archivo la transcripcion.",
+                modMascotAlt: "Placeholder de la mascota de moderacion de Luma",
+                modMascotLabel: "Placeholder: Mascote Moderacao",
+                ctaTitle: "Listo para iluminar tu servidor de Discord?",
+                ctaSub: "Invita a Luma y desbloquea moderacion futurista, comodidad con IA y control kawaii en minutos.",
+                ctaBtn: "Invitar Luma Ahora",
+                footerText: "Placeholders listos: Mascote Principal, Mascote IA, Mascote Moderacao, Hero Background (opcional), Icon Set.",
+                typewriter: [
+                    "> /help",
+                    "Luma: Aqui tienes tus modulos disponibles e inicios rapidos.",
+                    "> /ai ask resumir #anuncios",
+                    "Luma: Resumen completo. Se encontraron 3 acciones clave.",
+                    "> /ticket open problema: role-sync",
+                    "Luma: Ticket #1042 creado en #tickets-soporte."
+                ]
+            }
+        };
+
+        let currentLanguage = "en";
+
+        function setLanguage(lang) {
+            currentLanguage = i18n[lang] ? lang : "en";
+            const dict = i18n[currentLanguage];
+
+            document.title = dict.pageTitle;
+            document.documentElement.lang = currentLanguage === "pt" ? "pt-BR" : currentLanguage;
+
+            document.querySelectorAll("[data-i18n]").forEach((el) => {
+                const key = el.getAttribute("data-i18n");
+                if (dict[key]) {
+                    el.innerHTML = dict[key];
+                }
+            });
+
+            document.querySelectorAll("[data-i18n-alt]").forEach((el) => {
+                const key = el.getAttribute("data-i18n-alt");
+                if (dict[key]) {
+                    el.setAttribute("alt", dict[key]);
+                }
+            });
+
+            document.querySelectorAll(".lang-btn").forEach((btn) => {
+                btn.classList.toggle("active", btn.getAttribute("data-lang") === currentLanguage);
+            });
+
+            startTypewriter();
+        }
+
+        document.querySelectorAll(".lang-btn").forEach((btn) => {
+            btn.addEventListener("click", () => setLanguage(btn.getAttribute("data-lang")));
+        });
+
+        let typeTimer;
+
+        (function initParticles() {
+            const holder = document.getElementById("heroParticles");
+            const colors = ["#ff1493", "#5865f2", "#f0e6ff"];
+            for (let i = 0; i < 30; i += 1) {
+                const p = document.createElement("span");
+                const duration = 5 + Math.random() * 7;
+                p.style.left = `${Math.random() * 100}%`;
+                p.style.background = colors[Math.floor(Math.random() * colors.length)];
+                p.style.opacity = String(0.35 + Math.random() * 0.5);
+                p.style.animationDuration = `${duration}s`;
+                p.style.animationDelay = `${-Math.random() * duration}s`;
+                p.style.setProperty("--x-start", `${Math.random() * 20 - 10}px`);
+                p.style.setProperty("--x-end", `${Math.random() * 120 - 60}px`);
+                holder.appendChild(p);
+            }
+        })();
+
+        function startTypewriter() {
+            const target = document.getElementById("typedText");
+            if (typeTimer) {
+                clearTimeout(typeTimer);
+            }
+            target.textContent = "";
+            const lines = i18n[currentLanguage].typewriter;
+
+            let lineIndex = 0;
+            let charIndex = 0;
+
+            function type() {
+                const current = lines[lineIndex];
+                target.textContent += current.charAt(charIndex);
+                charIndex += 1;
+
+                if (charIndex < current.length) {
+                    typeTimer = setTimeout(type, 28);
+                    return;
+                }
+
+                target.textContent += "\n";
+                lineIndex += 1;
+                charIndex = 0;
+
+                if (lineIndex < lines.length) {
+                    typeTimer = setTimeout(type, 380);
+                    return;
+                }
+
+                typeTimer = setTimeout(() => {
+                    target.textContent = "";
+                    lineIndex = 0;
+                    type();
+                }, 2100);
+            }
+
+            type();
+        }
+
+        (function initScrollReveal() {
+            const revealEls = document.querySelectorAll(".reveal");
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach((entry) => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add("revealed");
+                    }
+                });
+            }, { threshold: 0.16 });
+
+            revealEls.forEach((el) => observer.observe(el));
+        })();
+
+        (function initTiltCards() {
+            const cards = document.querySelectorAll("[data-tilt]");
+            cards.forEach((card) => {
+                card.addEventListener("mousemove", (event) => {
+                    const bounds = card.getBoundingClientRect();
+                    const x = event.clientX - bounds.left;
+                    const y = event.clientY - bounds.top;
+                    const rotateX = ((y / bounds.height) - 0.5) * -10;
+                    const rotateY = ((x / bounds.width) - 0.5) * 12;
+                    card.style.transform = `perspective(700px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-4px)`;
+                });
+
+                card.addEventListener("mouseleave", () => {
+                    card.style.transform = "perspective(700px) rotateX(0deg) rotateY(0deg) translateY(0)";
+                });
+            });
+        })();
+
+        (function initLanguage() {
+            const preferred = (navigator.language || "en").toLowerCase();
+            if (preferred.startsWith("pt")) {
+                setLanguage("pt");
+                return;
+            }
+            if (preferred.startsWith("es")) {
+                setLanguage("es");
+                return;
+            }
+            setLanguage("en");
+        })();
+    </script>
+</body>
+</html>
