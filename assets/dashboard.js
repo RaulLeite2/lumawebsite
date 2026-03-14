@@ -1,6 +1,8 @@
 let dashboardContext = null;
 let setupDirty = false;
 let setupDirtyTrackingBound = false;
+let setupResources = { text_channels: [], categories: [], roles: [] };
+let selectedModmailRoles = [];
 
 const page = document.body.dataset.page || "overview";
 
@@ -25,6 +27,20 @@ function flash(message) {
     el.textContent = message;
     el.classList.add("show");
     setTimeout(() => el.classList.remove("show"), 1800);
+}
+
+function updateConfigLogBadge(unreadCount) {
+    const badges = document.querySelectorAll(".config-log-dot");
+    badges.forEach((badge) => {
+        const value = Number(unreadCount || 0);
+        if (value > 0) {
+            badge.hidden = false;
+            badge.textContent = value > 99 ? "99+" : String(value);
+        } else {
+            badge.hidden = true;
+            badge.textContent = "0";
+        }
+    });
 }
 
 function updateSetupDirtyState(isDirty, message) {
@@ -96,10 +112,122 @@ function showSetupSaveBanner(state, changes = []) {
     }
 }
 
+function ensureOption(selectEl, value, label) {
+    if (!selectEl || !value) return;
+    const exists = Array.from(selectEl.options).some((opt) => opt.value === value);
+    if (exists) return;
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = label || value;
+    selectEl.appendChild(option);
+}
+
+function populateSelect(selectEl, options, placeholder = "Not configured") {
+    if (!selectEl) return;
+    const previousValue = selectEl.value;
+    selectEl.innerHTML = "";
+
+    const empty = document.createElement("option");
+    empty.value = "";
+    empty.textContent = placeholder;
+    selectEl.appendChild(empty);
+
+    options.forEach((item) => {
+        const option = document.createElement("option");
+        option.value = item.id;
+        option.textContent = `#${item.name}`;
+        selectEl.appendChild(option);
+    });
+
+    if (previousValue) {
+        ensureOption(selectEl, previousValue, previousValue);
+        selectEl.value = previousValue;
+    }
+}
+
+function populateRoleSelect(selectEl, roles) {
+    if (!selectEl) return;
+    const previousValue = selectEl.value;
+    selectEl.innerHTML = "";
+    const empty = document.createElement("option");
+    empty.value = "";
+    empty.textContent = "Select a role";
+    selectEl.appendChild(empty);
+
+    roles.forEach((item) => {
+        const option = document.createElement("option");
+        option.value = item.id;
+        option.textContent = `@${item.name}`;
+        selectEl.appendChild(option);
+    });
+
+    if (previousValue) selectEl.value = previousValue;
+}
+
+function renderModmailRoleChips() {
+    const list = document.getElementById("modmail-role-list");
+    if (!list) return;
+
+    list.innerHTML = "";
+    if (!selectedModmailRoles.length) {
+        const hint = document.createElement("span");
+        hint.className = "save-hint";
+        hint.textContent = "No alert roles selected.";
+        list.appendChild(hint);
+        return;
+    }
+
+    selectedModmailRoles.forEach((roleId) => {
+        const role = (setupResources.roles || []).find((item) => item.id === roleId);
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "role-chip";
+        chip.dataset.roleId = roleId;
+        chip.textContent = role ? `@${role.name}` : roleId;
+        chip.addEventListener("click", () => {
+            chip.classList.toggle("selected");
+        });
+        list.appendChild(chip);
+    });
+}
+
+function applyResourceSelectors(context) {
+    setupResources = context.resources || { text_channels: [], categories: [], roles: [] };
+    populateSelect(document.getElementById("guild-log"), setupResources.text_channels || [], "Choose a default log channel");
+    populateSelect(document.getElementById("log-audit-channel"), setupResources.text_channels || [], "Choose an audit channel");
+    populateSelect(document.getElementById("log-ban-channel"), setupResources.text_channels || [], "Choose a ban log channel");
+    populateSelect(document.getElementById("modmail-channel"), setupResources.categories || [], "Choose a modmail category");
+    populateRoleSelect(document.getElementById("auto-role"), setupResources.roles || []);
+    populateRoleSelect(document.getElementById("modmail-role-picker"), setupResources.roles || []);
+}
+
+function getWarnEscalationStepsFromForm() {
+    const steps = [
+        {
+            threshold: Number(document.getElementById("warn-step-1-threshold")?.value || 3),
+            action: document.getElementById("warn-step-1-action")?.value || "timeout",
+        },
+        {
+            threshold: Number(document.getElementById("warn-step-2-threshold")?.value || 6),
+            action: document.getElementById("warn-step-2-action")?.value || "kick",
+        },
+        {
+            threshold: Number(document.getElementById("warn-step-3-threshold")?.value || 9),
+            action: document.getElementById("warn-step-3-action")?.value || "ban",
+        },
+    ];
+
+    const sanitized = steps
+        .filter((step) => Number.isFinite(step.threshold) && step.threshold >= 1)
+        .sort((a, b) => a.threshold - b.threshold);
+
+    return sanitized.length ? sanitized : [{ threshold: 3, action: "timeout" }];
+}
+
 function bindSetupDirtyTracking() {
     if (page !== "guild-settings" || setupDirtyTrackingBound) return;
 
-    const trackedSelector = "#guild-name, #guild-language, #guild-log, #auto-enabled, #auto-antiflood, #auto-invite, #auto-link, #auto-caps, #auto-threshold, #auto-role, #warn-enabled, #warn-public-reason, #warn-dm-user, #warn-threshold, #warn-action, #log-enabled, #log-moderation, #log-ban-events, #log-join-leave, #log-message-delete, #log-modmail, #log-audit-channel, #log-ban-channel, #modmail-enabled, #modmail-anonymous, #modmail-idle, #modmail-channel, #modmail-role, #modmail-hours, input[data-setup-cog]";
+    const trackedSelector = "#guild-language, #guild-log, #auto-enabled, #auto-antiflood, #auto-invite, #auto-link, #auto-caps, #auto-threshold, #auto-role, #warn-public-reason, #warn-dm-user, #warn-step-1-threshold, #warn-step-1-action, #warn-step-2-threshold, #warn-step-2-action, #warn-step-3-threshold, #warn-step-3-action, #log-enabled, #log-moderation, #log-ban-events, #log-join-leave, #log-message-delete, #log-modmail, #log-audit-channel, #log-ban-channel, #modmail-enabled, #modmail-anonymous, #modmail-idle, #modmail-channel, #modmail-role-picker, #modmail-hours, input[data-setup-cog]";
 
     const markDirty = (event) => {
         const target = event.target;
@@ -116,12 +244,26 @@ function bindSetupTopicNav() {
     if (page !== "guild-settings") return;
 
     const links = Array.from(document.querySelectorAll(".topic-link"));
+    const sections = Array.from(document.querySelectorAll(".setup-topic"));
     if (!links.length) return;
 
+    const activateTopic = (targetId) => {
+        links.forEach((item) => {
+            item.classList.toggle("active", item.getAttribute("href") === `#${targetId}`);
+        });
+        sections.forEach((section) => {
+            section.hidden = section.id !== targetId;
+        });
+    };
+
+    activateTopic("topic-foundation");
+
     links.forEach((link) => {
-        link.addEventListener("click", () => {
-            links.forEach((item) => item.classList.remove("active"));
-            link.classList.add("active");
+        link.addEventListener("click", (event) => {
+            event.preventDefault();
+            const targetId = (link.getAttribute("href") || "").replace("#", "");
+            if (!targetId) return;
+            activateTopic(targetId);
         });
     });
 }
@@ -310,8 +452,12 @@ function renderGuildSettings(context) {
         warnEnabled: document.getElementById("warn-enabled"),
         warnPublicReason: document.getElementById("warn-public-reason"),
         warnDmUser: document.getElementById("warn-dm-user"),
-        warnThreshold: document.getElementById("warn-threshold"),
-        warnAction: document.getElementById("warn-action"),
+        warnStep1Threshold: document.getElementById("warn-step-1-threshold"),
+        warnStep1Action: document.getElementById("warn-step-1-action"),
+        warnStep2Threshold: document.getElementById("warn-step-2-threshold"),
+        warnStep2Action: document.getElementById("warn-step-2-action"),
+        warnStep3Threshold: document.getElementById("warn-step-3-threshold"),
+        warnStep3Action: document.getElementById("warn-step-3-action"),
         logEnabled: document.getElementById("log-enabled"),
         logModeration: document.getElementById("log-moderation"),
         logBanEvents: document.getElementById("log-ban-events"),
@@ -324,7 +470,6 @@ function renderGuildSettings(context) {
         modmailAnonymous: document.getElementById("modmail-anonymous"),
         modmailIdle: document.getElementById("modmail-idle"),
         modmailChannel: document.getElementById("modmail-channel"),
-        modmailRole: document.getElementById("modmail-role"),
         modmailHours: document.getElementById("modmail-hours"),
         protectionCount: document.getElementById("setup-protection-count"),
         logCount: document.getElementById("setup-log-count"),
@@ -333,8 +478,11 @@ function renderGuildSettings(context) {
 
     if (!refs.name) return;
 
-    refs.name.value = g.guild_name;
+    const activeGuild = (context.guilds || []).find((guild) => guild.id === context.active_guild_id);
+    refs.name.value = activeGuild?.name || g.guild_name;
     refs.language.value = g.language;
+    applyResourceSelectors(context);
+    ensureOption(refs.log, g.log_channel, g.log_channel);
     refs.log.value = g.log_channel;
 
     refs.autoEnabled.checked = warnings.enabled;
@@ -343,13 +491,24 @@ function renderGuildSettings(context) {
     refs.autoLink.checked = automation.link_filter;
     refs.autoCaps.checked = automation.caps_filter;
     refs.autoThreshold.value = automation.spam_threshold;
+    ensureOption(refs.autoRole, automation.quarantine_role, automation.quarantine_role);
     refs.autoRole.value = automation.quarantine_role;
 
-    refs.warnEnabled.checked = warnings.enabled;
+    refs.warnEnabled.checked = true;
+    refs.warnEnabled.disabled = true;
     refs.warnPublicReason.checked = warnings.public_reason_prompt;
     refs.warnDmUser.checked = warnings.dm_user;
-    refs.warnThreshold.value = warnings.threshold;
-    refs.warnAction.value = warnings.escalate_to;
+
+    const steps = Array.isArray(warnings.escalation_steps) && warnings.escalation_steps.length
+        ? warnings.escalation_steps
+        : [{ threshold: 3, action: "timeout" }, { threshold: 6, action: "kick" }, { threshold: 9, action: "ban" }];
+    const safe = [steps[0], steps[1] || steps[0], steps[2] || steps[1] || steps[0]];
+    refs.warnStep1Threshold.value = safe[0].threshold;
+    refs.warnStep1Action.value = safe[0].action;
+    refs.warnStep2Threshold.value = safe[1].threshold;
+    refs.warnStep2Action.value = safe[1].action;
+    refs.warnStep3Threshold.value = safe[2].threshold;
+    refs.warnStep3Action.value = safe[2].action;
 
     refs.logEnabled.checked = logs.enabled;
     refs.logModeration.checked = logs.moderation;
@@ -357,19 +516,25 @@ function renderGuildSettings(context) {
     refs.logJoinLeave.checked = logs.join_leave;
     refs.logMessageDelete.checked = logs.message_delete;
     refs.logModmail.checked = logs.modmail_transcripts;
+    ensureOption(refs.logAuditChannel, logs.audit_channel, logs.audit_channel);
     refs.logAuditChannel.value = logs.audit_channel;
+    ensureOption(refs.logBanChannel, logs.ban_channel, logs.ban_channel);
     refs.logBanChannel.value = logs.ban_channel;
 
     refs.modmailEnabled.checked = modmail.enabled;
     refs.modmailAnonymous.checked = modmail.anonymous_replies;
     refs.modmailIdle.checked = modmail.close_on_idle;
+    ensureOption(refs.modmailChannel, modmail.inbox_channel, modmail.inbox_channel);
     refs.modmailChannel.value = modmail.inbox_channel;
-    refs.modmailRole.value = modmail.alert_role;
     refs.modmailHours.value = modmail.auto_close_hours;
+    selectedModmailRoles = Array.isArray(modmail.alert_roles)
+        ? [...new Set(modmail.alert_roles.filter(Boolean).map(String))]
+        : (modmail.alert_role ? [String(modmail.alert_role)] : []);
+    renderModmailRoleChips();
 
     refs.protectionCount.textContent = String(metrics.protection_layers ?? 0);
     refs.logCount.textContent = String(metrics.logs_enabled ?? 0);
-    refs.warnActionSummary.textContent = String(warnings.escalate_to || moderation.default_action).toUpperCase();
+    refs.warnActionSummary.textContent = String(safe[0].action || moderation.default_action).toUpperCase();
 
     updateSetupDirtyState(false);
 
@@ -405,6 +570,9 @@ function renderSetupCogs(context) {
     const list = document.getElementById("setup-cogs-list");
     if (!list) return;
 
+    const locked = new Set(context.locked_cogs || []);
+    const isDev = Boolean(context.is_dev_user);
+
     list.innerHTML = "";
     Object.entries(context.state.cogs).forEach(([name, enabled]) => {
         const tile = document.createElement("label");
@@ -418,8 +586,46 @@ function renderSetupCogs(context) {
             <p>${COG_DESCRIPTIONS[name] || "Module controls for this guild."}</p>
         `;
 
+        const toggle = tile.querySelector("input[data-setup-cog]");
+        if (toggle && locked.has(name) && !isDev) {
+            toggle.disabled = true;
+            tile.querySelector("p").textContent = "Locked module: only bot developer can disable this cog.";
+        }
+
         list.appendChild(tile);
     });
+}
+
+function renderConfigLogs(logs) {
+    const feed = document.getElementById("config-log-feed");
+    if (!feed) return;
+
+    feed.innerHTML = "";
+    if (!logs.length) {
+        const empty = document.createElement("article");
+        empty.className = "log-item";
+        empty.innerHTML = "<h3>No config changes yet</h3><p>When setup changes are applied, they will appear here.</p>";
+        feed.appendChild(empty);
+        return;
+    }
+
+    logs.forEach((item) => {
+        const row = document.createElement("article");
+        row.className = "log-item";
+        const when = item.created_at ? new Date(item.created_at).toLocaleString() : "Unknown time";
+        row.innerHTML = `
+            <h3>${item.reason || "Configuration update"}</h3>
+            <p>By: ${item.moderator_id || "unknown"}</p>
+            <p>${when}</p>
+        `;
+        feed.appendChild(row);
+    });
+}
+
+async function loadConfigLogs() {
+    const response = await api("/api/dashboard/config-logs");
+    renderConfigLogs(response.logs || []);
+    updateConfigLogBadge(response.unread || 0);
 }
 
 function renderPage(context) {
@@ -429,13 +635,18 @@ function renderPage(context) {
     if (page === "moderation") renderModeration(context);
     if (page === "guild-settings") renderGuildSettings(context);
     if (page === "cogs") renderCogs(context);
+    if (page === "config-logs") renderConfigLogs(context.logs || []);
 }
 
 async function loadState() {
     const payload = await api("/api/dashboard/state");
     dashboardContext = payload;
+    updateConfigLogBadge(payload.config_logs_unread || 0);
     renderPage(payload);
     setGuildSwitcher(payload.guilds || [], payload.active_guild_id);
+    if (page === "config-logs") {
+        await loadConfigLogs();
+    }
 }
 
 async function loadSession() {
@@ -546,7 +757,8 @@ function bindPageActions() {
                 cogs[toggle.dataset.setupCog] = toggle.checked;
             });
 
-            const warnAction = document.getElementById("warn-action").value;
+            const warningSteps = getWarnEscalationStepsFromForm();
+            const firstStep = warningSteps[0];
             const currentModeration = dashboardContext?.state?.moderation || {};
             const payload = {
                 guild: {
@@ -555,10 +767,10 @@ function bindPageActions() {
                     log_channel: document.getElementById("guild-log").value.trim(),
                 },
                 moderation: {
-                    enabled: document.getElementById("warn-enabled").checked || document.getElementById("auto-enabled").checked,
+                    enabled: true,
                     smart_antiflood: document.getElementById("auto-antiflood").checked,
-                    warning_limit: Number(document.getElementById("warn-threshold").value || 3),
-                    default_action: warnAction === "timeout" ? "mute" : warnAction,
+                    warning_limit: Number(firstStep.threshold || 3),
+                    default_action: firstStep.action === "timeout" ? "mute" : firstStep.action,
                     modmail_enabled: document.getElementById("modmail-enabled").checked,
                     tickets_enabled: Boolean(currentModeration.tickets_enabled),
                 },
@@ -571,11 +783,12 @@ function bindPageActions() {
                     quarantine_role: document.getElementById("auto-role").value.trim(),
                 },
                 warnings: {
-                    enabled: document.getElementById("warn-enabled").checked,
+                    enabled: true,
                     public_reason_prompt: document.getElementById("warn-public-reason").checked,
                     dm_user: document.getElementById("warn-dm-user").checked,
-                    threshold: Number(document.getElementById("warn-threshold").value || 3),
-                    escalate_to: warnAction,
+                    threshold: Number(firstStep.threshold || 3),
+                    escalate_to: firstStep.action,
+                    escalation_steps: warningSteps,
                 },
                 logs: {
                     enabled: document.getElementById("log-enabled").checked,
@@ -592,7 +805,8 @@ function bindPageActions() {
                     anonymous_replies: document.getElementById("modmail-anonymous").checked,
                     close_on_idle: document.getElementById("modmail-idle").checked,
                     inbox_channel: document.getElementById("modmail-channel").value.trim(),
-                    alert_role: document.getElementById("modmail-role").value.trim(),
+                    alert_role: selectedModmailRoles[0] || "",
+                    alert_roles: [...selectedModmailRoles],
                     auto_close_hours: Number(document.getElementById("modmail-hours").value || 48),
                 },
                 cogs,
@@ -608,9 +822,53 @@ function bindPageActions() {
                 showSetupSaveBanner(res.state, res.applied_changes || []);
                 playApplySound();
                 updateSetupDirtyState(false, "Everything saved for this guild.");
+                try {
+                    const logSync = await api("/api/dashboard/config-logs");
+                    updateConfigLogBadge(logSync.unread || 0);
+                } catch (error) {
+                    // If log fetch fails we still keep setup save as successful.
+                }
                 flash("Bot setup updated");
             } catch (error) {
                 flash("Failed to update bot setup");
+            }
+        });
+    }
+
+    const addRole = document.getElementById("modmail-role-add");
+    if (addRole) {
+        addRole.addEventListener("click", () => {
+            const picker = document.getElementById("modmail-role-picker");
+            if (!picker || !picker.value) return;
+            if (!selectedModmailRoles.includes(picker.value)) {
+                selectedModmailRoles.push(picker.value);
+                renderModmailRoleChips();
+                updateSetupDirtyState(true);
+            }
+        });
+    }
+
+    const removeRole = document.getElementById("modmail-role-remove");
+    if (removeRole) {
+        removeRole.addEventListener("click", () => {
+            const selectedChips = Array.from(document.querySelectorAll("#modmail-role-list .role-chip.selected"));
+            if (!selectedChips.length) return;
+            const removeSet = new Set(selectedChips.map((item) => item.dataset.roleId));
+            selectedModmailRoles = selectedModmailRoles.filter((roleId) => !removeSet.has(roleId));
+            renderModmailRoleChips();
+            updateSetupDirtyState(true);
+        });
+    }
+
+    const ackLogs = document.getElementById("ack-config-logs");
+    if (ackLogs) {
+        ackLogs.addEventListener("click", async () => {
+            try {
+                await api("/api/dashboard/config-logs/ack", { method: "POST", body: "{}" });
+                updateConfigLogBadge(0);
+                flash("Config logs marked as read");
+            } catch (error) {
+                flash("Failed to update log notification state");
             }
         });
     }
@@ -671,6 +929,12 @@ function bindPageActions() {
         if (page === "servers") {
             dashboardContext = session;
             renderServers(session);
+            try {
+                const badgeData = await api("/api/dashboard/config-logs");
+                updateConfigLogBadge(badgeData.unread || 0);
+            } catch (error) {
+                updateConfigLogBadge(0);
+            }
             return;
         }
 

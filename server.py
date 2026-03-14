@@ -1,5 +1,6 @@
 import asyncio
 from contextlib import asynccontextmanager
+from datetime import datetime
 import importlib
 import json
 import os
@@ -44,6 +45,8 @@ DEFAULT_COGS = [
     "ticket",
 ]
 
+LOCKED_COGS = {"events", "mod", "setup"}
+
 
 class GuildSettings(BaseModel):
     guild_id: str = "1476329967674724494"
@@ -76,6 +79,13 @@ class WarningSystemSettings(BaseModel):
     dm_user: bool = True
     threshold: int = Field(default=3, ge=1, le=20)
     escalate_to: str = Field(default="kick", pattern="^(kick|ban|mute|timeout)$")
+    escalation_steps: list[dict[str, Any]] = Field(
+        default_factory=lambda: [
+            {"threshold": 3, "action": "timeout"},
+            {"threshold": 6, "action": "kick"},
+            {"threshold": 9, "action": "ban"},
+        ]
+    )
 
 
 class LogSettings(BaseModel):
@@ -95,6 +105,7 @@ class ModmailSettings(BaseModel):
     close_on_idle: bool = True
     inbox_channel: str = "#modmail"
     alert_role: str = "@Support"
+    alert_roles: list[str] = Field(default_factory=list)
     auto_close_hours: int = Field(default=48, ge=1, le=168)
 
 
@@ -375,6 +386,79 @@ async def _log_dashboard_changes(guild_id: str, moderator_id: int | None, change
         print(f"[Dashboard] Failed to record setup change logs for {guild_id}: {exc}")
 
 
+async def _fetch_config_logs(guild_id: str, limit: int = 80) -> list[dict[str, Any]]:
+    pool = _db_pool()
+    if pool is None:
+        return []
+
+    try:
+        guild_id_int = int(guild_id)
+    except (TypeError, ValueError):
+        return []
+
+    try:
+        async with pool.acquire() as connection:
+            rows = await connection.fetch(
+                """
+                SELECT moderator_id, reason, created_at
+                FROM moderation_logs
+                WHERE guild_id = $1 AND action = 'config_update'
+                ORDER BY created_at DESC
+                LIMIT $2
+                """,
+                guild_id_int,
+                max(1, min(limit, 200)),
+            )
+    except Exception as exc:
+        print(f"[Dashboard] Failed to fetch config logs for {guild_id}: {exc}")
+        return []
+
+    logs: list[dict[str, Any]] = []
+    for row in rows:
+        created_at = row.get("created_at")
+        logs.append(
+            {
+                "moderator_id": _id_to_input_value(row.get("moderator_id")),
+                "reason": str(row.get("reason") or ""),
+                "created_at": created_at.isoformat() if hasattr(created_at, "isoformat") else "",
+            }
+        )
+    return logs
+
+
+def _get_config_seen_map(request: Request) -> dict[str, str]:
+    raw = request.session.get("config_logs_seen")
+    if isinstance(raw, dict):
+        return {str(key): str(value) for key, value in raw.items()}
+    return {}
+
+
+def _set_config_seen_map(request: Request, payload: dict[str, str]) -> None:
+    request.session["config_logs_seen"] = payload
+
+
+def _count_unread_config_logs(logs: list[dict[str, Any]], seen_iso: str | None) -> int:
+    if not seen_iso:
+        return len(logs)
+    try:
+        seen_at = datetime.fromisoformat(seen_iso)
+    except ValueError:
+        return len(logs)
+
+    unread = 0
+    for item in logs:
+        raw_ts = item.get("created_at")
+        if not raw_ts:
+            continue
+        try:
+            created_at = datetime.fromisoformat(str(raw_ts))
+        except ValueError:
+            continue
+        if created_at > seen_at:
+            unread += 1
+    return unread
+
+
 async def _connect_database_pool() -> Any | None:
     try:
         asyncpg = importlib.import_module("asyncpg")
@@ -402,6 +486,143 @@ async def _connect_database_pool() -> Any | None:
     return None
 
 
+async def _ensure_dashboard_tables(pool: Any) -> None:
+    try:
+        async with pool.acquire() as connection:
+            await connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS guild_modmail_roles (
+                    guild_id BIGINT NOT NULL REFERENCES guilds(guild_id) ON DELETE CASCADE,
+                    role_id BIGINT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (guild_id, role_id)
+                )
+                """
+            )
+            await connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS guild_warning_escalations (
+                    guild_id BIGINT NOT NULL REFERENCES guilds(guild_id) ON DELETE CASCADE,
+                    threshold INT NOT NULL,
+                    action VARCHAR(20) NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (guild_id, threshold)
+                )
+                """
+            )
+    except Exception as exc:
+        print(f"[Dashboard] Failed to ensure dashboard tables: {exc}")
+
+
+def _parse_warning_steps(raw_steps: Any) -> list[dict[str, Any]]:
+    steps: list[dict[str, Any]] = []
+    allowed_actions = {"timeout", "mute", "kick", "ban"}
+    if not isinstance(raw_steps, list):
+        return [
+            {"threshold": 3, "action": "timeout"},
+            {"threshold": 6, "action": "kick"},
+            {"threshold": 9, "action": "ban"},
+        ]
+
+    for item in raw_steps:
+        if not isinstance(item, dict):
+            continue
+        try:
+            threshold = int(item.get("threshold"))
+        except (TypeError, ValueError):
+            continue
+        action = str(item.get("action") or "").lower().strip()
+        if threshold < 1 or action not in allowed_actions:
+            continue
+        steps.append({"threshold": threshold, "action": action})
+
+    if not steps:
+        return [
+            {"threshold": 3, "action": "timeout"},
+            {"threshold": 6, "action": "kick"},
+            {"threshold": 9, "action": "ban"},
+        ]
+
+    dedup: dict[int, str] = {}
+    for step in sorted(steps, key=lambda s: s["threshold"]):
+        dedup[int(step["threshold"])] = str(step["action"])
+    return [{"threshold": k, "action": v} for k, v in sorted(dedup.items())]
+
+
+def _is_dev_user(request: Request) -> bool:
+    configured = _extract_discord_id(os.getenv("DASHBOARD_DEV_USER_ID"))
+    if configured is None:
+        return False
+    user = request.session.get("user")
+    session_user_id = _extract_discord_id(user.get("id") if isinstance(user, dict) else None)
+    return session_user_id == configured
+
+
+async def _fetch_guild_resources(guild_id: str) -> dict[str, Any]:
+    token = os.getenv("DISCORD_BOT_TOKEN", "").strip()
+    if not token:
+        return {"text_channels": [], "categories": [], "roles": []}
+
+    auth_header = {"Authorization": f"Bot {token}"}
+    channels: list[dict[str, Any]] = []
+    roles: list[dict[str, Any]] = []
+
+    try:
+        channels_response = await asyncio.to_thread(
+            _discord_request,
+            f"{DISCORD_API_BASE}/guilds/{guild_id}/channels",
+            method="GET",
+            headers=auth_header,
+        )
+        if isinstance(channels_response, list):
+            channels = channels_response
+    except Exception:
+        channels = []
+
+    try:
+        roles_response = await asyncio.to_thread(
+            _discord_request,
+            f"{DISCORD_API_BASE}/guilds/{guild_id}/roles",
+            method="GET",
+            headers=auth_header,
+        )
+        if isinstance(roles_response, list):
+            roles = roles_response
+    except Exception:
+        roles = []
+
+    text_channels = sorted(
+        [
+            {"id": str(ch.get("id")), "name": str(ch.get("name", "unknown"))}
+            for ch in channels
+            if isinstance(ch, dict) and int(ch.get("type", -1)) == 0 and ch.get("id")
+        ],
+        key=lambda item: item["name"].lower(),
+    )
+    categories = sorted(
+        [
+            {"id": str(ch.get("id")), "name": str(ch.get("name", "unknown"))}
+            for ch in channels
+            if isinstance(ch, dict) and int(ch.get("type", -1)) == 4 and ch.get("id")
+        ],
+        key=lambda item: item["name"].lower(),
+    )
+    role_items = sorted(
+        [
+            {"id": str(role.get("id")), "name": str(role.get("name", "unknown"))}
+            for role in roles
+            if isinstance(role, dict) and role.get("id") and not bool(role.get("managed")) and str(role.get("name", "")).lower() != "@everyone"
+        ],
+        key=lambda item: item["name"].lower(),
+    )
+
+    return {
+        "text_channels": text_channels,
+        "categories": categories,
+        "roles": role_items,
+    }
+
+
 def _db_pool() -> Any | None:
     return getattr(app.state, "db_pool", None)
 
@@ -420,6 +641,14 @@ async def _fetch_guild_db_row(guild_id: str) -> dict[str, Any] | None:
         async with pool.acquire() as connection:
             row = await connection.fetchrow(GUILD_DB_SELECT, guild_id_int)
             cog_rows = await connection.fetch(GUILD_COGS_SELECT, guild_id_int)
+            modmail_role_rows = await connection.fetch(
+                "SELECT role_id FROM guild_modmail_roles WHERE guild_id = $1 ORDER BY role_id",
+                guild_id_int,
+            )
+            escalation_rows = await connection.fetch(
+                "SELECT threshold, action FROM guild_warning_escalations WHERE guild_id = $1 ORDER BY threshold ASC",
+                guild_id_int,
+            )
     except Exception as exc:
         print(f"[Dashboard] Failed to load guild state from database for {guild_id}: {exc}")
         return None
@@ -427,6 +656,13 @@ async def _fetch_guild_db_row(guild_id: str) -> dict[str, Any] | None:
     payload = dict(row) if row else {}
     if cog_rows:
         payload["cogs_from_db"] = {str(item["cog_name"]): bool(item["enabled"]) for item in cog_rows}
+    if modmail_role_rows:
+        payload["modmail_alert_roles"] = [_id_to_input_value(item["role_id"]) for item in modmail_role_rows if item.get("role_id") is not None]
+    if escalation_rows:
+        payload["warning_escalation_steps"] = [
+            {"threshold": int(item["threshold"]), "action": str(item["action"]).lower()}
+            for item in escalation_rows
+        ]
 
     return payload or None
 
@@ -487,6 +723,7 @@ def _merge_db_row_into_state(state: dict[str, Any], row: dict[str, Any]) -> dict
     warn_dm_user = row.get("warn_dm_user")
     if warn_dm_user is not None:
         state["warnings"]["dm_user"] = bool(warn_dm_user)
+    state["warnings"]["enabled"] = True
 
     modmail_category = row.get("modmail_category_id")
     if modmail_category is not None:
@@ -528,9 +765,22 @@ def _merge_db_row_into_state(state: dict[str, Any], row: dict[str, Any]) -> dict
     if alert_role_id is not None:
         state["modmail"]["alert_role"] = _id_to_input_value(alert_role_id, state["modmail"].get("alert_role", ""))
 
+    alert_roles = row.get("modmail_alert_roles")
+    if isinstance(alert_roles, list):
+        state["modmail"]["alert_roles"] = [str(item) for item in alert_roles if str(item).strip()]
+    elif state["modmail"].get("alert_role"):
+        state["modmail"]["alert_roles"] = [str(state["modmail"].get("alert_role"))]
+
     auto_close_hours = row.get("modmail_auto_close_hours")
     if auto_close_hours is not None:
         state["modmail"]["auto_close_hours"] = int(auto_close_hours)
+
+    escalation_steps = row.get("warning_escalation_steps")
+    if isinstance(escalation_steps, list):
+        state["warnings"]["escalation_steps"] = _parse_warning_steps(escalation_steps)
+        first_step = state["warnings"]["escalation_steps"][0]
+        state["warnings"]["threshold"] = int(first_step["threshold"])
+        state["warnings"]["escalate_to"] = str(first_step["action"])
 
     cogs_from_db = row.get("cogs_from_db")
     if isinstance(cogs_from_db, dict):
@@ -554,16 +804,23 @@ async def _sync_state_to_database(guild_id: str, state: dict[str, Any]) -> bool:
 
     log_channel_id = _extract_discord_id(state["guild"].get("log_channel") or state["logs"].get("audit_channel"))
     modmail_category_id = _extract_discord_id(state["modmail"].get("inbox_channel")) if state["modmail"].get("enabled") else None
-    auto_moderation = bool(state["warnings"].get("enabled") or state["moderation"].get("enabled"))
+    auto_moderation = True
     smart_antiflood = bool(state["automation"].get("enabled") or state["moderation"].get("smart_antiflood"))
-    warning_limit = int(state["warnings"].get("threshold") or state["moderation"].get("warning_limit") or 3)
-    action = str(state["warnings"].get("escalate_to") or state["moderation"].get("default_action") or "kick").lower()
+    warning_steps = _parse_warning_steps(state["warnings"].get("escalation_steps"))
+    first_step = warning_steps[0]
+    warning_limit = int(first_step["threshold"])
+    action = str(first_step["action"])
     db_action = "mute" if action == "timeout" else action
     language_code = str(state["guild"].get("language") or "pt")
     ai_enabled = bool(state["cogs"].get("ai", True))
     quarantine_role_id = _extract_discord_id(state["automation"].get("quarantine_role"))
     ban_channel_id = _extract_discord_id(state["logs"].get("ban_channel"))
-    modmail_alert_role_id = _extract_discord_id(state["modmail"].get("alert_role"))
+    alert_role_ids = [
+        _extract_discord_id(item)
+        for item in state["modmail"].get("alert_roles", [])
+    ]
+    alert_role_ids = [item for item in alert_role_ids if item is not None]
+    modmail_alert_role_id = alert_role_ids[0] if alert_role_ids else _extract_discord_id(state["modmail"].get("alert_role"))
 
     try:
         async with pool.acquire() as connection:
@@ -674,6 +931,22 @@ async def _sync_state_to_database(guild_id: str, state: dict[str, Any]) -> bool:
                     for cog_name, enabled in sorted(state["cogs"].items())
                 ],
             )
+            await connection.execute("DELETE FROM guild_modmail_roles WHERE guild_id = $1", guild_id_int)
+            if alert_role_ids:
+                await connection.executemany(
+                    "INSERT INTO guild_modmail_roles (guild_id, role_id) VALUES ($1, $2) ON CONFLICT (guild_id, role_id) DO NOTHING",
+                    [(guild_id_int, role_id) for role_id in alert_role_ids],
+                )
+
+            await connection.execute("DELETE FROM guild_warning_escalations WHERE guild_id = $1", guild_id_int)
+            if warning_steps:
+                await connection.executemany(
+                    "INSERT INTO guild_warning_escalations (guild_id, threshold, action) VALUES ($1, $2, $3)",
+                    [
+                        (guild_id_int, int(step["threshold"]), "mute" if step["action"] == "timeout" else str(step["action"]))
+                        for step in warning_steps
+                    ],
+                )
         return True
     except Exception as exc:
         print(f"[Dashboard] Failed to persist guild state to database for {guild_id}: {exc}")
@@ -929,6 +1202,13 @@ def _normalize_guild_state(raw_state: dict[str, Any], guild_id: str, guild_name:
         escalation = normalized["warnings"]["escalate_to"]
         normalized["moderation"]["default_action"] = "mute" if escalation == "timeout" else escalation
 
+    normalized["warnings"]["enabled"] = True
+    normalized["moderation"]["enabled"] = True
+
+    normalized["warnings"]["escalation_steps"] = _parse_warning_steps(normalized["warnings"].get("escalation_steps"))
+    if not normalized["modmail"].get("alert_roles") and normalized["modmail"].get("alert_role"):
+        normalized["modmail"]["alert_roles"] = [str(normalized["modmail"]["alert_role"])]
+
     if not raw_state.get("modmail"):
         normalized["modmail"]["enabled"] = normalized["moderation"]["modmail_enabled"]
     normalized["moderation"]["modmail_enabled"] = normalized["modmail"]["enabled"]
@@ -1044,6 +1324,8 @@ def _state_with_metrics(state: dict[str, Any]) -> dict[str, Any]:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.db_pool = await _connect_database_pool()
+    if app.state.db_pool is not None:
+        await _ensure_dashboard_tables(app.state.db_pool)
     try:
         yield
     finally:
@@ -1219,6 +1501,13 @@ async def dashboard_cogs(request: Request) -> Response:
     return FileResponse(WEB_ROOT / "dashboard" / "cogs.html")
 
 
+@app.get("/dashboard/config-logs")
+async def dashboard_config_logs(request: Request) -> Response:
+    if not _is_authenticated(request):
+        return RedirectResponse(url="/auth/login?next=/dashboard/config-logs", status_code=302)
+    return FileResponse(WEB_ROOT / "dashboard" / "config-logs.html")
+
+
 @app.get("/api/dashboard/state")
 async def dashboard_state(request: Request) -> dict[str, Any]:
     _require_auth(request)
@@ -1229,13 +1518,48 @@ async def dashboard_state(request: Request) -> dict[str, Any]:
     guild_name = str(active_guild.get("name", f"Guild {guild_id}"))
 
     state = await _get_effective_state_for_guild(guild_id, guild_name)
+    resources = await _fetch_guild_resources(guild_id)
+    logs = await _fetch_config_logs(guild_id, limit=50)
+    seen_map = _get_config_seen_map(request)
+    unread = _count_unread_config_logs(logs, seen_map.get(guild_id))
 
     return {
         "active_guild_id": guild_id,
         "guilds": guilds,
         "guild_counts": counts,
+        "resources": resources,
+        "config_logs_unread": unread,
+        "locked_cogs": sorted(LOCKED_COGS),
+        "is_dev_user": _is_dev_user(request),
         "state": _state_with_metrics(state),
     }
+
+
+@app.get("/api/dashboard/config-logs")
+async def dashboard_config_logs_data(request: Request) -> dict[str, Any]:
+    _require_auth(request)
+    active_guild = _require_active_guild(request)
+    guild_id = str(active_guild.get("id"))
+    logs = await _fetch_config_logs(guild_id, limit=120)
+    seen_map = _get_config_seen_map(request)
+    unread = _count_unread_config_logs(logs, seen_map.get(guild_id))
+    return {
+        "ok": True,
+        "active_guild_id": guild_id,
+        "logs": logs,
+        "unread": unread,
+    }
+
+
+@app.post("/api/dashboard/config-logs/ack")
+async def dashboard_config_logs_ack(request: Request) -> dict[str, Any]:
+    _require_auth(request)
+    active_guild = _require_active_guild(request)
+    guild_id = str(active_guild.get("id"))
+    seen_map = _get_config_seen_map(request)
+    seen_map[guild_id] = datetime.utcnow().isoformat()
+    _set_config_seen_map(request, seen_map)
+    return {"ok": True, "active_guild_id": guild_id, "unread": 0}
 
 
 @app.put("/api/dashboard/guild")
@@ -1249,6 +1573,7 @@ async def update_guild_settings(payload: GuildUpdatePayload, request: Request) -
     previous_log_channel = state["guild"].get("log_channel")
     state["guild"].update(payload.model_dump())
     state["guild"]["guild_id"] = guild_id
+    state["guild"]["guild_name"] = guild_name
     if state["logs"].get("audit_channel") == previous_log_channel:
         state["logs"]["audit_channel"] = payload.log_channel
     state = await _persist_state_for_guild(guild_id, guild_name, state)
@@ -1296,13 +1621,21 @@ async def update_setup(payload: SetupUpdatePayload, request: Request) -> dict[st
     state["logs"].update(logs_payload)
     state["modmail"].update(modmail_payload)
 
+    # Guild identity comes from the selected guild; do not allow manual rename in dashboard.
+    state["guild"]["guild_name"] = guild_name
+    state["warnings"]["enabled"] = True
+
     state["moderation"]["warning_limit"] = warnings_payload["threshold"]
     state["moderation"]["default_action"] = "mute" if warnings_payload["escalate_to"] == "timeout" else warnings_payload["escalate_to"]
     state["moderation"]["modmail_enabled"] = modmail_payload["enabled"]
+    state["moderation"]["enabled"] = True
 
     allowed = set(state["cogs"].keys())
+    is_dev = _is_dev_user(request)
     for cog_name, enabled in payload.cogs.items():
         if cog_name in allowed:
+            if cog_name in LOCKED_COGS and not bool(enabled) and not is_dev:
+                continue
             state["cogs"][cog_name] = bool(enabled)
 
     state = await _persist_state_for_guild(guild_id, guild_name, state)
@@ -1330,8 +1663,11 @@ async def bulk_update_cogs(payload: CogBulkUpdatePayload, request: Request) -> d
 
     state = await _get_effective_state_for_guild(guild_id, guild_name)
     allowed = set(state["cogs"].keys())
+    is_dev = _is_dev_user(request)
     for cog_name, enabled in payload.cogs.items():
         if cog_name in allowed:
+            if cog_name in LOCKED_COGS and not bool(enabled) and not is_dev:
+                continue
             state["cogs"][cog_name] = bool(enabled)
     state = await _persist_state_for_guild(guild_id, guild_name, state)
     return {"ok": True, "active_guild_id": guild_id, "state": _state_with_metrics(state)}
@@ -1347,6 +1683,8 @@ async def toggle_cog(cog_name: str, payload: CogTogglePayload, request: Request)
     state = await _get_effective_state_for_guild(guild_id, guild_name)
     if cog_name not in state["cogs"]:
         raise HTTPException(status_code=404, detail="Cog not found")
+    if cog_name in LOCKED_COGS and not payload.enabled and not _is_dev_user(request):
+        raise HTTPException(status_code=403, detail="Only the bot developer can disable this module")
     state["cogs"][cog_name] = payload.enabled
     state = await _persist_state_for_guild(guild_id, guild_name, state)
     return {"ok": True, "active_guild_id": guild_id, "state": _state_with_metrics(state)}

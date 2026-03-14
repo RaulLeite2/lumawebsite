@@ -3,23 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Luma Dashboard - Overview</title>
+    <title>Luma Dashboard - Config Logs</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/assets/dashboard.css">
 </head>
-<body data-page="overview">
+<body data-page="config-logs">
     <div class="app">
         <aside class="sidebar">
             <div class="logo">Luma</div>
             <nav class="nav">
                 <a href="/dashboard/servers">Servers</a>
-                <a class="active" href="/dashboard/overview">Overview</a>
+                <a href="/dashboard/overview">Overview</a>
                 <a href="/dashboard/moderation">Moderation</a>
                 <a href="/dashboard/guild-settings">Bot Setup</a>
                 <a href="/dashboard/cogs">Cogs</a>
-                <a href="/dashboard/config-logs">Config Logs <span class="config-log-dot" id="config-log-dot" hidden>0</span></a>
+                <a class="active" href="/dashboard/config-logs">Config Logs <span class="config-log-dot" id="config-log-dot" hidden>0</span></a>
             </nav>
             <div class="user-box" id="session-user">Signed in...</div>
         </aside>
@@ -27,30 +27,20 @@
         <main class="main">
             <header class="topbar">
                 <div>
-                    <h1 class="title">Choose a Guild and Configure</h1>
-                    <p class="subtitle">Modular dashboard with separate pages for staff operations.</p>
+                    <h1 class="title">Configuration Logs</h1>
+                    <p class="subtitle">Track every setup change applied to the selected guild.</p>
                 </div>
                 <div class="actions">
                     <select id="guild-select"></select>
+                    <button class="btn" id="ack-config-logs" type="button">Mark As Read</button>
                     <a class="btn" href="/auth/logout">Logout</a>
                 </div>
             </header>
 
             <section class="section">
-                <h2>Overview</h2>
-                <p class="lead">Quick health snapshot of current guild settings.</p>
-                <div class="metrics">
-                    <div class="metric"><span>Guild</span><strong id="metric-guild-name">-</strong></div>
-                    <div class="metric"><span>Warnings (24h)</span><strong id="metric-warnings">-</strong></div>
-                    <div class="metric"><span>Open Tickets</span><strong id="metric-tickets">-</strong></div>
-                    <div class="metric"><span>Cogs Enabled</span><strong id="metric-cogs">-</strong></div>
-                </div>
-            </section>
-
-            <section class="section">
-                <h2>Current Cogs</h2>
-                <p class="lead">Live status for modules in this guild.</p>
-                <div id="overview-cogs"></div>
+                <h2>Recent Setup Updates</h2>
+                <p class="lead">Each entry records exactly what changed and when it was applied.</p>
+                <div id="config-log-feed" class="log-feed"></div>
             </section>
         </main>
     </div>

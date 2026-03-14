@@ -19,6 +19,7 @@
                 <a href="/dashboard/moderation">Moderation</a>
                 <a class="active" href="/dashboard/guild-settings">Bot Setup</a>
                 <a href="/dashboard/cogs">Cogs</a>
+                <a href="/dashboard/config-logs">Config Logs <span class="config-log-dot" id="config-log-dot" hidden>0</span></a>
             </nav>
             <div class="user-box" id="session-user">Signed in...</div>
         </aside>
@@ -96,7 +97,7 @@
 
                         <div class="field">
                             <label for="guild-name">Guild name</label>
-                            <input id="guild-name" type="text">
+                            <input id="guild-name" type="text" readonly>
                         </div>
 
                         <div class="grid-2 compact-grid">
@@ -110,7 +111,7 @@
                             </div>
                             <div class="field">
                                 <label for="guild-log">Default log channel</label>
-                                <input id="guild-log" type="text" placeholder="#moderation-log or 1234567890">
+                                <select id="guild-log"></select>
                             </div>
                         </div>
                     </article>
@@ -146,7 +147,7 @@
                             </div>
                             <div class="field">
                                 <label for="auto-role">Quarantine role</label>
-                                <input id="auto-role" type="text" placeholder="@Muted">
+                                <select id="auto-role"></select>
                             </div>
                         </div>
                     </article>
@@ -160,22 +161,44 @@
                             <span class="pill accent-orange">Warns</span>
                         </div>
 
-                        <div class="switch-row feature-row"><span>Enable warns</span><input id="warn-enabled" class="switch" type="checkbox"></div>
+                        <div class="switch-row feature-row"><span>Enable warns (core module)</span><input id="warn-enabled" class="switch" type="checkbox" checked disabled></div>
                         <div class="switch-row feature-row"><span>Prompt staff for a public reason</span><input id="warn-public-reason" class="switch" type="checkbox"></div>
                         <div class="switch-row feature-row"><span>Send DM to warned user</span><input id="warn-dm-user" class="switch" type="checkbox"></div>
 
-                        <div class="grid-2 compact-grid">
-                            <div class="field">
-                                <label for="warn-threshold">Warn limit</label>
-                                <input id="warn-threshold" type="number" min="1" max="20">
-                            </div>
-                            <div class="field">
-                                <label for="warn-action">Auto action</label>
-                                <select id="warn-action">
+                        <div class="warn-steps">
+                            <h3>Warn escalation ladder</h3>
+                            <p>Configure multiple actions based on warning count.</p>
+                            <div class="warn-step-row">
+                                <label for="warn-step-1-threshold">At</label>
+                                <input id="warn-step-1-threshold" type="number" min="1" max="50" value="3">
+                                <span>warns apply</span>
+                                <select id="warn-step-1-action">
+                                    <option value="timeout">Timeout</option>
                                     <option value="kick">Kick</option>
                                     <option value="ban">Ban</option>
                                     <option value="mute">Mute</option>
+                                </select>
+                            </div>
+                            <div class="warn-step-row">
+                                <label for="warn-step-2-threshold">At</label>
+                                <input id="warn-step-2-threshold" type="number" min="1" max="50" value="6">
+                                <span>warns apply</span>
+                                <select id="warn-step-2-action">
+                                    <option value="kick">Kick</option>
                                     <option value="timeout">Timeout</option>
+                                    <option value="ban">Ban</option>
+                                    <option value="mute">Mute</option>
+                                </select>
+                            </div>
+                            <div class="warn-step-row">
+                                <label for="warn-step-3-threshold">At</label>
+                                <input id="warn-step-3-threshold" type="number" min="1" max="50" value="9">
+                                <span>warns apply</span>
+                                <select id="warn-step-3-action">
+                                    <option value="ban">Ban</option>
+                                    <option value="kick">Kick</option>
+                                    <option value="timeout">Timeout</option>
+                                    <option value="mute">Mute</option>
                                 </select>
                             </div>
                         </div>
@@ -229,11 +252,11 @@
                     <div class="grid-2 compact-grid">
                         <div class="field">
                             <label for="log-audit-channel">Audit channel</label>
-                            <input id="log-audit-channel" type="text" placeholder="#mod-logs or 1234567890">
+                            <select id="log-audit-channel"></select>
                         </div>
                         <div class="field">
                             <label for="log-ban-channel">Ban log channel</label>
-                            <input id="log-ban-channel" type="text" placeholder="#ban-logs">
+                            <select id="log-ban-channel"></select>
                         </div>
                     </div>
                     </article>
@@ -254,13 +277,19 @@
                         <div class="grid-2 compact-grid">
                             <div class="field">
                                 <label for="modmail-channel">Modmail category</label>
-                                <input id="modmail-channel" type="text" placeholder="ModMail category ID or mention">
+                                <select id="modmail-channel"></select>
                             </div>
                             <div class="field">
-                                <label for="modmail-role">Alert role</label>
-                                <input id="modmail-role" type="text" placeholder="@Support">
+                                <label for="modmail-role-picker">Add alert role</label>
+                                <select id="modmail-role-picker"></select>
                             </div>
                         </div>
+
+                        <div class="role-picker-actions">
+                            <button class="btn" id="modmail-role-add" type="button">Add Role</button>
+                            <button class="btn danger" id="modmail-role-remove" type="button">Remove Selected</button>
+                        </div>
+                        <div class="role-chip-list" id="modmail-role-list"></div>
 
                         <div class="field">
                             <label for="modmail-hours">Auto-close after (hours)</label>
