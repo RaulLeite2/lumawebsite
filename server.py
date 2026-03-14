@@ -379,7 +379,7 @@ async def home() -> FileResponse:
 
 
 @app.get("/auth/login")
-async def auth_login(request: Request, next_path: str = Query(default="/dashboard", alias="next")) -> RedirectResponse:
+async def auth_login(request: Request, next_path: str = Query(default="/dashboard/servers", alias="next")) -> RedirectResponse:
     config = _oauth_config()
 
     state = secrets.token_urlsafe(24)
@@ -428,9 +428,9 @@ async def auth_callback(request: Request, code: str = "", state: str = "") -> Re
     request.session["guilds"] = guilds
     request.session["active_guild_id"] = guilds[0]["id"] if guilds else None
 
-    destination = request.session.pop("post_login_redirect", "/dashboard")
+    destination = request.session.pop("post_login_redirect", "/dashboard/servers")
     if not isinstance(destination, str) or not destination.startswith("/"):
-        destination = "/dashboard"
+        destination = "/dashboard/servers"
     return RedirectResponse(url=destination, status_code=302)
 
 
@@ -466,8 +466,15 @@ async def set_active_guild(payload: ActiveGuildPayload, request: Request) -> dic
 @app.get("/dashboard.html")
 async def dashboard(request: Request) -> Response:
     if not _is_authenticated(request):
-        return RedirectResponse(url="/auth/login?next=/dashboard/overview", status_code=302)
-    return RedirectResponse(url="/dashboard/overview", status_code=302)
+        return RedirectResponse(url="/auth/login?next=/dashboard/servers", status_code=302)
+    return RedirectResponse(url="/dashboard/servers", status_code=302)
+
+
+@app.get("/dashboard/servers")
+async def dashboard_servers(request: Request) -> Response:
+    if not _is_authenticated(request):
+        return RedirectResponse(url="/auth/login?next=/dashboard/servers", status_code=302)
+    return FileResponse(WEB_ROOT / "dashboard" / "servers.html")
 
 
 @app.get("/dashboard/overview")

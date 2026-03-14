@@ -83,6 +83,44 @@ function renderOverview(context) {
     });
 }
 
+function renderServers(context) {
+    const grid = document.getElementById("servers-grid");
+    if (!grid) return;
+
+    const guilds = context.guilds || [];
+    const manageableCount = guilds.length;
+
+    const totalEl = document.getElementById("servers-total");
+    const manageableEl = document.getElementById("servers-manageable");
+    if (totalEl) totalEl.textContent = String(guilds.length);
+    if (manageableEl) manageableEl.textContent = String(manageableCount);
+
+    grid.innerHTML = "";
+
+    guilds.forEach((guild) => {
+        const card = document.createElement("article");
+        card.className = "server-card";
+
+        const iconMarkup = guild.icon
+            ? `<img class="server-icon" src="https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png?size=128" alt="${guild.name}">`
+            : `<span class="server-fallback">${(guild.name || "?").slice(0, 1).toUpperCase()}</span>`;
+
+        const role = guild.owner ? "Owner" : "Administrator";
+        card.innerHTML = `
+            <div class="server-meta">
+                ${iconMarkup}
+                <div class="server-text">
+                    <div class="server-name">${guild.name}</div>
+                    <div class="server-role">${role}</div>
+                </div>
+            </div>
+            <button class="btn primary" data-configure-guild="${guild.id}">Configure</button>
+        `;
+
+        grid.appendChild(card);
+    });
+}
+
 function renderModeration(context) {
     const m = context.state.moderation;
     const refs = {
@@ -144,6 +182,7 @@ function renderCogs(context) {
 
 function renderPage(context) {
     renderCommon(context);
+    if (page === "servers") renderServers(context);
     if (page === "overview") renderOverview(context);
     if (page === "moderation") renderModeration(context);
     if (page === "guild-settings") renderGuildSettings(context);
@@ -188,6 +227,27 @@ function bindGuildSwitcher() {
 }
 
 function bindPageActions() {
+    const serversGrid = document.getElementById("servers-grid");
+    if (serversGrid) {
+        serversGrid.addEventListener("click", async (event) => {
+            const target = event.target;
+            if (!(target instanceof HTMLElement)) return;
+
+            const guildId = target.dataset.configureGuild;
+            if (!guildId) return;
+
+            try {
+                await api("/api/dashboard/active-guild", {
+                    method: "PUT",
+                    body: JSON.stringify({ guild_id: guildId }),
+                });
+                window.location.href = "/dashboard/overview";
+            } catch (error) {
+                flash("Failed to select guild");
+            }
+        });
+    }
+
     const saveModeration = document.getElementById("save-moderation");
     if (saveModeration) {
         saveModeration.addEventListener("click", async () => {
