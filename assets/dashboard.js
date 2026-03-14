@@ -43,6 +43,16 @@ function setGuildSwitcher(guilds, activeGuildId) {
     if (!select) return;
 
     select.innerHTML = "";
+    if (!guilds.length) {
+        const option = document.createElement("option");
+        option.value = "";
+        option.textContent = "No servers available";
+        select.appendChild(option);
+        select.disabled = true;
+        return;
+    }
+
+    select.disabled = false;
     guilds.forEach((guild) => {
         const option = document.createElement("option");
         option.value = guild.id;
@@ -98,6 +108,22 @@ function renderServers(context) {
     if (manageableEl) manageableEl.textContent = String(manageableCount);
 
     grid.innerHTML = "";
+
+    if (!guilds.length) {
+        const empty = document.createElement("article");
+        empty.className = "server-card";
+        empty.innerHTML = `
+            <div class="server-meta">
+                <span class="server-fallback">?</span>
+                <div class="server-text">
+                    <div class="server-name">No servers found</div>
+                    <div class="server-role">Try logging out and in again to refresh Discord guild permissions.</div>
+                </div>
+            </div>
+        `;
+        grid.appendChild(empty);
+        return;
+    }
 
     guilds.forEach((guild) => {
         const card = document.createElement("article");

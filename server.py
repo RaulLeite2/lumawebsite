@@ -134,22 +134,23 @@ def _active_guild_from_session(request: Request) -> dict[str, Any] | None:
 
     selected_id = request.session.get("active_guild_id")
     for guild in guilds:
-        if guild.get("id") == selected_id and bool(guild.get("configurable")):
+        if guild.get("id") == selected_id:
             return guild
 
-    for guild in guilds:
-        if bool(guild.get("configurable")):
-            request.session["active_guild_id"] = guild.get("id")
-            return guild
-
-    request.session["active_guild_id"] = None
-    return None
-
+    request.session["active_guild_id"] = guilds[0].get("id")
+    return guilds[0]
 
 def _require_active_guild(request: Request) -> dict[str, Any]:
     guild = _active_guild_from_session(request)
     if guild is None:
-        raise HTTPException(status_code=400, detail="No manageable guild found for this account")
+        raise HTTPException(status_code=400, detail="No guild found for this account")
+    return guild
+
+
+def _require_configurable_active_guild(request: Request) -> dict[str, Any]:
+    guild = _require_active_guild(request)
+    if not bool(guild.get("configurable")):
+        raise HTTPException(status_code=403, detail="You do not have permission to configure this guild")
     return guild
 
 
@@ -431,7 +432,7 @@ async def auth_callback(request: Request, code: str = "", state: str = "") -> Re
         "discriminator": user.get("discriminator"),
     }
     request.session["guilds"] = guilds
-    selected = next((g for g in guilds if g.get("configurable")), None)
+    selected = next((g for g in guilds if g.get("configurable")), None) or (guilds[0] if guilds else None)
     request.session["active_guild_id"] = selected.get("id") if selected else None
 
     destination = request.session.pop("post_login_redirect", "/dashboard/servers")
@@ -547,7 +548,7 @@ async def dashboard_state(request: Request) -> dict[str, Any]:
 @app.put("/api/dashboard/guild")
 async def update_guild_settings(payload: GuildUpdatePayload, request: Request) -> dict[str, Any]:
     _require_auth(request)
-    active_guild = _require_active_guild(request)
+    active_guild = _require_configurable_active_guild(request)
     guild_id = str(active_guild.get("id"))
     guild_name = str(active_guild.get("name", f"Guild {guild_id}"))
 
@@ -563,7 +564,7 @@ async def update_guild_settings(payload: GuildUpdatePayload, request: Request) -
 @app.put("/api/dashboard/moderation")
 async def update_moderation_settings(payload: ModerationUpdatePayload, request: Request) -> dict[str, Any]:
     _require_auth(request)
-    active_guild = _require_active_guild(request)
+    active_guild = _require_configurable_active_guild(request)
     guild_id = str(active_guild.get("id"))
     guild_name = str(active_guild.get("name", f"Guild {guild_id}"))
 
@@ -578,7 +579,7 @@ async def update_moderation_settings(payload: ModerationUpdatePayload, request: 
 @app.put("/api/dashboard/cogs")
 async def bulk_update_cogs(payload: CogBulkUpdatePayload, request: Request) -> dict[str, Any]:
     _require_auth(request)
-    active_guild = _require_active_guild(request)
+    active_guild = _require_configurable_active_guild(request)
     guild_id = str(active_guild.get("id"))
     guild_name = str(active_guild.get("name", f"Guild {guild_id}"))
 
@@ -596,7 +597,7 @@ async def bulk_update_cogs(payload: CogBulkUpdatePayload, request: Request) -> d
 @app.patch("/api/dashboard/cogs/{cog_name}")
 async def toggle_cog(cog_name: str, payload: CogTogglePayload, request: Request) -> dict[str, Any]:
     _require_auth(request)
-    active_guild = _require_active_guild(request)
+    active_guild = _require_configurable_active_guild(request)
     guild_id = str(active_guild.get("id"))
     guild_name = str(active_guild.get("name", f"Guild {guild_id}"))
 
@@ -613,7 +614,7 @@ async def toggle_cog(cog_name: str, payload: CogTogglePayload, request: Request)
 @app.post("/api/dashboard/reset")
 async def reset_dashboard_state(request: Request) -> dict[str, Any]:
     _require_auth(request)
-    active_guild = _require_active_guild(request)
+    active_guild = _require_configurable_active_guild(request)
     guild_id = str(active_guild.get("id"))
     guild_name = str(active_guild.get("name", f"Guild {guild_id}"))
 
