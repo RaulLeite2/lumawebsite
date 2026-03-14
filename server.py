@@ -1,18 +1,25 @@
 import os
 import json
+import asyncio
+import secrets
 import threading
+import urllib.error
+import urllib.parse
+import urllib.request
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse, PlainTextResponse
+from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from starlette.middleware.sessions import SessionMiddleware
 import uvicorn
 
 
 WEB_ROOT = Path(__file__).parent.resolve()
 STATE_FILE = WEB_ROOT / "dashboard_state.json"
+DISCORD_API_BASE = "https://discord.com/api/v10"
 
 DEFAULT_COGS = [
     "admin",
@@ -76,6 +83,80 @@ class CogTogglePayload(BaseModel):
 
 
 state_lock = threading.Lock()
+
+
+def _oauth_config() -> dict[str, str]:
+    config = {
+        "client_id": os.getenv("DISCORD_CLIENT_ID", "").strip(),
+        "client_secret": os.getenv("DISCORD_CLIENT_SECRET", "").strip(),
+        "redirect_uri": os.getenv("DISCORD_REDIRECT_URI", "").strip(),
+    }
+
+    missing = [name for name, value in config.items() if not value]
+    if missing:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Missing OAuth configuration: {', '.join(missing)}",
+        )
+    return config
+
+
+def _is_authenticated(request: Request) -> bool:
+    user = request.session.get("user")
+    return isinstance(user, dict) and bool(user.get("id"))
+
+
+def _require_auth(request: Request) -> None:
+    if not _is_authenticated(request):
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+
+def _discord_request(url: str, *, method: str, headers: dict[str, str], data: dict[str, str] | None = None) -> dict[str, Any]:
+    encoded_data = None
+    if data is not None:
+        encoded_data = urllib.parse.urlencode(data).encode("utf-8")
+
+    req = urllib.request.Request(url, data=encoded_data, headers=headers, method=method)
+    with urllib.request.urlopen(req, timeout=20) as response:
+        payload = response.read().decode("utf-8")
+        return json.loads(payload)
+
+
+async def _fetch_discord_token(code: str, config: dict[str, str]) -> dict[str, Any]:
+    try:
+        return await asyncio.to_thread(
+            _discord_request,
+            f"{DISCORD_API_BASE}/oauth2/token",
+            method="POST",
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            data={
+                "client_id": config["client_id"],
+                "client_secret": config["client_secret"],
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": config["redirect_uri"],
+            },
+        )
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise HTTPException(status_code=400, detail=f"Discord token exchange failed: {detail[:400]}") from exc
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=502, detail="Discord token exchange unavailable") from exc
+
+
+async def _fetch_discord_user(access_token: str) -> dict[str, Any]:
+    try:
+        return await asyncio.to_thread(
+            _discord_request,
+            f"{DISCORD_API_BASE}/users/@me",
+            method="GET",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise HTTPException(status_code=400, detail=f"Discord user fetch failed: {detail[:400]}") from exc
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=502, detail="Discord user fetch unavailable") from exc
 
 
 def _read_available_cogs() -> list[str]:
@@ -146,6 +227,12 @@ def _state_with_metrics(state: dict[str, Any]) -> dict[str, Any]:
     return {**state, "metrics": metrics, "available_cogs": _read_available_cogs()}
 
 app = FastAPI(title="Luma Site")
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=os.getenv("SESSION_SECRET", "dev-insecure-session-secret-change-me"),
+    same_site="lax",
+    https_only=False,
+)
 app.mount("/assets", StaticFiles(directory=str(WEB_ROOT / "assets")), name="assets")
 
 
@@ -166,21 +253,92 @@ async def home() -> FileResponse:
     return FileResponse(WEB_ROOT / "index.html")
 
 
+@app.get("/auth/login")
+async def auth_login(request: Request, next_path: str = Query(default="/dashboard", alias="next")) -> RedirectResponse:
+    config = _oauth_config()
+
+    state = secrets.token_urlsafe(24)
+    request.session["oauth_state"] = state
+    request.session["post_login_redirect"] = next_path if next_path.startswith("/") else "/dashboard"
+
+    params = urllib.parse.urlencode(
+        {
+            "client_id": config["client_id"],
+            "redirect_uri": config["redirect_uri"],
+            "response_type": "code",
+            "scope": "identify guilds",
+            "state": state,
+            "prompt": "consent",
+        }
+    )
+    return RedirectResponse(url=f"https://discord.com/oauth2/authorize?{params}", status_code=302)
+
+
+@app.get("/auth/callback")
+async def auth_callback(request: Request, code: str = "", state: str = "") -> RedirectResponse:
+    config = _oauth_config()
+
+    if not code:
+        raise HTTPException(status_code=400, detail="Missing OAuth code")
+
+    stored_state = request.session.pop("oauth_state", "")
+    if not stored_state or state != stored_state:
+        raise HTTPException(status_code=400, detail="Invalid OAuth state")
+
+    token_data = await _fetch_discord_token(code, config)
+    access_token = token_data.get("access_token")
+    if not access_token:
+        raise HTTPException(status_code=400, detail="OAuth response did not return access token")
+
+    user = await _fetch_discord_user(access_token)
+    request.session["user"] = {
+        "id": user.get("id"),
+        "username": user.get("username"),
+        "global_name": user.get("global_name"),
+        "avatar": user.get("avatar"),
+        "discriminator": user.get("discriminator"),
+    }
+
+    destination = request.session.pop("post_login_redirect", "/dashboard")
+    if not isinstance(destination, str) or not destination.startswith("/"):
+        destination = "/dashboard"
+    return RedirectResponse(url=destination, status_code=302)
+
+
+@app.get("/auth/logout")
+async def auth_logout(request: Request) -> RedirectResponse:
+    request.session.clear()
+    return RedirectResponse(url="/", status_code=302)
+
+
+@app.get("/api/auth/session")
+async def auth_session(request: Request) -> dict[str, Any]:
+    user = request.session.get("user")
+    return {
+        "authenticated": _is_authenticated(request),
+        "user": user if isinstance(user, dict) else None,
+    }
+
+
 @app.get("/dashboard")
 @app.get("/dashboard.html")
-async def dashboard() -> FileResponse:
+async def dashboard(request: Request) -> FileResponse | RedirectResponse:
+    if not _is_authenticated(request):
+        return RedirectResponse(url="/auth/login?next=/dashboard", status_code=302)
     return FileResponse(WEB_ROOT / "dashboard.html")
 
 
 @app.get("/api/dashboard/state")
-async def dashboard_state() -> dict[str, Any]:
+async def dashboard_state(request: Request) -> dict[str, Any]:
+    _require_auth(request)
     with state_lock:
         state = _load_state()
     return _state_with_metrics(state)
 
 
 @app.put("/api/dashboard/guild")
-async def update_guild_settings(payload: GuildUpdatePayload) -> dict[str, Any]:
+async def update_guild_settings(payload: GuildUpdatePayload, request: Request) -> dict[str, Any]:
+    _require_auth(request)
     with state_lock:
         state = _load_state()
         state["guild"].update(payload.model_dump())
@@ -189,7 +347,8 @@ async def update_guild_settings(payload: GuildUpdatePayload) -> dict[str, Any]:
 
 
 @app.put("/api/dashboard/moderation")
-async def update_moderation_settings(payload: ModerationUpdatePayload) -> dict[str, Any]:
+async def update_moderation_settings(payload: ModerationUpdatePayload, request: Request) -> dict[str, Any]:
+    _require_auth(request)
     with state_lock:
         state = _load_state()
         state["moderation"].update(payload.model_dump())
@@ -198,7 +357,8 @@ async def update_moderation_settings(payload: ModerationUpdatePayload) -> dict[s
 
 
 @app.put("/api/dashboard/cogs")
-async def bulk_update_cogs(payload: CogBulkUpdatePayload) -> dict[str, Any]:
+async def bulk_update_cogs(payload: CogBulkUpdatePayload, request: Request) -> dict[str, Any]:
+    _require_auth(request)
     with state_lock:
         state = _load_state()
         allowed = set(state["cogs"].keys())
@@ -210,7 +370,8 @@ async def bulk_update_cogs(payload: CogBulkUpdatePayload) -> dict[str, Any]:
 
 
 @app.patch("/api/dashboard/cogs/{cog_name}")
-async def toggle_cog(cog_name: str, payload: CogTogglePayload) -> dict[str, Any]:
+async def toggle_cog(cog_name: str, payload: CogTogglePayload, request: Request) -> dict[str, Any]:
+    _require_auth(request)
     with state_lock:
         state = _load_state()
         if cog_name not in state["cogs"]:
@@ -221,11 +382,17 @@ async def toggle_cog(cog_name: str, payload: CogTogglePayload) -> dict[str, Any]
 
 
 @app.post("/api/dashboard/reset")
-async def reset_dashboard_state() -> dict[str, Any]:
+async def reset_dashboard_state(request: Request) -> dict[str, Any]:
+    _require_auth(request)
     with state_lock:
         state = _default_state()
         _save_state(state)
     return {"ok": True, "state": _state_with_metrics(state)}
+
+
+@app.exception_handler(401)
+async def auth_exception_handler(_: Request, exc: HTTPException) -> JSONResponse:
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
 
 @app.get("/{path:path}")

@@ -165,7 +165,9 @@
             <div class="brand"><span class="dot"></span>Luma Dashboard</div>
             <div class="top-actions">
                 <span class="pill" id="guild-pill">Guild: Loading...</span>
+                <span class="pill" id="user-pill">User: Loading...</span>
                 <a class="btn" href="/">Back to Site</a>
+                <a class="btn" href="/auth/logout">Logout</a>
                 <button class="btn btn-danger" id="reset-btn">Reset Config</button>
             </div>
         </header>
@@ -257,6 +259,7 @@
 
         const refs = {
             guildPill: document.getElementById("guild-pill"),
+            userPill: document.getElementById("user-pill"),
             warnings: document.getElementById("metric-warnings"),
             tickets: document.getElementById("metric-tickets"),
             modmail: document.getElementById("metric-modmail"),
@@ -290,11 +293,31 @@
                 ...options,
             });
 
+            if (response.status === 401) {
+                window.location.href = "/auth/login?next=/dashboard";
+                throw new Error("Authentication required");
+            }
+
             if (!response.ok) {
                 const body = await response.text();
                 throw new Error(body || "Request failed");
             }
             return response.json();
+        }
+
+        async function loadSession() {
+            try {
+                const session = await apiCall("/api/auth/session");
+                if (!session.authenticated) {
+                    window.location.href = "/auth/login?next=/dashboard";
+                    return;
+                }
+
+                const label = session.user?.global_name || session.user?.username || "Unknown";
+                refs.userPill.textContent = `User: ${label}`;
+            } catch (error) {
+                refs.userPill.textContent = "User: Unavailable";
+            }
         }
 
         function renderMetrics(state) {
@@ -413,6 +436,7 @@
             }
         });
 
+        loadSession();
         loadState().catch(() => showNotice("Failed to load dashboard state"));
     </script>
 </body>
