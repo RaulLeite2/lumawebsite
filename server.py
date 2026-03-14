@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Query, Request
-from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from starlette.middleware.sessions import SessionMiddleware
@@ -322,7 +322,7 @@ async def auth_session(request: Request) -> dict[str, Any]:
 
 @app.get("/dashboard")
 @app.get("/dashboard.html")
-async def dashboard(request: Request) -> FileResponse | RedirectResponse:
+async def dashboard(request: Request) -> Response:
     if not _is_authenticated(request):
         return RedirectResponse(url="/auth/login?next=/dashboard", status_code=302)
     return FileResponse(WEB_ROOT / "dashboard.html")
