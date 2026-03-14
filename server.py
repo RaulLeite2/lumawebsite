@@ -22,6 +22,7 @@ STATE_FILE = WEB_ROOT / "dashboard_state.json"
 DISCORD_API_BASE = "https://discord.com/api/v10"
 DISCORD_OAUTH_BASE = "https://discord.com/api"
 HTTP_USER_AGENT = "LumaDashboard/1.0 (+https://github.com/RaulLeite2/lumawebsite)"
+SESSION_GUILD_LIMIT = int(os.getenv("SESSION_GUILD_LIMIT", "25"))
 
 PERM_ADMINISTRATOR = 0x8
 PERM_MANAGE_GUILD = 0x20
@@ -125,6 +126,40 @@ def _session_guilds(request: Request) -> list[dict[str, Any]]:
     if isinstance(guilds, list):
         return [g for g in guilds if isinstance(g, dict) and g.get("id")]
     return []
+
+
+def _session_guild_counts(request: Request) -> dict[str, int]:
+    raw = request.session.get("guild_counts")
+    if isinstance(raw, dict):
+        total = raw.get("total")
+        configurable = raw.get("configurable")
+        if isinstance(total, int) and isinstance(configurable, int):
+            return {"total": total, "configurable": configurable}
+
+    guilds = _session_guilds(request)
+    return {
+        "total": len(guilds),
+        "configurable": sum(1 for g in guilds if bool(g.get("configurable"))),
+    }
+
+
+def _compact_guilds_for_session(guilds: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    # SessionMiddleware stores session in a signed cookie; keep payload intentionally small.
+    compact: list[dict[str, Any]] = []
+    for guild in guilds:
+        compact.append(
+            {
+                "id": str(guild.get("id", "")),
+                "name": str(guild.get("name", "Unknown Guild")),
+                "icon": guild.get("icon"),
+                "owner": bool(guild.get("owner")),
+                "configurable": bool(guild.get("configurable")),
+            }
+        )
+
+    compact = [g for g in compact if g.get("id")]
+    compact.sort(key=lambda g: (not g["configurable"], g["name"].lower()))
+    return compact[: max(1, SESSION_GUILD_LIMIT)]
 
 
 def _active_guild_from_session(request: Request) -> dict[str, Any] | None:
@@ -431,8 +466,13 @@ async def auth_callback(request: Request, code: str = "", state: str = "") -> Re
         "avatar": user.get("avatar"),
         "discriminator": user.get("discriminator"),
     }
-    request.session["guilds"] = guilds
-    selected = next((g for g in guilds if g.get("configurable")), None) or (guilds[0] if guilds else None)
+    request.session["guild_counts"] = {
+        "total": len(guilds),
+        "configurable": sum(1 for g in guilds if bool(g.get("configurable"))),
+    }
+    session_guilds = _compact_guilds_for_session(guilds)
+    request.session["guilds"] = session_guilds
+    selected = next((g for g in session_guilds if g.get("configurable")), None) or (session_guilds[0] if session_guilds else None)
     request.session["active_guild_id"] = selected.get("id") if selected else None
 
     destination = request.session.pop("post_login_redirect", "/dashboard/servers")
@@ -452,16 +492,13 @@ async def auth_session(request: Request) -> dict[str, Any]:
     user = request.session.get("user")
     active_guild = _active_guild_from_session(request)
     guilds = _session_guilds(request)
-    configurable_count = sum(1 for g in guilds if bool(g.get("configurable")))
+    counts = _session_guild_counts(request)
     return {
         "authenticated": _is_authenticated(request),
         "user": user if isinstance(user, dict) else None,
         "guilds": guilds,
         "active_guild_id": active_guild.get("id") if active_guild else None,
-        "guild_counts": {
-            "total": len(guilds),
-            "configurable": configurable_count,
-        },
+        "guild_counts": counts,
     }
 
 
@@ -525,7 +562,7 @@ async def dashboard_cogs(request: Request) -> Response:
 async def dashboard_state(request: Request) -> dict[str, Any]:
     _require_auth(request)
     guilds = _session_guilds(request)
-    configurable_count = sum(1 for g in guilds if bool(g.get("configurable")))
+    counts = _session_guild_counts(request)
     active_guild = _require_active_guild(request)
     guild_id = str(active_guild.get("id"))
     guild_name = str(active_guild.get("name", f"Guild {guild_id}"))
@@ -537,10 +574,7 @@ async def dashboard_state(request: Request) -> dict[str, Any]:
     return {
         "active_guild_id": guild_id,
         "guilds": guilds,
-        "guild_counts": {
-            "total": len(guilds),
-            "configurable": configurable_count,
-        },
+        "guild_counts": counts,
         "state": _state_with_metrics(state),
     }
 
