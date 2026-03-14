@@ -952,6 +952,7 @@
                     <div class="hero-actions">
                         <button class="btn btn-primary" id="heroInviteBtn" data-i18n="heroPrimaryBtn">Invite to Discord</button>
                         <button class="btn btn-secondary" id="heroCommandsBtn" data-i18n="heroSecondaryBtn">View Commands</button>
+                        <button class="btn btn-secondary" id="heroDashboardBtn" data-i18n="heroDashboardBtn">Open Dashboard</button>
                         <button class="btn btn-secondary btn-community" id="heroCommunityBtn" data-i18n="heroCommunityBtn">Join Community Discord</button>
                     </div>
                     <div class="hero-metrics">
@@ -1185,6 +1186,7 @@
                 heroSubtitle: "Moderation, AI assistance, modmail, tickets, analytics, and reaction roles in a polished Discord bot built for communities that need speed, clarity and control.",
                 heroPrimaryBtn: "Add to Discord",
                 heroSecondaryBtn: "View Commands",
+                heroDashboardBtn: "Open Dashboard",
                 heroCommunityBtn: "Community Server",
                 heroMascotAlt: "Luma main mascot avatar placeholder",
                 heroMascotLabel: "Luma main mascot artwork",
@@ -1274,6 +1276,7 @@
                 heroSubtitle: "Moderação, assistência com IA, modmail, tickets, análises e cargos por reação em um bot Discord completo, pensado para comunidades que precisam de velocidade, clareza e controle.",
                 heroPrimaryBtn: "Adicionar ao Discord",
                 heroSecondaryBtn: "Ver Comandos",
+                heroDashboardBtn: "Abrir Dashboard",
                 heroCommunityBtn: "Servidor da Comunidade",
                 heroMascotAlt: "Placeholder do avatar da mascote principal da Luma",
                 heroMascotLabel: "Arte principal da mascote da Luma",
@@ -1363,6 +1366,7 @@
                 heroSubtitle: "Moderación, asistencia con IA, modmail, tickets, analíticas y roles por reacción en un bot de Discord todo en uno, pensado para comunidades que necesitan velocidad, claridad y control.",
                 heroPrimaryBtn: "Añadir a Discord",
                 heroSecondaryBtn: "Ver Comandos",
+                heroDashboardBtn: "Abrir Dashboard",
                 heroCommunityBtn: "Servidor de la Comunidad",
                 heroMascotAlt: "Placeholder del avatar de la mascota principal de Luma",
                 heroMascotLabel: "Arte principal de la mascota de Luma",
@@ -1596,6 +1600,7 @@
             const heroInviteBtn = document.getElementById("heroInviteBtn");
             const ctaInviteBtn = document.getElementById("ctaInviteBtn");
             const heroCommandsBtn = document.getElementById("heroCommandsBtn");
+            const heroDashboardBtn = document.getElementById("heroDashboardBtn");
             const heroCommunityBtn = document.getElementById("heroCommunityBtn");
 
             [heroInviteBtn, ctaInviteBtn].forEach((btn) => {
@@ -1620,6 +1625,12 @@
                     if (commandsSection) {
                         commandsSection.scrollIntoView({ behavior: "smooth", block: "start" });
                     }
+                });
+            }
+
+            if (heroDashboardBtn) {
+                heroDashboardBtn.addEventListener("click", () => {
+                    window.location.href = "/dashboard";
                 });
             }
         })();

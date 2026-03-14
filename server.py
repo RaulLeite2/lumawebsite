@@ -1,48 +1,56 @@
 import os
-from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse
+
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse, PlainTextResponse
+from fastapi.staticfiles import StaticFiles
+import uvicorn
 
 
 WEB_ROOT = Path(__file__).parent.resolve()
 
+app = FastAPI(title="Luma Site")
+app.mount("/assets", StaticFiles(directory=str(WEB_ROOT / "assets")), name="assets")
 
-class SPARequestHandler(SimpleHTTPRequestHandler):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, directory=str(WEB_ROOT), **kwargs)
 
-    def do_GET(self):
-        request_path = urlparse(self.path).path
+def _safe_file_path(raw_path: str) -> Path | None:
+    candidate = (WEB_ROOT / raw_path.lstrip("/")).resolve()
+    if not str(candidate).startswith(str(WEB_ROOT)):
+        return None
+    return candidate
 
-        if request_path == "/health":
-            self.send_response(200)
-            self.send_header("Content-Type", "text/plain; charset=utf-8")
-            self.end_headers()
-            self.wfile.write(b"ok")
-            return
 
-        if request_path == "/":
-            self.path = "/index.html"
-            return super().do_GET()
+@app.get("/health", response_class=PlainTextResponse)
+async def health() -> str:
+    return "ok"
 
-        absolute_path = (WEB_ROOT / request_path.lstrip("/")).resolve()
-        is_under_root = str(absolute_path).startswith(str(WEB_ROOT))
-        if is_under_root and absolute_path.exists() and absolute_path.is_file():
-            return super().do_GET()
 
-        # For extensionless routes, return index.html to support SPA navigation.
-        if "." not in Path(request_path).name:
-            self.path = "/index.html"
-            return super().do_GET()
+@app.get("/")
+async def home() -> FileResponse:
+    return FileResponse(WEB_ROOT / "index.html")
 
-        return super().do_GET()
+
+@app.get("/dashboard")
+@app.get("/dashboard.html")
+async def dashboard() -> FileResponse:
+    return FileResponse(WEB_ROOT / "dashboard.html")
+
+
+@app.get("/{path:path}")
+async def static_or_spa(path: str) -> FileResponse:
+    safe_path = _safe_file_path(path)
+    if safe_path and safe_path.exists() and safe_path.is_file():
+        return FileResponse(safe_path)
+
+    if "." not in Path(path).name:
+        return FileResponse(WEB_ROOT / "index.html")
+
+    raise HTTPException(status_code=404, detail="Not found")
 
 
 def main() -> None:
     port = int(os.getenv("PORT", "8080"))
-    with ThreadingHTTPServer(("0.0.0.0", port), SPARequestHandler) as httpd:
-        print(f"[site] Serving on 0.0.0.0:{port}")
-        httpd.serve_forever()
+    uvicorn.run("server:app", host="0.0.0.0", port=port, log_level="info")
 
 
 if __name__ == "__main__":
