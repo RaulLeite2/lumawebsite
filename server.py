@@ -20,6 +20,8 @@ import uvicorn
 WEB_ROOT = Path(__file__).parent.resolve()
 STATE_FILE = WEB_ROOT / "dashboard_state.json"
 DISCORD_API_BASE = "https://discord.com/api/v10"
+DISCORD_OAUTH_BASE = "https://discord.com/api"
+HTTP_USER_AGENT = "LumaDashboard/1.0 (+https://github.com/RaulLeite2/lumawebsite)"
 
 DEFAULT_COGS = [
     "admin",
@@ -116,7 +118,12 @@ def _discord_request(url: str, *, method: str, headers: dict[str, str], data: di
     if data is not None:
         encoded_data = urllib.parse.urlencode(data).encode("utf-8")
 
-    req = urllib.request.Request(url, data=encoded_data, headers=headers, method=method)
+    merged_headers = {
+        "Accept": "application/json",
+        "User-Agent": HTTP_USER_AGENT,
+        **headers,
+    }
+    req = urllib.request.Request(url, data=encoded_data, headers=merged_headers, method=method)
     with urllib.request.urlopen(req, timeout=20) as response:
         payload = response.read().decode("utf-8")
         return json.loads(payload)
@@ -126,7 +133,7 @@ async def _fetch_discord_token(code: str, config: dict[str, str]) -> dict[str, A
     try:
         return await asyncio.to_thread(
             _discord_request,
-            f"{DISCORD_API_BASE}/oauth2/token",
+            f"{DISCORD_OAUTH_BASE}/oauth2/token",
             method="POST",
             headers={"Content-Type": "application/x-www-form-urlencoded"},
             data={
