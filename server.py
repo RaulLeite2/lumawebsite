@@ -1,4 +1,5 @@
 import asyncio
+from contextlib import asynccontextmanager
 import importlib
 import json
 import os
@@ -1039,7 +1040,20 @@ def _state_with_metrics(state: dict[str, Any]) -> dict[str, Any]:
     }
     return {**state, "metrics": metrics, "available_cogs": _read_available_cogs()}
 
-app = FastAPI(title="Luma Site")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    app.state.db_pool = await _connect_database_pool()
+    try:
+        yield
+    finally:
+        pool = getattr(app.state, "db_pool", None)
+        if pool is not None:
+            await pool.close()
+            app.state.db_pool = None
+
+
+app = FastAPI(title="Luma Site", lifespan=lifespan)
 app.add_middleware(
     SessionMiddleware,
     secret_key=os.getenv("SESSION_SECRET", "dev-insecure-session-secret-change-me"),
@@ -1047,19 +1061,6 @@ app.add_middleware(
     https_only=False,
 )
 app.mount("/assets", StaticFiles(directory=str(WEB_ROOT / "assets")), name="assets")
-
-
-@app.on_event("startup")
-async def startup_event() -> None:
-    app.state.db_pool = await _connect_database_pool()
-
-
-@app.on_event("shutdown")
-async def shutdown_event() -> None:
-    pool = _db_pool()
-    if pool is not None:
-        await pool.close()
-        app.state.db_pool = None
 
 
 def _safe_file_path(raw_path: str) -> Path | None:
