@@ -7,6 +7,7 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 
 COPY index.html /app/index.html
 COPY dashboard.html /app/dashboard.html
+COPY dashboard /app/dashboard
 COPY assets /app/assets
 COPY server.py /app/server.py
 

@@ -1,6 +1,6 @@
-import os
-import json
 import asyncio
+import json
+import os
 import secrets
 import threading
 import urllib.error
@@ -9,12 +9,12 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+import uvicorn
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from starlette.middleware.sessions import SessionMiddleware
-import uvicorn
 
 
 WEB_ROOT = Path(__file__).parent.resolve()
@@ -22,6 +22,9 @@ STATE_FILE = WEB_ROOT / "dashboard_state.json"
 DISCORD_API_BASE = "https://discord.com/api/v10"
 DISCORD_OAUTH_BASE = "https://discord.com/api"
 HTTP_USER_AGENT = "LumaDashboard/1.0 (+https://github.com/RaulLeite2/lumawebsite)"
+
+PERM_ADMINISTRATOR = 0x8
+PERM_MANAGE_GUILD = 0x20
 
 DEFAULT_COGS = [
     "admin",
@@ -84,6 +87,10 @@ class CogTogglePayload(BaseModel):
     enabled: bool
 
 
+class ActiveGuildPayload(BaseModel):
+    guild_id: str
+
+
 state_lock = threading.Lock()
 
 
@@ -111,6 +118,34 @@ def _is_authenticated(request: Request) -> bool:
 def _require_auth(request: Request) -> None:
     if not _is_authenticated(request):
         raise HTTPException(status_code=401, detail="Authentication required")
+
+
+def _session_guilds(request: Request) -> list[dict[str, Any]]:
+    guilds = request.session.get("guilds")
+    if isinstance(guilds, list):
+        return [g for g in guilds if isinstance(g, dict) and g.get("id")]
+    return []
+
+
+def _active_guild_from_session(request: Request) -> dict[str, Any] | None:
+    guilds = _session_guilds(request)
+    if not guilds:
+        return None
+
+    selected_id = request.session.get("active_guild_id")
+    for guild in guilds:
+        if guild.get("id") == selected_id:
+            return guild
+
+    request.session["active_guild_id"] = guilds[0].get("id")
+    return guilds[0]
+
+
+def _require_active_guild(request: Request) -> dict[str, Any]:
+    guild = _active_guild_from_session(request)
+    if guild is None:
+        raise HTTPException(status_code=400, detail="No manageable guild found for this account")
+    return guild
 
 
 def _discord_request(url: str, *, method: str, headers: dict[str, str], data: dict[str, str] | None = None) -> dict[str, Any]:
@@ -166,6 +201,53 @@ async def _fetch_discord_user(access_token: str) -> dict[str, Any]:
         raise HTTPException(status_code=502, detail="Discord user fetch unavailable") from exc
 
 
+def _has_dashboard_permission(raw_permissions: str, owner: bool) -> bool:
+    if owner:
+        return True
+    try:
+        bits = int(raw_permissions)
+    except (TypeError, ValueError):
+        return False
+    return (bits & PERM_ADMINISTRATOR) != 0 or (bits & PERM_MANAGE_GUILD) != 0
+
+
+async def _fetch_discord_guilds(access_token: str) -> list[dict[str, Any]]:
+    try:
+        response = await asyncio.to_thread(
+            _discord_request,
+            f"{DISCORD_API_BASE}/users/@me/guilds",
+            method="GET",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise HTTPException(status_code=400, detail=f"Discord guild fetch failed: {detail[:400]}") from exc
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=502, detail="Discord guild fetch unavailable") from exc
+
+    if not isinstance(response, list):
+        return []
+
+    manageable: list[dict[str, Any]] = []
+    for guild in response:
+        if not isinstance(guild, dict):
+            continue
+        owner = bool(guild.get("owner"))
+        if not _has_dashboard_permission(str(guild.get("permissions", "0")), owner):
+            continue
+        manageable.append(
+            {
+                "id": str(guild.get("id", "")),
+                "name": str(guild.get("name", "Unknown Guild")),
+                "icon": guild.get("icon"),
+                "owner": owner,
+                "permissions": str(guild.get("permissions", "0")),
+            }
+        )
+
+    return [g for g in manageable if g.get("id")]
+
+
 def _read_available_cogs() -> list[str]:
     cogs_path = os.getenv("LUMA_COGS_PATH")
     if cogs_path:
@@ -193,27 +275,63 @@ def _default_state() -> dict[str, Any]:
     }
 
 
-def _load_state() -> dict[str, Any]:
+def _normalize_guild_state(raw_state: dict[str, Any], guild_id: str, guild_name: str) -> dict[str, Any]:
+    normalized = _default_state()
+    normalized["guild"].update(raw_state.get("guild", {}))
+    normalized["moderation"].update(raw_state.get("moderation", {}))
+
+    normalized["guild"]["guild_id"] = guild_id
+    if not normalized["guild"].get("guild_name"):
+        normalized["guild"]["guild_name"] = guild_name
+
+    available_cogs = _read_available_cogs()
+    loaded_cogs = raw_state.get("cogs", {})
+    normalized["cogs"] = {name: bool(loaded_cogs.get(name, True)) for name in available_cogs}
+    return normalized
+
+
+def _load_state_container() -> dict[str, Any]:
     if not STATE_FILE.exists():
-        state = _default_state()
-        _save_state(state)
-        return state
+        container = {"guild_states": {}}
+        _save_state(container)
+        return container
 
     try:
         with STATE_FILE.open("r", encoding="utf-8") as f:
             raw = json.load(f)
     except (json.JSONDecodeError, OSError):
-        raw = _default_state()
+        raw = {"guild_states": {}}
 
-    normalized = _default_state()
-    normalized["guild"].update(raw.get("guild", {}))
-    normalized["moderation"].update(raw.get("moderation", {}))
+    container = {"guild_states": {}}
+    if isinstance(raw, dict) and "guild_states" in raw and isinstance(raw.get("guild_states"), dict):
+        for gid, state in raw["guild_states"].items():
+            if not isinstance(gid, str) or not isinstance(state, dict):
+                continue
+            default_name = str(state.get("guild", {}).get("guild_name", f"Guild {gid}"))
+            container["guild_states"][gid] = _normalize_guild_state(state, gid, default_name)
+    elif isinstance(raw, dict) and raw.get("guild"):
+        # Legacy one-guild state migration.
+        gid = str(raw.get("guild", {}).get("guild_id", GuildSettings().guild_id))
+        gname = str(raw.get("guild", {}).get("guild_name", GuildSettings().guild_name))
+        container["guild_states"][gid] = _normalize_guild_state(raw, gid, gname)
 
-    available_cogs = _read_available_cogs()
-    loaded_cogs = raw.get("cogs", {})
-    normalized["cogs"] = {name: bool(loaded_cogs.get(name, True)) for name in available_cogs}
-    _save_state(normalized)
-    return normalized
+    _save_state(container)
+    return container
+
+
+def _load_state_for_guild(guild_id: str, guild_name: str) -> tuple[dict[str, Any], dict[str, Any]]:
+    container = _load_state_container()
+    guild_states = container.setdefault("guild_states", {})
+
+    state = guild_states.get(guild_id)
+    if not isinstance(state, dict):
+        state = _normalize_guild_state({}, guild_id, guild_name)
+        guild_states[guild_id] = state
+    else:
+        state = _normalize_guild_state(state, guild_id, guild_name)
+        guild_states[guild_id] = state
+
+    return container, state
 
 
 def _save_state(state: dict[str, Any]) -> None:
@@ -298,6 +416,8 @@ async def auth_callback(request: Request, code: str = "", state: str = "") -> Re
         raise HTTPException(status_code=400, detail="OAuth response did not return access token")
 
     user = await _fetch_discord_user(access_token)
+    guilds = await _fetch_discord_guilds(access_token)
+
     request.session["user"] = {
         "id": user.get("id"),
         "username": user.get("username"),
@@ -305,6 +425,8 @@ async def auth_callback(request: Request, code: str = "", state: str = "") -> Re
         "avatar": user.get("avatar"),
         "discriminator": user.get("discriminator"),
     }
+    request.session["guilds"] = guilds
+    request.session["active_guild_id"] = guilds[0]["id"] if guilds else None
 
     destination = request.session.pop("post_login_redirect", "/dashboard")
     if not isinstance(destination, str) or not destination.startswith("/"):
@@ -321,80 +443,158 @@ async def auth_logout(request: Request) -> RedirectResponse:
 @app.get("/api/auth/session")
 async def auth_session(request: Request) -> dict[str, Any]:
     user = request.session.get("user")
+    active_guild = _active_guild_from_session(request)
     return {
         "authenticated": _is_authenticated(request),
         "user": user if isinstance(user, dict) else None,
+        "guilds": _session_guilds(request),
+        "active_guild_id": active_guild.get("id") if active_guild else None,
     }
+
+
+@app.put("/api/dashboard/active-guild")
+async def set_active_guild(payload: ActiveGuildPayload, request: Request) -> dict[str, Any]:
+    _require_auth(request)
+    guilds = _session_guilds(request)
+    if not any(g.get("id") == payload.guild_id for g in guilds):
+        raise HTTPException(status_code=400, detail="Guild is not available for this user")
+    request.session["active_guild_id"] = payload.guild_id
+    return {"ok": True, "active_guild_id": payload.guild_id}
 
 
 @app.get("/dashboard")
 @app.get("/dashboard.html")
 async def dashboard(request: Request) -> Response:
     if not _is_authenticated(request):
-        return RedirectResponse(url="/auth/login?next=/dashboard", status_code=302)
-    return FileResponse(WEB_ROOT / "dashboard.html")
+        return RedirectResponse(url="/auth/login?next=/dashboard/overview", status_code=302)
+    return RedirectResponse(url="/dashboard/overview", status_code=302)
+
+
+@app.get("/dashboard/overview")
+async def dashboard_overview(request: Request) -> Response:
+    if not _is_authenticated(request):
+        return RedirectResponse(url="/auth/login?next=/dashboard/overview", status_code=302)
+    return FileResponse(WEB_ROOT / "dashboard" / "overview.html")
+
+
+@app.get("/dashboard/moderation")
+async def dashboard_moderation(request: Request) -> Response:
+    if not _is_authenticated(request):
+        return RedirectResponse(url="/auth/login?next=/dashboard/moderation", status_code=302)
+    return FileResponse(WEB_ROOT / "dashboard" / "moderation.html")
+
+
+@app.get("/dashboard/guild-settings")
+async def dashboard_guild_settings(request: Request) -> Response:
+    if not _is_authenticated(request):
+        return RedirectResponse(url="/auth/login?next=/dashboard/guild-settings", status_code=302)
+    return FileResponse(WEB_ROOT / "dashboard" / "guild-settings.html")
+
+
+@app.get("/dashboard/cogs")
+async def dashboard_cogs(request: Request) -> Response:
+    if not _is_authenticated(request):
+        return RedirectResponse(url="/auth/login?next=/dashboard/cogs", status_code=302)
+    return FileResponse(WEB_ROOT / "dashboard" / "cogs.html")
 
 
 @app.get("/api/dashboard/state")
 async def dashboard_state(request: Request) -> dict[str, Any]:
     _require_auth(request)
+    active_guild = _require_active_guild(request)
+    guild_id = str(active_guild.get("id"))
+    guild_name = str(active_guild.get("name", f"Guild {guild_id}"))
+
     with state_lock:
-        state = _load_state()
-    return _state_with_metrics(state)
+        container, state = _load_state_for_guild(guild_id, guild_name)
+        _save_state(container)
+
+    return {
+        "active_guild_id": guild_id,
+        "guilds": _session_guilds(request),
+        "state": _state_with_metrics(state),
+    }
 
 
 @app.put("/api/dashboard/guild")
 async def update_guild_settings(payload: GuildUpdatePayload, request: Request) -> dict[str, Any]:
     _require_auth(request)
+    active_guild = _require_active_guild(request)
+    guild_id = str(active_guild.get("id"))
+    guild_name = str(active_guild.get("name", f"Guild {guild_id}"))
+
     with state_lock:
-        state = _load_state()
+        container, state = _load_state_for_guild(guild_id, guild_name)
         state["guild"].update(payload.model_dump())
-        _save_state(state)
-    return {"ok": True, "state": _state_with_metrics(state)}
+        state["guild"]["guild_id"] = guild_id
+        container["guild_states"][guild_id] = state
+        _save_state(container)
+    return {"ok": True, "active_guild_id": guild_id, "state": _state_with_metrics(state)}
 
 
 @app.put("/api/dashboard/moderation")
 async def update_moderation_settings(payload: ModerationUpdatePayload, request: Request) -> dict[str, Any]:
     _require_auth(request)
+    active_guild = _require_active_guild(request)
+    guild_id = str(active_guild.get("id"))
+    guild_name = str(active_guild.get("name", f"Guild {guild_id}"))
+
     with state_lock:
-        state = _load_state()
+        container, state = _load_state_for_guild(guild_id, guild_name)
         state["moderation"].update(payload.model_dump())
-        _save_state(state)
-    return {"ok": True, "state": _state_with_metrics(state)}
+        container["guild_states"][guild_id] = state
+        _save_state(container)
+    return {"ok": True, "active_guild_id": guild_id, "state": _state_with_metrics(state)}
 
 
 @app.put("/api/dashboard/cogs")
 async def bulk_update_cogs(payload: CogBulkUpdatePayload, request: Request) -> dict[str, Any]:
     _require_auth(request)
+    active_guild = _require_active_guild(request)
+    guild_id = str(active_guild.get("id"))
+    guild_name = str(active_guild.get("name", f"Guild {guild_id}"))
+
     with state_lock:
-        state = _load_state()
+        container, state = _load_state_for_guild(guild_id, guild_name)
         allowed = set(state["cogs"].keys())
         for cog_name, enabled in payload.cogs.items():
             if cog_name in allowed:
                 state["cogs"][cog_name] = bool(enabled)
-        _save_state(state)
-    return {"ok": True, "state": _state_with_metrics(state)}
+        container["guild_states"][guild_id] = state
+        _save_state(container)
+    return {"ok": True, "active_guild_id": guild_id, "state": _state_with_metrics(state)}
 
 
 @app.patch("/api/dashboard/cogs/{cog_name}")
 async def toggle_cog(cog_name: str, payload: CogTogglePayload, request: Request) -> dict[str, Any]:
     _require_auth(request)
+    active_guild = _require_active_guild(request)
+    guild_id = str(active_guild.get("id"))
+    guild_name = str(active_guild.get("name", f"Guild {guild_id}"))
+
     with state_lock:
-        state = _load_state()
+        container, state = _load_state_for_guild(guild_id, guild_name)
         if cog_name not in state["cogs"]:
             raise HTTPException(status_code=404, detail="Cog not found")
         state["cogs"][cog_name] = payload.enabled
-        _save_state(state)
-    return {"ok": True, "state": _state_with_metrics(state)}
+        container["guild_states"][guild_id] = state
+        _save_state(container)
+    return {"ok": True, "active_guild_id": guild_id, "state": _state_with_metrics(state)}
 
 
 @app.post("/api/dashboard/reset")
 async def reset_dashboard_state(request: Request) -> dict[str, Any]:
     _require_auth(request)
+    active_guild = _require_active_guild(request)
+    guild_id = str(active_guild.get("id"))
+    guild_name = str(active_guild.get("name", f"Guild {guild_id}"))
+
     with state_lock:
-        state = _default_state()
-        _save_state(state)
-    return {"ok": True, "state": _state_with_metrics(state)}
+        container, _ = _load_state_for_guild(guild_id, guild_name)
+        state = _normalize_guild_state({}, guild_id, guild_name)
+        container["guild_states"][guild_id] = state
+        _save_state(container)
+    return {"ok": True, "active_guild_id": guild_id, "state": _state_with_metrics(state)}
 
 
 @app.exception_handler(401)

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luma Dashboard - Moderation</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/assets/dashboard.css">
+</head>
+<body data-page="moderation">
+    <div class="app">
+        <aside class="sidebar">
+            <div class="logo">Luma</div>
+            <nav class="nav">
+                <a href="/dashboard/overview">Overview</a>
+                <a class="active" href="/dashboard/moderation">Moderation</a>
+                <a href="/dashboard/guild-settings">Guild Settings</a>
+                <a href="/dashboard/cogs">Cogs</a>
+            </nav>
+            <div class="user-box" id="session-user">Signed in...</div>
+        </aside>
+
+        <main class="main">
+            <header class="topbar">
+                <div>
+                    <h1 class="title">Moderation Configuration</h1>
+                    <p class="subtitle">Tune anti-abuse defaults for each guild.</p>
+                </div>
+                <div class="actions">
+                    <select id="guild-select"></select>
+                    <a class="btn" href="/auth/logout">Logout</a>
+                </div>
+            </header>
+
+            <section class="section">
+                <h2>Rules</h2>
+                <p class="lead">Enable modules and set escalation defaults.</p>
+                <div class="grid-2">
+                    <div class="field">
+                        <label for="mod-limit">Warning limit</label>
+                        <input id="mod-limit" type="number" min="1" max="20">
+                    </div>
+                    <div class="field">
+                        <label for="mod-action">Default action</label>
+                        <select id="mod-action">
+                            <option value="kick">Kick</option>
+                            <option value="ban">Ban</option>
+                            <option value="mute">Mute</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="switch-row"><span>Moderation Enabled</span><input id="mod-enabled" class="switch" type="checkbox"></div>
+                <div class="switch-row"><span>Smart Anti-flood</span><input id="mod-flood" class="switch" type="checkbox"></div>
+                <div class="switch-row"><span>Modmail Enabled</span><input id="mod-modmail" class="switch" type="checkbox"></div>
+                <div class="switch-row"><span>Tickets Enabled</span><input id="mod-tickets" class="switch" type="checkbox"></div>
+
+                <div style="margin-top: 0.9rem; display:flex; justify-content:flex-end;">
+                    <button class="btn primary" id="save-moderation">Save Moderation</button>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <div class="flash" id="flash"></div>
+    <script src="/assets/dashboard.js"></script>
+</body>
+</html>
