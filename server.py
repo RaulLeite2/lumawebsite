@@ -1,4 +1,5 @@
 import asyncio
+import importlib
 import json
 import os
 import secrets
@@ -59,9 +60,50 @@ class ModerationSettings(BaseModel):
     tickets_enabled: bool = True
 
 
+class AutomationSettings(BaseModel):
+    enabled: bool = True
+    invite_filter: bool = True
+    link_filter: bool = True
+    caps_filter: bool = False
+    spam_threshold: int = Field(default=6, ge=3, le=20)
+    quarantine_role: str = "@Muted"
+
+
+class WarningSystemSettings(BaseModel):
+    enabled: bool = True
+    public_reason_prompt: bool = True
+    dm_user: bool = True
+    threshold: int = Field(default=3, ge=1, le=20)
+    escalate_to: str = Field(default="kick", pattern="^(kick|ban|mute|timeout)$")
+
+
+class LogSettings(BaseModel):
+    enabled: bool = True
+    moderation: bool = True
+    ban_events: bool = True
+    join_leave: bool = False
+    message_delete: bool = True
+    modmail_transcripts: bool = True
+    audit_channel: str = "#moderation-log"
+    ban_channel: str = "#ban-logs"
+
+
+class ModmailSettings(BaseModel):
+    enabled: bool = True
+    anonymous_replies: bool = False
+    close_on_idle: bool = True
+    inbox_channel: str = "#modmail"
+    alert_role: str = "@Support"
+    auto_close_hours: int = Field(default=48, ge=1, le=168)
+
+
 class DashboardState(BaseModel):
     guild: GuildSettings
     moderation: ModerationSettings
+    automation: AutomationSettings
+    warnings: WarningSystemSettings
+    logs: LogSettings
+    modmail: ModmailSettings
     cogs: dict[str, bool]
 
 
@@ -92,7 +134,403 @@ class ActiveGuildPayload(BaseModel):
     guild_id: str
 
 
+class SetupUpdatePayload(BaseModel):
+    guild: GuildUpdatePayload
+    moderation: ModerationUpdatePayload
+    automation: AutomationSettings
+    warnings: WarningSystemSettings
+    logs: LogSettings
+    modmail: ModmailSettings
+    cogs: dict[str, bool]
+
+
 state_lock = threading.Lock()
+
+GUILD_DB_SELECT = """
+SELECT
+    log_channel_id,
+    auto_moderation,
+    quant_warnings,
+    acao,
+    modmail_category_id,
+    smart_antiflood,
+    language_code,
+    ticket_default_category_id,
+    ticket_default_support_role_id,
+    ai_enabled,
+    automod_invite_filter,
+    automod_link_filter,
+    automod_caps_filter,
+    automod_spam_threshold,
+    automod_quarantine_role_id,
+    warn_public_reason_prompt,
+    warn_dm_user,
+    logs_enabled,
+    log_ban_channel_id,
+    log_moderation,
+    log_ban_events,
+    log_join_leave,
+    log_message_delete,
+    log_modmail_transcripts,
+    modmail_anonymous_replies,
+    modmail_close_on_idle,
+    modmail_alert_role_id,
+    modmail_auto_close_hours
+FROM guilds
+WHERE guild_id = $1
+"""
+
+GUILD_COGS_SELECT = """
+SELECT cog_name, enabled
+FROM guild_cog_settings
+WHERE guild_id = $1
+"""
+
+
+def _database_targets() -> list[tuple[str, dict[str, Any]]]:
+    database_url = os.getenv("DATABASE_URL", "").strip()
+    discrete_config = {
+        "user": os.getenv("DB_USER"),
+        "password": os.getenv("DB_PASSWORD"),
+        "database": os.getenv("DB_NAME"),
+        "host": os.getenv("DB_HOST"),
+        "port": os.getenv("DB_PORT"),
+    }
+
+    targets: list[tuple[str, dict[str, Any]]] = []
+    if database_url:
+        targets.append(("DATABASE_URL", {"dsn": database_url}))
+
+    if all(discrete_config.values()):
+        targets.append(("DB_*", {**discrete_config, "port": int(str(discrete_config["port"]))}))
+
+    return targets
+
+
+def _extract_discord_id(raw_value: str | None) -> int | None:
+    if raw_value is None:
+        return None
+    digits = "".join(char for char in str(raw_value) if char.isdigit())
+    if not digits:
+        return None
+    try:
+        return int(digits)
+    except ValueError:
+        return None
+
+
+def _id_to_input_value(raw_id: Any, fallback: str = "") -> str:
+    if raw_id is None:
+        return fallback
+    try:
+        return str(int(raw_id))
+    except (TypeError, ValueError):
+        return fallback
+
+
+async def _connect_database_pool() -> Any | None:
+    try:
+        asyncpg = importlib.import_module("asyncpg")
+    except ImportError:
+        asyncpg = None
+
+    if asyncpg is None:
+        print("[Dashboard] asyncpg is not installed; database sync disabled.")
+        return None
+
+    targets = _database_targets()
+    if not targets:
+        print("[Dashboard] DATABASE_URL/DB_* not configured; database sync disabled.")
+        return None
+
+    for source_name, connection_kwargs in targets:
+        try:
+            pool = await asyncpg.create_pool(**connection_kwargs)
+            print(f"[Dashboard] Database connection established via {source_name}.")
+            return pool
+        except Exception as exc:
+            print(f"[Dashboard] Database connection failed via {source_name}: {exc}")
+
+    print("[Dashboard] Falling back to local dashboard state only.")
+    return None
+
+
+def _db_pool() -> Any | None:
+    return getattr(app.state, "db_pool", None)
+
+
+async def _fetch_guild_db_row(guild_id: str) -> dict[str, Any] | None:
+    pool = _db_pool()
+    if pool is None:
+        return None
+
+    try:
+        guild_id_int = int(guild_id)
+    except (TypeError, ValueError):
+        return None
+
+    try:
+        async with pool.acquire() as connection:
+            row = await connection.fetchrow(GUILD_DB_SELECT, guild_id_int)
+            cog_rows = await connection.fetch(GUILD_COGS_SELECT, guild_id_int)
+    except Exception as exc:
+        print(f"[Dashboard] Failed to load guild state from database for {guild_id}: {exc}")
+        return None
+
+    payload = dict(row) if row else {}
+    if cog_rows:
+        payload["cogs_from_db"] = {str(item["cog_name"]): bool(item["enabled"]) for item in cog_rows}
+
+    return payload or None
+
+
+def _merge_db_row_into_state(state: dict[str, Any], row: dict[str, Any]) -> dict[str, Any]:
+    language_code = row.get("language_code")
+    if isinstance(language_code, str) and language_code:
+        state["guild"]["language"] = language_code
+
+    log_channel_value = _id_to_input_value(row.get("log_channel_id"), state["guild"].get("log_channel", ""))
+    if log_channel_value:
+        state["guild"]["log_channel"] = log_channel_value
+        state["logs"]["audit_channel"] = log_channel_value
+
+    auto_moderation = row.get("auto_moderation")
+    if auto_moderation is not None:
+        enabled = bool(auto_moderation)
+        state["moderation"]["enabled"] = enabled
+        state["warnings"]["enabled"] = enabled
+
+    quant_warnings = row.get("quant_warnings")
+    if quant_warnings is not None:
+        state["moderation"]["warning_limit"] = int(quant_warnings)
+        state["warnings"]["threshold"] = int(quant_warnings)
+
+    action = row.get("acao")
+    if isinstance(action, str) and action:
+        normalized_action = action.lower()
+        state["moderation"]["default_action"] = normalized_action
+        state["warnings"]["escalate_to"] = normalized_action
+
+    smart_antiflood = row.get("smart_antiflood")
+    if smart_antiflood is not None:
+        enabled = bool(smart_antiflood)
+        state["moderation"]["smart_antiflood"] = enabled
+        state["automation"]["enabled"] = enabled
+
+    for source_key, target_key in (
+        ("automod_invite_filter", "invite_filter"),
+        ("automod_link_filter", "link_filter"),
+        ("automod_caps_filter", "caps_filter"),
+    ):
+        source_value = row.get(source_key)
+        if source_value is not None:
+            state["automation"][target_key] = bool(source_value)
+
+    if row.get("automod_spam_threshold") is not None:
+        state["automation"]["spam_threshold"] = int(row["automod_spam_threshold"])
+
+    quarantine_role_id = row.get("automod_quarantine_role_id")
+    if quarantine_role_id is not None:
+        state["automation"]["quarantine_role"] = _id_to_input_value(quarantine_role_id, state["automation"].get("quarantine_role", ""))
+
+    warn_public_reason_prompt = row.get("warn_public_reason_prompt")
+    if warn_public_reason_prompt is not None:
+        state["warnings"]["public_reason_prompt"] = bool(warn_public_reason_prompt)
+
+    warn_dm_user = row.get("warn_dm_user")
+    if warn_dm_user is not None:
+        state["warnings"]["dm_user"] = bool(warn_dm_user)
+
+    modmail_category = row.get("modmail_category_id")
+    if modmail_category is not None:
+        state["modmail"]["enabled"] = True
+        state["modmail"]["inbox_channel"] = _id_to_input_value(modmail_category, state["modmail"].get("inbox_channel", ""))
+    elif row:
+        state["modmail"]["enabled"] = False
+        state["moderation"]["modmail_enabled"] = False
+
+    ai_enabled = row.get("ai_enabled")
+    if ai_enabled is not None and "ai" in state["cogs"]:
+        state["cogs"]["ai"] = bool(ai_enabled)
+
+    for source_key, target_key in (
+        ("logs_enabled", "enabled"),
+        ("log_moderation", "moderation"),
+        ("log_ban_events", "ban_events"),
+        ("log_join_leave", "join_leave"),
+        ("log_message_delete", "message_delete"),
+        ("log_modmail_transcripts", "modmail_transcripts"),
+    ):
+        source_value = row.get(source_key)
+        if source_value is not None:
+            state["logs"][target_key] = bool(source_value)
+
+    ban_channel_id = row.get("log_ban_channel_id")
+    if ban_channel_id is not None:
+        state["logs"]["ban_channel"] = _id_to_input_value(ban_channel_id, state["logs"].get("ban_channel", ""))
+
+    anonymous_replies = row.get("modmail_anonymous_replies")
+    if anonymous_replies is not None:
+        state["modmail"]["anonymous_replies"] = bool(anonymous_replies)
+
+    close_on_idle = row.get("modmail_close_on_idle")
+    if close_on_idle is not None:
+        state["modmail"]["close_on_idle"] = bool(close_on_idle)
+
+    alert_role_id = row.get("modmail_alert_role_id")
+    if alert_role_id is not None:
+        state["modmail"]["alert_role"] = _id_to_input_value(alert_role_id, state["modmail"].get("alert_role", ""))
+
+    auto_close_hours = row.get("modmail_auto_close_hours")
+    if auto_close_hours is not None:
+        state["modmail"]["auto_close_hours"] = int(auto_close_hours)
+
+    cogs_from_db = row.get("cogs_from_db")
+    if isinstance(cogs_from_db, dict):
+        for cog_name, enabled in cogs_from_db.items():
+            if cog_name in state["cogs"]:
+                state["cogs"][cog_name] = bool(enabled)
+
+    state["moderation"]["modmail_enabled"] = state["modmail"]["enabled"]
+    return state
+
+
+async def _sync_state_to_database(guild_id: str, state: dict[str, Any]) -> bool:
+    pool = _db_pool()
+    if pool is None:
+        return False
+
+    try:
+        guild_id_int = int(guild_id)
+    except (TypeError, ValueError):
+        return False
+
+    log_channel_id = _extract_discord_id(state["guild"].get("log_channel") or state["logs"].get("audit_channel"))
+    modmail_category_id = _extract_discord_id(state["modmail"].get("inbox_channel")) if state["modmail"].get("enabled") else None
+    auto_moderation = bool(state["warnings"].get("enabled") or state["moderation"].get("enabled"))
+    smart_antiflood = bool(state["automation"].get("enabled") or state["moderation"].get("smart_antiflood"))
+    warning_limit = int(state["warnings"].get("threshold") or state["moderation"].get("warning_limit") or 3)
+    action = str(state["warnings"].get("escalate_to") or state["moderation"].get("default_action") or "kick").lower()
+    db_action = "mute" if action == "timeout" else action
+    language_code = str(state["guild"].get("language") or "pt")
+    ai_enabled = bool(state["cogs"].get("ai", True))
+    quarantine_role_id = _extract_discord_id(state["automation"].get("quarantine_role"))
+    ban_channel_id = _extract_discord_id(state["logs"].get("ban_channel"))
+    modmail_alert_role_id = _extract_discord_id(state["modmail"].get("alert_role"))
+
+    try:
+        async with pool.acquire() as connection:
+            await connection.execute(
+                """
+                INSERT INTO guilds (
+                    guild_id,
+                    log_channel_id,
+                    auto_moderation,
+                    quant_warnings,
+                    acao,
+                    modmail_category_id,
+                    smart_antiflood,
+                    language_code,
+                    ai_enabled,
+                    automod_invite_filter,
+                    automod_link_filter,
+                    automod_caps_filter,
+                    automod_spam_threshold,
+                    automod_quarantine_role_id,
+                    warn_public_reason_prompt,
+                    warn_dm_user,
+                    logs_enabled,
+                    log_ban_channel_id,
+                    log_moderation,
+                    log_ban_events,
+                    log_join_leave,
+                    log_message_delete,
+                    log_modmail_transcripts,
+                    modmail_anonymous_replies,
+                    modmail_close_on_idle,
+                    modmail_alert_role_id,
+                    modmail_auto_close_hours,
+                    updated_at
+                )
+                VALUES (
+                    $1, $2, $3, $4, $5, $6, $7, $8, $9,
+                    $10, $11, $12, $13, $14, $15, $16, $17, $18,
+                    $19, $20, $21, $22, $23, $24, $25, $26, $27, CURRENT_TIMESTAMP
+                )
+                ON CONFLICT (guild_id)
+                DO UPDATE SET
+                    log_channel_id = EXCLUDED.log_channel_id,
+                    auto_moderation = EXCLUDED.auto_moderation,
+                    quant_warnings = EXCLUDED.quant_warnings,
+                    acao = EXCLUDED.acao,
+                    modmail_category_id = EXCLUDED.modmail_category_id,
+                    smart_antiflood = EXCLUDED.smart_antiflood,
+                    language_code = EXCLUDED.language_code,
+                    ai_enabled = EXCLUDED.ai_enabled,
+                    automod_invite_filter = EXCLUDED.automod_invite_filter,
+                    automod_link_filter = EXCLUDED.automod_link_filter,
+                    automod_caps_filter = EXCLUDED.automod_caps_filter,
+                    automod_spam_threshold = EXCLUDED.automod_spam_threshold,
+                    automod_quarantine_role_id = EXCLUDED.automod_quarantine_role_id,
+                    warn_public_reason_prompt = EXCLUDED.warn_public_reason_prompt,
+                    warn_dm_user = EXCLUDED.warn_dm_user,
+                    logs_enabled = EXCLUDED.logs_enabled,
+                    log_ban_channel_id = EXCLUDED.log_ban_channel_id,
+                    log_moderation = EXCLUDED.log_moderation,
+                    log_ban_events = EXCLUDED.log_ban_events,
+                    log_join_leave = EXCLUDED.log_join_leave,
+                    log_message_delete = EXCLUDED.log_message_delete,
+                    log_modmail_transcripts = EXCLUDED.log_modmail_transcripts,
+                    modmail_anonymous_replies = EXCLUDED.modmail_anonymous_replies,
+                    modmail_close_on_idle = EXCLUDED.modmail_close_on_idle,
+                    modmail_alert_role_id = EXCLUDED.modmail_alert_role_id,
+                    modmail_auto_close_hours = EXCLUDED.modmail_auto_close_hours,
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                guild_id_int,
+                log_channel_id,
+                auto_moderation,
+                warning_limit,
+                db_action,
+                modmail_category_id,
+                smart_antiflood,
+                language_code,
+                ai_enabled,
+                bool(state["automation"].get("invite_filter")),
+                bool(state["automation"].get("link_filter")),
+                bool(state["automation"].get("caps_filter")),
+                int(state["automation"].get("spam_threshold") or 6),
+                quarantine_role_id,
+                bool(state["warnings"].get("public_reason_prompt")),
+                bool(state["warnings"].get("dm_user")),
+                bool(state["logs"].get("enabled")),
+                ban_channel_id,
+                bool(state["logs"].get("moderation")),
+                bool(state["logs"].get("ban_events")),
+                bool(state["logs"].get("join_leave")),
+                bool(state["logs"].get("message_delete")),
+                bool(state["logs"].get("modmail_transcripts")),
+                bool(state["modmail"].get("anonymous_replies")),
+                bool(state["modmail"].get("close_on_idle")),
+                modmail_alert_role_id,
+                int(state["modmail"].get("auto_close_hours") or 48),
+            )
+            await connection.executemany(
+                """
+                INSERT INTO guild_cog_settings (guild_id, cog_name, enabled, updated_at)
+                VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+                ON CONFLICT (guild_id, cog_name)
+                DO UPDATE SET enabled = EXCLUDED.enabled, updated_at = CURRENT_TIMESTAMP
+                """,
+                [
+                    (guild_id_int, cog_name, bool(enabled))
+                    for cog_name, enabled in sorted(state["cogs"].items())
+                ],
+            )
+        return True
+    except Exception as exc:
+        print(f"[Dashboard] Failed to persist guild state to database for {guild_id}: {exc}")
+        return False
 
 
 def _oauth_config() -> dict[str, str]:
@@ -312,6 +750,10 @@ def _default_state() -> dict[str, Any]:
     return {
         "guild": GuildSettings().model_dump(),
         "moderation": ModerationSettings().model_dump(),
+        "automation": AutomationSettings().model_dump(),
+        "warnings": WarningSystemSettings().model_dump(),
+        "logs": LogSettings().model_dump(),
+        "modmail": ModmailSettings().model_dump(),
         "cogs": {name: True for name in _read_available_cogs()},
     }
 
@@ -320,10 +762,29 @@ def _normalize_guild_state(raw_state: dict[str, Any], guild_id: str, guild_name:
     normalized = _default_state()
     normalized["guild"].update(raw_state.get("guild", {}))
     normalized["moderation"].update(raw_state.get("moderation", {}))
+    normalized["automation"].update(raw_state.get("automation", {}))
+    normalized["warnings"].update(raw_state.get("warnings", {}))
+    normalized["logs"].update(raw_state.get("logs", {}))
+    normalized["modmail"].update(raw_state.get("modmail", {}))
 
     normalized["guild"]["guild_id"] = guild_id
     if not normalized["guild"].get("guild_name"):
         normalized["guild"]["guild_name"] = guild_name
+
+    if not normalized["logs"].get("audit_channel"):
+        normalized["logs"]["audit_channel"] = normalized["guild"]["log_channel"]
+
+    if not raw_state.get("warnings"):
+        normalized["warnings"]["threshold"] = normalized["moderation"]["warning_limit"]
+        normalized["warnings"]["escalate_to"] = normalized["moderation"]["default_action"]
+    else:
+        normalized["moderation"]["warning_limit"] = normalized["warnings"]["threshold"]
+        escalation = normalized["warnings"]["escalate_to"]
+        normalized["moderation"]["default_action"] = "mute" if escalation == "timeout" else escalation
+
+    if not raw_state.get("modmail"):
+        normalized["modmail"]["enabled"] = normalized["moderation"]["modmail_enabled"]
+    normalized["moderation"]["modmail_enabled"] = normalized["modmail"]["enabled"]
 
     available_cogs = _read_available_cogs()
     loaded_cogs = raw_state.get("cogs", {})
@@ -375,6 +836,34 @@ def _load_state_for_guild(guild_id: str, guild_name: str) -> tuple[dict[str, Any
     return container, state
 
 
+def _store_state_for_guild(guild_id: str, guild_name: str, state: dict[str, Any]) -> dict[str, Any]:
+    container = _load_state_container()
+    container.setdefault("guild_states", {})[guild_id] = _normalize_guild_state(state, guild_id, guild_name)
+    _save_state(container)
+    return container["guild_states"][guild_id]
+
+
+async def _get_effective_state_for_guild(guild_id: str, guild_name: str) -> dict[str, Any]:
+    with state_lock:
+        _, state = _load_state_for_guild(guild_id, guild_name)
+
+    db_row = await _fetch_guild_db_row(guild_id)
+    if db_row is not None:
+        state = _merge_db_row_into_state(state, db_row)
+        state = _normalize_guild_state(state, guild_id, guild_name)
+        with state_lock:
+            state = _store_state_for_guild(guild_id, guild_name, state)
+
+    return state
+
+
+async def _persist_state_for_guild(guild_id: str, guild_name: str, state: dict[str, Any]) -> dict[str, Any]:
+    state = _normalize_guild_state(state, guild_id, guild_name)
+    await _sync_state_to_database(guild_id, state)
+    with state_lock:
+        return _store_state_for_guild(guild_id, guild_name, state)
+
+
 def _save_state(state: dict[str, Any]) -> None:
     with STATE_FILE.open("w", encoding="utf-8") as f:
         json.dump(state, f, indent=2)
@@ -383,12 +872,24 @@ def _save_state(state: dict[str, Any]) -> None:
 def _state_with_metrics(state: dict[str, Any]) -> dict[str, Any]:
     enabled_cogs = sum(1 for enabled in state["cogs"].values() if enabled)
     total_cogs = len(state["cogs"]) if state["cogs"] else 1
+    enabled_logs = sum(
+        1
+        for key in ("moderation", "ban_events", "join_leave", "message_delete", "modmail_transcripts")
+        if state["logs"].get(key)
+    )
+    protection_layers = sum(
+        1
+        for key in ("invite_filter", "link_filter", "caps_filter")
+        if state["automation"].get(key)
+    )
 
     metrics = {
         "warnings_24h": 8 if state["moderation"]["enabled"] else 0,
         "open_tickets": 4 if state["moderation"]["tickets_enabled"] else 0,
         "modmail_threads": 3 if state["moderation"]["modmail_enabled"] else 0,
         "cogs_enabled": f"{enabled_cogs}/{total_cogs}",
+        "logs_enabled": enabled_logs if state["logs"].get("enabled") else 0,
+        "protection_layers": protection_layers,
     }
     return {**state, "metrics": metrics, "available_cogs": _read_available_cogs()}
 
@@ -400,6 +901,19 @@ app.add_middleware(
     https_only=False,
 )
 app.mount("/assets", StaticFiles(directory=str(WEB_ROOT / "assets")), name="assets")
+
+
+@app.on_event("startup")
+async def startup_event() -> None:
+    app.state.db_pool = await _connect_database_pool()
+
+
+@app.on_event("shutdown")
+async def shutdown_event() -> None:
+    pool = _db_pool()
+    if pool is not None:
+        await pool.close()
+        app.state.db_pool = None
 
 
 def _safe_file_path(raw_path: str) -> Path | None:
@@ -567,9 +1081,7 @@ async def dashboard_state(request: Request) -> dict[str, Any]:
     guild_id = str(active_guild.get("id"))
     guild_name = str(active_guild.get("name", f"Guild {guild_id}"))
 
-    with state_lock:
-        container, state = _load_state_for_guild(guild_id, guild_name)
-        _save_state(container)
+    state = await _get_effective_state_for_guild(guild_id, guild_name)
 
     return {
         "active_guild_id": guild_id,
@@ -586,12 +1098,13 @@ async def update_guild_settings(payload: GuildUpdatePayload, request: Request) -
     guild_id = str(active_guild.get("id"))
     guild_name = str(active_guild.get("name", f"Guild {guild_id}"))
 
-    with state_lock:
-        container, state = _load_state_for_guild(guild_id, guild_name)
-        state["guild"].update(payload.model_dump())
-        state["guild"]["guild_id"] = guild_id
-        container["guild_states"][guild_id] = state
-        _save_state(container)
+    state = await _get_effective_state_for_guild(guild_id, guild_name)
+    previous_log_channel = state["guild"].get("log_channel")
+    state["guild"].update(payload.model_dump())
+    state["guild"]["guild_id"] = guild_id
+    if state["logs"].get("audit_channel") == previous_log_channel:
+        state["logs"]["audit_channel"] = payload.log_channel
+    state = await _persist_state_for_guild(guild_id, guild_name, state)
     return {"ok": True, "active_guild_id": guild_id, "state": _state_with_metrics(state)}
 
 
@@ -602,11 +1115,50 @@ async def update_moderation_settings(payload: ModerationUpdatePayload, request: 
     guild_id = str(active_guild.get("id"))
     guild_name = str(active_guild.get("name", f"Guild {guild_id}"))
 
-    with state_lock:
-        container, state = _load_state_for_guild(guild_id, guild_name)
-        state["moderation"].update(payload.model_dump())
-        container["guild_states"][guild_id] = state
-        _save_state(container)
+    state = await _get_effective_state_for_guild(guild_id, guild_name)
+    state["moderation"].update(payload.model_dump())
+    state["warnings"]["threshold"] = payload.warning_limit
+    state["warnings"]["escalate_to"] = payload.default_action
+    state["modmail"]["enabled"] = payload.modmail_enabled
+    state = await _persist_state_for_guild(guild_id, guild_name, state)
+    return {"ok": True, "active_guild_id": guild_id, "state": _state_with_metrics(state)}
+
+
+@app.put("/api/dashboard/setup")
+async def update_setup(payload: SetupUpdatePayload, request: Request) -> dict[str, Any]:
+    _require_auth(request)
+    active_guild = _require_configurable_active_guild(request)
+    guild_id = str(active_guild.get("id"))
+    guild_name = str(active_guild.get("name", f"Guild {guild_id}"))
+
+    state = await _get_effective_state_for_guild(guild_id, guild_name)
+
+    guild_payload = payload.guild.model_dump()
+    moderation_payload = payload.moderation.model_dump()
+    automation_payload = payload.automation.model_dump()
+    warnings_payload = payload.warnings.model_dump()
+    logs_payload = payload.logs.model_dump()
+    modmail_payload = payload.modmail.model_dump()
+
+    state["guild"].update(guild_payload)
+    state["guild"]["guild_id"] = guild_id
+    state["moderation"].update(moderation_payload)
+    state["automation"].update(automation_payload)
+    state["warnings"].update(warnings_payload)
+    state["logs"].update(logs_payload)
+    state["modmail"].update(modmail_payload)
+
+    state["moderation"]["warning_limit"] = warnings_payload["threshold"]
+    state["moderation"]["default_action"] = "mute" if warnings_payload["escalate_to"] == "timeout" else warnings_payload["escalate_to"]
+    state["moderation"]["modmail_enabled"] = modmail_payload["enabled"]
+
+    allowed = set(state["cogs"].keys())
+    for cog_name, enabled in payload.cogs.items():
+        if cog_name in allowed:
+            state["cogs"][cog_name] = bool(enabled)
+
+    state = await _persist_state_for_guild(guild_id, guild_name, state)
+
     return {"ok": True, "active_guild_id": guild_id, "state": _state_with_metrics(state)}
 
 
@@ -617,14 +1169,12 @@ async def bulk_update_cogs(payload: CogBulkUpdatePayload, request: Request) -> d
     guild_id = str(active_guild.get("id"))
     guild_name = str(active_guild.get("name", f"Guild {guild_id}"))
 
-    with state_lock:
-        container, state = _load_state_for_guild(guild_id, guild_name)
-        allowed = set(state["cogs"].keys())
-        for cog_name, enabled in payload.cogs.items():
-            if cog_name in allowed:
-                state["cogs"][cog_name] = bool(enabled)
-        container["guild_states"][guild_id] = state
-        _save_state(container)
+    state = await _get_effective_state_for_guild(guild_id, guild_name)
+    allowed = set(state["cogs"].keys())
+    for cog_name, enabled in payload.cogs.items():
+        if cog_name in allowed:
+            state["cogs"][cog_name] = bool(enabled)
+    state = await _persist_state_for_guild(guild_id, guild_name, state)
     return {"ok": True, "active_guild_id": guild_id, "state": _state_with_metrics(state)}
 
 
@@ -635,13 +1185,11 @@ async def toggle_cog(cog_name: str, payload: CogTogglePayload, request: Request)
     guild_id = str(active_guild.get("id"))
     guild_name = str(active_guild.get("name", f"Guild {guild_id}"))
 
-    with state_lock:
-        container, state = _load_state_for_guild(guild_id, guild_name)
-        if cog_name not in state["cogs"]:
-            raise HTTPException(status_code=404, detail="Cog not found")
-        state["cogs"][cog_name] = payload.enabled
-        container["guild_states"][guild_id] = state
-        _save_state(container)
+    state = await _get_effective_state_for_guild(guild_id, guild_name)
+    if cog_name not in state["cogs"]:
+        raise HTTPException(status_code=404, detail="Cog not found")
+    state["cogs"][cog_name] = payload.enabled
+    state = await _persist_state_for_guild(guild_id, guild_name, state)
     return {"ok": True, "active_guild_id": guild_id, "state": _state_with_metrics(state)}
 
 
@@ -652,11 +1200,7 @@ async def reset_dashboard_state(request: Request) -> dict[str, Any]:
     guild_id = str(active_guild.get("id"))
     guild_name = str(active_guild.get("name", f"Guild {guild_id}"))
 
-    with state_lock:
-        container, _ = _load_state_for_guild(guild_id, guild_name)
-        state = _normalize_guild_state({}, guild_id, guild_name)
-        container["guild_states"][guild_id] = state
-        _save_state(container)
+    state = await _persist_state_for_guild(guild_id, guild_name, _normalize_guild_state({}, guild_id, guild_name))
     return {"ok": True, "active_guild_id": guild_id, "state": _state_with_metrics(state)}
 
 

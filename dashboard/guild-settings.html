@@ -17,7 +17,7 @@
                 <a href="/dashboard/servers">Servers</a>
                 <a href="/dashboard/overview">Overview</a>
                 <a href="/dashboard/moderation">Moderation</a>
-                <a class="active" href="/dashboard/guild-settings">Guild Settings</a>
+                <a class="active" href="/dashboard/guild-settings">Bot Setup</a>
                 <a href="/dashboard/cogs">Cogs</a>
             </nav>
             <div class="user-box" id="session-user">Signed in...</div>
@@ -26,8 +26,8 @@
         <main class="main">
             <header class="topbar">
                 <div>
-                    <h1 class="title">Guild Settings</h1>
-                    <p class="subtitle">Control language and operational channels.</p>
+                    <h1 class="title">Bot Setup</h1>
+                    <p class="subtitle">Configure moderation flows, logs, modmail and the core modules for the selected guild.</p>
                 </div>
                 <div class="actions">
                     <select id="guild-select"></select>
@@ -35,31 +35,211 @@
                 </div>
             </header>
 
-            <section class="section">
-                <h2>Identity and Defaults</h2>
-                <p class="lead">These values are saved per selected guild.</p>
+            <section class="section setup-hero">
+                <div>
+                    <span class="eyebrow">Luma control room</span>
+                    <h2>Everything the staff team needs, in one screen</h2>
+                    <p class="lead">Turn modules on and off, choose where events are logged, and define how AutoMod and warns should react before the first incident happens. For settings backed by the bot database, use a Discord mention or numeric ID.</p>
+                </div>
+                <div class="setup-summary">
+                    <article class="summary-card">
+                        <span>Protections</span>
+                        <strong id="setup-protection-count">0</strong>
+                        <small>Active filters</small>
+                    </article>
+                    <article class="summary-card">
+                        <span>Logs</span>
+                        <strong id="setup-log-count">0</strong>
+                        <small>Streams enabled</small>
+                    </article>
+                    <article class="summary-card">
+                        <span>Warn action</span>
+                        <strong id="setup-warn-action">-</strong>
+                        <small>Escalation default</small>
+                    </article>
+                </div>
+            </section>
 
-                <div class="field">
-                    <label for="guild-name">Guild name</label>
-                    <input id="guild-name" type="text">
+            <section class="setup-grid">
+                <article class="section setup-card identity-card">
+                    <div class="card-head">
+                        <div>
+                            <h2>Guild Identity</h2>
+                            <p class="lead">Base labels and default routing for the panel.</p>
+                        </div>
+                        <span class="pill">Core</span>
+                    </div>
+
+                    <div class="field">
+                        <label for="guild-name">Guild name</label>
+                        <input id="guild-name" type="text">
+                    </div>
+
+                    <div class="grid-2 compact-grid">
+                        <div class="field">
+                            <label for="guild-language">Language</label>
+                            <select id="guild-language">
+                                <option value="pt">Portuguese</option>
+                                <option value="en">English</option>
+                                <option value="es">Spanish</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label for="guild-log">Default log channel</label>
+                            <input id="guild-log" type="text" placeholder="#moderation-log or 1234567890">
+                        </div>
+                    </div>
+                </article>
+
+                <article class="section setup-card">
+                    <div class="card-head">
+                        <div>
+                            <h2>AutoMod</h2>
+                            <p class="lead">Protect the server against spam, invite drops and noisy raids.</p>
+                        </div>
+                        <span class="pill accent-green">Auto</span>
+                    </div>
+
+                    <div class="switch-row feature-row"><span>Enable AutoMod</span><input id="auto-enabled" class="switch" type="checkbox"></div>
+                    <div class="switch-row feature-row"><span>Block invite links</span><input id="auto-invite" class="switch" type="checkbox"></div>
+                    <div class="switch-row feature-row"><span>Block external links</span><input id="auto-link" class="switch" type="checkbox"></div>
+                    <div class="switch-row feature-row"><span>Detect excessive caps</span><input id="auto-caps" class="switch" type="checkbox"></div>
+
+                    <div class="grid-2 compact-grid">
+                        <div class="field">
+                            <label for="auto-threshold">Spam threshold</label>
+                            <input id="auto-threshold" type="number" min="3" max="20">
+                        </div>
+                        <div class="field">
+                            <label for="auto-role">Quarantine role</label>
+                            <input id="auto-role" type="text" placeholder="@Muted">
+                        </div>
+                    </div>
+                </article>
+
+                <article class="section setup-card">
+                    <div class="card-head">
+                        <div>
+                            <h2>Warn System</h2>
+                            <p class="lead">Define how warnings escalate before they turn into bans or timeouts.</p>
+                        </div>
+                        <span class="pill accent-orange">Warns</span>
+                    </div>
+
+                    <div class="switch-row feature-row"><span>Enable warns</span><input id="warn-enabled" class="switch" type="checkbox"></div>
+                    <div class="switch-row feature-row"><span>Prompt staff for a public reason</span><input id="warn-public-reason" class="switch" type="checkbox"></div>
+                    <div class="switch-row feature-row"><span>Send DM to warned user</span><input id="warn-dm-user" class="switch" type="checkbox"></div>
+
+                    <div class="grid-2 compact-grid">
+                        <div class="field">
+                            <label for="warn-threshold">Warn limit</label>
+                            <input id="warn-threshold" type="number" min="1" max="20">
+                        </div>
+                        <div class="field">
+                            <label for="warn-action">Auto action</label>
+                            <select id="warn-action">
+                                <option value="kick">Kick</option>
+                                <option value="ban">Ban</option>
+                                <option value="mute">Mute</option>
+                                <option value="timeout">Timeout</option>
+                            </select>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="section setup-card logs-card">
+                    <div class="card-head">
+                        <div>
+                            <h2>Logs & Audit</h2>
+                            <p class="lead">Choose which staff events are recorded and where they should go.</p>
+                        </div>
+                        <span class="pill accent-blue">Logs</span>
+                    </div>
+
+                    <div class="toggle-grid">
+                        <label class="toggle-tile">
+                            <span>Enable all logs</span>
+                            <input id="log-enabled" class="switch" type="checkbox">
+                        </label>
+                        <label class="toggle-tile">
+                            <span>Moderation actions</span>
+                            <input id="log-moderation" class="switch" type="checkbox">
+                        </label>
+                        <label class="toggle-tile">
+                            <span>Ban and unban logs</span>
+                            <input id="log-ban-events" class="switch" type="checkbox">
+                        </label>
+                        <label class="toggle-tile">
+                            <span>Join and leave events</span>
+                            <input id="log-join-leave" class="switch" type="checkbox">
+                        </label>
+                        <label class="toggle-tile">
+                            <span>Deleted messages</span>
+                            <input id="log-message-delete" class="switch" type="checkbox">
+                        </label>
+                        <label class="toggle-tile">
+                            <span>Modmail transcripts</span>
+                            <input id="log-modmail" class="switch" type="checkbox">
+                        </label>
+                    </div>
+
+                    <div class="grid-2 compact-grid">
+                        <div class="field">
+                            <label for="log-audit-channel">Audit channel</label>
+                            <input id="log-audit-channel" type="text" placeholder="#mod-logs or 1234567890">
+                        </div>
+                        <div class="field">
+                            <label for="log-ban-channel">Ban log channel</label>
+                            <input id="log-ban-channel" type="text" placeholder="#ban-logs">
+                        </div>
+                    </div>
+                </article>
+
+                <article class="section setup-card">
+                    <div class="card-head">
+                        <div>
+                            <h2>Modmail</h2>
+                            <p class="lead">Keep staff contact organized and predictable for the community.</p>
+                        </div>
+                        <span class="pill accent-pink">Inbox</span>
+                    </div>
+
+                    <div class="switch-row feature-row"><span>Enable modmail</span><input id="modmail-enabled" class="switch" type="checkbox"></div>
+                    <div class="switch-row feature-row"><span>Allow anonymous staff replies</span><input id="modmail-anonymous" class="switch" type="checkbox"></div>
+                    <div class="switch-row feature-row"><span>Auto-close on idle</span><input id="modmail-idle" class="switch" type="checkbox"></div>
+
+                    <div class="grid-2 compact-grid">
+                        <div class="field">
+                            <label for="modmail-channel">Modmail category</label>
+                            <input id="modmail-channel" type="text" placeholder="ModMail category ID or mention">
+                        </div>
+                        <div class="field">
+                            <label for="modmail-role">Alert role</label>
+                            <input id="modmail-role" type="text" placeholder="@Support">
+                        </div>
+                    </div>
+
+                    <div class="field">
+                        <label for="modmail-hours">Auto-close after (hours)</label>
+                        <input id="modmail-hours" type="number" min="1" max="168">
+                    </div>
+                </article>
+            </section>
+
+            <section class="section setup-card cog-section">
+                <div class="card-head">
+                    <div>
+                        <h2>Core Modules</h2>
+                        <p class="lead">Turn cogs on and off for this guild before saving the setup.</p>
+                    </div>
+                    <span class="pill">Modules</span>
                 </div>
 
-                <div class="field">
-                    <label for="guild-language">Language</label>
-                    <select id="guild-language">
-                        <option value="pt">Portuguese</option>
-                        <option value="en">English</option>
-                        <option value="es">Spanish</option>
-                    </select>
-                </div>
+                <div id="setup-cogs-list" class="setup-cogs-grid"></div>
 
-                <div class="field">
-                    <label for="guild-log">Log channel</label>
-                    <input id="guild-log" type="text" placeholder="#moderation-log">
-                </div>
-
-                <div style="margin-top: 0.9rem; display:flex; justify-content:flex-end;">
-                    <button class="btn primary" id="save-guild">Save Guild Settings</button>
+                <div class="setup-actions">
+                    <button class="btn danger" id="reset-guild">Reset Current Guild</button>
+                    <button class="btn primary" id="save-setup">Save Bot Setup</button>
                 </div>
             </section>
         </main>

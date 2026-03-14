@@ -2,6 +2,21 @@ let dashboardContext = null;
 
 const page = document.body.dataset.page || "overview";
 
+const COG_DESCRIPTIONS = {
+    admin: "Administrative commands and permission-gated controls.",
+    ai: "Assistant commands and AI-powered responses.",
+    events: "Server event listeners and automated reactions.",
+    help: "Help menus and usage guidance for members.",
+    levels: "XP, rank progression and engagement rewards.",
+    mail: "Modmail conversations and staff inbox workflows.",
+    meme: "Fun content commands and entertainment features.",
+    mod: "Moderation actions, warns, bans and staff tooling.",
+    rolepanel: "Self-role and reaction-based role assignment panels.",
+    setup: "Initial configuration commands and guided setup tools.",
+    stats: "Guild metrics, counters and visibility widgets.",
+    ticket: "Ticket flows, support panels and close actions.",
+};
+
 function flash(message) {
     const el = document.getElementById("flash");
     if (!el) return;
@@ -173,16 +188,87 @@ function renderModeration(context) {
 
 function renderGuildSettings(context) {
     const g = context.state.guild;
+    const moderation = context.state.moderation;
+    const automation = context.state.automation;
+    const warnings = context.state.warnings;
+    const logs = context.state.logs;
+    const modmail = context.state.modmail;
+    const metrics = context.state.metrics || {};
+
     const refs = {
         name: document.getElementById("guild-name"),
         language: document.getElementById("guild-language"),
         log: document.getElementById("guild-log"),
+        autoEnabled: document.getElementById("auto-enabled"),
+        autoInvite: document.getElementById("auto-invite"),
+        autoLink: document.getElementById("auto-link"),
+        autoCaps: document.getElementById("auto-caps"),
+        autoThreshold: document.getElementById("auto-threshold"),
+        autoRole: document.getElementById("auto-role"),
+        warnEnabled: document.getElementById("warn-enabled"),
+        warnPublicReason: document.getElementById("warn-public-reason"),
+        warnDmUser: document.getElementById("warn-dm-user"),
+        warnThreshold: document.getElementById("warn-threshold"),
+        warnAction: document.getElementById("warn-action"),
+        logEnabled: document.getElementById("log-enabled"),
+        logModeration: document.getElementById("log-moderation"),
+        logBanEvents: document.getElementById("log-ban-events"),
+        logJoinLeave: document.getElementById("log-join-leave"),
+        logMessageDelete: document.getElementById("log-message-delete"),
+        logModmail: document.getElementById("log-modmail"),
+        logAuditChannel: document.getElementById("log-audit-channel"),
+        logBanChannel: document.getElementById("log-ban-channel"),
+        modmailEnabled: document.getElementById("modmail-enabled"),
+        modmailAnonymous: document.getElementById("modmail-anonymous"),
+        modmailIdle: document.getElementById("modmail-idle"),
+        modmailChannel: document.getElementById("modmail-channel"),
+        modmailRole: document.getElementById("modmail-role"),
+        modmailHours: document.getElementById("modmail-hours"),
+        protectionCount: document.getElementById("setup-protection-count"),
+        logCount: document.getElementById("setup-log-count"),
+        warnActionSummary: document.getElementById("setup-warn-action"),
     };
 
     if (!refs.name) return;
+
     refs.name.value = g.guild_name;
     refs.language.value = g.language;
     refs.log.value = g.log_channel;
+
+    refs.autoEnabled.checked = automation.enabled;
+    refs.autoInvite.checked = automation.invite_filter;
+    refs.autoLink.checked = automation.link_filter;
+    refs.autoCaps.checked = automation.caps_filter;
+    refs.autoThreshold.value = automation.spam_threshold;
+    refs.autoRole.value = automation.quarantine_role;
+
+    refs.warnEnabled.checked = warnings.enabled;
+    refs.warnPublicReason.checked = warnings.public_reason_prompt;
+    refs.warnDmUser.checked = warnings.dm_user;
+    refs.warnThreshold.value = warnings.threshold;
+    refs.warnAction.value = warnings.escalate_to;
+
+    refs.logEnabled.checked = logs.enabled;
+    refs.logModeration.checked = logs.moderation;
+    refs.logBanEvents.checked = logs.ban_events;
+    refs.logJoinLeave.checked = logs.join_leave;
+    refs.logMessageDelete.checked = logs.message_delete;
+    refs.logModmail.checked = logs.modmail_transcripts;
+    refs.logAuditChannel.value = logs.audit_channel;
+    refs.logBanChannel.value = logs.ban_channel;
+
+    refs.modmailEnabled.checked = modmail.enabled;
+    refs.modmailAnonymous.checked = modmail.anonymous_replies;
+    refs.modmailIdle.checked = modmail.close_on_idle;
+    refs.modmailChannel.value = modmail.inbox_channel;
+    refs.modmailRole.value = modmail.alert_role;
+    refs.modmailHours.value = modmail.auto_close_hours;
+
+    refs.protectionCount.textContent = String(metrics.protection_layers ?? 0);
+    refs.logCount.textContent = String(metrics.logs_enabled ?? 0);
+    refs.warnActionSummary.textContent = String(warnings.escalate_to || moderation.default_action).toUpperCase();
+
+    renderSetupCogs(context);
 }
 
 function renderCogs(context) {
@@ -207,6 +293,27 @@ function renderCogs(context) {
         row.appendChild(toggle);
 
         list.appendChild(row);
+    });
+}
+
+function renderSetupCogs(context) {
+    const list = document.getElementById("setup-cogs-list");
+    if (!list) return;
+
+    list.innerHTML = "";
+    Object.entries(context.state.cogs).forEach(([name, enabled]) => {
+        const tile = document.createElement("label");
+        tile.className = "cog-tile";
+
+        tile.innerHTML = `
+            <header>
+                <strong>${name}</strong>
+                <input type="checkbox" class="switch" data-setup-cog="${name}" ${enabled ? "checked" : ""}>
+            </header>
+            <p>${COG_DESCRIPTIONS[name] || "Module controls for this guild."}</p>
+        `;
+
+        list.appendChild(tile);
     });
 }
 
@@ -321,6 +428,81 @@ function bindPageActions() {
                 flash("Guild settings updated");
             } catch (error) {
                 flash("Failed to update guild settings");
+            }
+        });
+    }
+
+    const saveSetup = document.getElementById("save-setup");
+    if (saveSetup) {
+        saveSetup.addEventListener("click", async () => {
+            const setupToggles = document.querySelectorAll("input[data-setup-cog]");
+            const cogs = {};
+            setupToggles.forEach((toggle) => {
+                cogs[toggle.dataset.setupCog] = toggle.checked;
+            });
+
+            const warnAction = document.getElementById("warn-action").value;
+            const currentModeration = dashboardContext?.state?.moderation || {};
+            const payload = {
+                guild: {
+                    guild_name: document.getElementById("guild-name").value.trim(),
+                    language: document.getElementById("guild-language").value,
+                    log_channel: document.getElementById("guild-log").value.trim(),
+                },
+                moderation: {
+                    enabled: document.getElementById("warn-enabled").checked || document.getElementById("auto-enabled").checked,
+                    smart_antiflood: document.getElementById("auto-enabled").checked,
+                    warning_limit: Number(document.getElementById("warn-threshold").value || 3),
+                    default_action: warnAction === "timeout" ? "mute" : warnAction,
+                    modmail_enabled: document.getElementById("modmail-enabled").checked,
+                    tickets_enabled: Boolean(currentModeration.tickets_enabled),
+                },
+                automation: {
+                    enabled: document.getElementById("auto-enabled").checked,
+                    invite_filter: document.getElementById("auto-invite").checked,
+                    link_filter: document.getElementById("auto-link").checked,
+                    caps_filter: document.getElementById("auto-caps").checked,
+                    spam_threshold: Number(document.getElementById("auto-threshold").value || 6),
+                    quarantine_role: document.getElementById("auto-role").value.trim(),
+                },
+                warnings: {
+                    enabled: document.getElementById("warn-enabled").checked,
+                    public_reason_prompt: document.getElementById("warn-public-reason").checked,
+                    dm_user: document.getElementById("warn-dm-user").checked,
+                    threshold: Number(document.getElementById("warn-threshold").value || 3),
+                    escalate_to: warnAction,
+                },
+                logs: {
+                    enabled: document.getElementById("log-enabled").checked,
+                    moderation: document.getElementById("log-moderation").checked,
+                    ban_events: document.getElementById("log-ban-events").checked,
+                    join_leave: document.getElementById("log-join-leave").checked,
+                    message_delete: document.getElementById("log-message-delete").checked,
+                    modmail_transcripts: document.getElementById("log-modmail").checked,
+                    audit_channel: document.getElementById("log-audit-channel").value.trim(),
+                    ban_channel: document.getElementById("log-ban-channel").value.trim(),
+                },
+                modmail: {
+                    enabled: document.getElementById("modmail-enabled").checked,
+                    anonymous_replies: document.getElementById("modmail-anonymous").checked,
+                    close_on_idle: document.getElementById("modmail-idle").checked,
+                    inbox_channel: document.getElementById("modmail-channel").value.trim(),
+                    alert_role: document.getElementById("modmail-role").value.trim(),
+                    auto_close_hours: Number(document.getElementById("modmail-hours").value || 48),
+                },
+                cogs,
+            };
+
+            try {
+                const res = await api("/api/dashboard/setup", {
+                    method: "PUT",
+                    body: JSON.stringify(payload),
+                });
+                dashboardContext.state = res.state;
+                renderPage(dashboardContext);
+                flash("Bot setup updated");
+            } catch (error) {
+                flash("Failed to update bot setup");
             }
         });
     }
