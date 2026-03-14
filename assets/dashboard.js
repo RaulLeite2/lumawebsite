@@ -41,7 +41,33 @@ function updateSetupDirtyState(isDirty, message) {
     }
 }
 
-function showSetupSaveBanner(state) {
+function playApplySound() {
+    try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+
+        const ctx = new AudioCtx();
+        const now = ctx.currentTime;
+        const tones = [660, 880, 990];
+        tones.forEach((freq, index) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = "sine";
+            osc.frequency.value = freq;
+            gain.gain.setValueAtTime(0.0001, now + index * 0.08);
+            gain.gain.exponentialRampToValueAtTime(0.06, now + index * 0.08 + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + index * 0.08 + 0.09);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(now + index * 0.08);
+            osc.stop(now + index * 0.08 + 0.1);
+        });
+    } catch (error) {
+        // Browser may block sound until user interaction; ignore silently.
+    }
+}
+
+function showSetupSaveBanner(state, changes = []) {
     const banner = document.getElementById("setup-save-banner");
     if (!banner || !state) return;
 
@@ -49,6 +75,7 @@ function showSetupSaveBanner(state) {
     const detail = document.getElementById("setup-save-detail");
     const meta = document.getElementById("setup-save-meta");
     const status = document.getElementById("setup-save-state");
+    const list = document.getElementById("setup-save-list");
     const guildName = state.guild?.guild_name || "this guild";
     const enabledCogs = Object.values(state.cogs || {}).filter(Boolean).length;
     const logStreams = [state.logs?.moderation, state.logs?.ban_events, state.logs?.join_leave, state.logs?.message_delete, state.logs?.modmail_transcripts].filter(Boolean).length;
@@ -58,12 +85,21 @@ function showSetupSaveBanner(state) {
     if (title) title.textContent = "Configuration updated successfully";
     if (detail) detail.textContent = `${guildName} now has ${enabledCogs} enabled modules and ${logStreams} active log streams.`;
     if (meta) meta.textContent = `Last sync at ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.`;
+    if (list) {
+        list.innerHTML = "";
+        const items = changes.length ? changes.slice(0, 8) : ["No setting changed (values already matched)."];
+        items.forEach((change) => {
+            const li = document.createElement("li");
+            li.textContent = change;
+            list.appendChild(li);
+        });
+    }
 }
 
 function bindSetupDirtyTracking() {
     if (page !== "guild-settings" || setupDirtyTrackingBound) return;
 
-    const trackedSelector = "#guild-name, #guild-language, #guild-log, #auto-enabled, #auto-invite, #auto-link, #auto-caps, #auto-threshold, #auto-role, #warn-enabled, #warn-public-reason, #warn-dm-user, #warn-threshold, #warn-action, #log-enabled, #log-moderation, #log-ban-events, #log-join-leave, #log-message-delete, #log-modmail, #log-audit-channel, #log-ban-channel, #modmail-enabled, #modmail-anonymous, #modmail-idle, #modmail-channel, #modmail-role, #modmail-hours, input[data-setup-cog]";
+    const trackedSelector = "#guild-name, #guild-language, #guild-log, #auto-enabled, #auto-antiflood, #auto-invite, #auto-link, #auto-caps, #auto-threshold, #auto-role, #warn-enabled, #warn-public-reason, #warn-dm-user, #warn-threshold, #warn-action, #log-enabled, #log-moderation, #log-ban-events, #log-join-leave, #log-message-delete, #log-modmail, #log-audit-channel, #log-ban-channel, #modmail-enabled, #modmail-anonymous, #modmail-idle, #modmail-channel, #modmail-role, #modmail-hours, input[data-setup-cog]";
 
     const markDirty = (event) => {
         const target = event.target;
@@ -265,6 +301,7 @@ function renderGuildSettings(context) {
         language: document.getElementById("guild-language"),
         log: document.getElementById("guild-log"),
         autoEnabled: document.getElementById("auto-enabled"),
+        autoAntiFlood: document.getElementById("auto-antiflood"),
         autoInvite: document.getElementById("auto-invite"),
         autoLink: document.getElementById("auto-link"),
         autoCaps: document.getElementById("auto-caps"),
@@ -300,7 +337,8 @@ function renderGuildSettings(context) {
     refs.language.value = g.language;
     refs.log.value = g.log_channel;
 
-    refs.autoEnabled.checked = automation.enabled;
+    refs.autoEnabled.checked = warnings.enabled;
+    refs.autoAntiFlood.checked = moderation.smart_antiflood;
     refs.autoInvite.checked = automation.invite_filter;
     refs.autoLink.checked = automation.link_filter;
     refs.autoCaps.checked = automation.caps_filter;
@@ -518,14 +556,14 @@ function bindPageActions() {
                 },
                 moderation: {
                     enabled: document.getElementById("warn-enabled").checked || document.getElementById("auto-enabled").checked,
-                    smart_antiflood: document.getElementById("auto-enabled").checked,
+                    smart_antiflood: document.getElementById("auto-antiflood").checked,
                     warning_limit: Number(document.getElementById("warn-threshold").value || 3),
                     default_action: warnAction === "timeout" ? "mute" : warnAction,
                     modmail_enabled: document.getElementById("modmail-enabled").checked,
                     tickets_enabled: Boolean(currentModeration.tickets_enabled),
                 },
                 automation: {
-                    enabled: document.getElementById("auto-enabled").checked,
+                    enabled: document.getElementById("auto-antiflood").checked,
                     invite_filter: document.getElementById("auto-invite").checked,
                     link_filter: document.getElementById("auto-link").checked,
                     caps_filter: document.getElementById("auto-caps").checked,
@@ -567,7 +605,8 @@ function bindPageActions() {
                 });
                 dashboardContext.state = res.state;
                 renderPage(dashboardContext);
-                showSetupSaveBanner(res.state);
+                showSetupSaveBanner(res.state, res.applied_changes || []);
+                playApplySound();
                 updateSetupDirtyState(false, "Everything saved for this guild.");
                 flash("Bot setup updated");
             } catch (error) {

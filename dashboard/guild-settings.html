@@ -72,6 +72,7 @@
                         <span class="pill accent-green" id="setup-save-state">Saved</span>
                         <h3 id="setup-save-title">Configuration updated</h3>
                         <p id="setup-save-detail">Your guild setup is in sync with the bot.</p>
+                        <ul class="save-change-list" id="setup-save-list"></ul>
                     </div>
                     <small id="setup-save-meta">Waiting for the next update.</small>
                 </div>
@@ -132,7 +133,8 @@
                             <span class="pill accent-green">Auto</span>
                         </div>
 
-                        <div class="switch-row feature-row"><span>Enable AutoMod</span><input id="auto-enabled" class="switch" type="checkbox"></div>
+                        <div class="switch-row feature-row"><span>Enable warn automation</span><input id="auto-enabled" class="switch" type="checkbox"></div>
+                        <div class="switch-row feature-row"><span>Enable anti-flood engine</span><input id="auto-antiflood" class="switch" type="checkbox"></div>
                         <div class="switch-row feature-row"><span>Block invite links</span><input id="auto-invite" class="switch" type="checkbox"></div>
                         <div class="switch-row feature-row"><span>Block external links</span><input id="auto-link" class="switch" type="checkbox"></div>
                         <div class="switch-row feature-row"><span>Detect excessive caps</span><input id="auto-caps" class="switch" type="checkbox"></div>

@@ -228,6 +228,152 @@ def _id_to_input_value(raw_id: Any, fallback: str = "") -> str:
         return fallback
 
 
+def _format_diff_value(value: Any) -> str:
+    if isinstance(value, bool):
+        return "ON" if value else "OFF"
+    if value is None:
+        return "none"
+    if isinstance(value, str):
+        return value.strip() or "empty"
+    return str(value)
+
+
+def _flatten_state_for_diff(payload: dict[str, Any], prefix: str = "") -> dict[str, Any]:
+    flattened: dict[str, Any] = {}
+    for key in sorted(payload.keys()):
+        value = payload[key]
+        composite = f"{prefix}.{key}" if prefix else key
+        if isinstance(value, dict):
+            flattened.update(_flatten_state_for_diff(value, composite))
+        else:
+            flattened[composite] = value
+    return flattened
+
+
+def _collect_setup_changes(previous_state: dict[str, Any], updated_state: dict[str, Any]) -> list[str]:
+    tracked_scopes = {
+        "guild": updated_state.get("guild", {}),
+        "automation": updated_state.get("automation", {}),
+        "warnings": updated_state.get("warnings", {}),
+        "logs": updated_state.get("logs", {}),
+        "modmail": updated_state.get("modmail", {}),
+        "cogs": updated_state.get("cogs", {}),
+        "moderation": {
+            "enabled": updated_state.get("moderation", {}).get("enabled"),
+            "smart_antiflood": updated_state.get("moderation", {}).get("smart_antiflood"),
+            "warning_limit": updated_state.get("moderation", {}).get("warning_limit"),
+            "default_action": updated_state.get("moderation", {}).get("default_action"),
+            "modmail_enabled": updated_state.get("moderation", {}).get("modmail_enabled"),
+        },
+    }
+
+    previous_scopes = {
+        "guild": previous_state.get("guild", {}),
+        "automation": previous_state.get("automation", {}),
+        "warnings": previous_state.get("warnings", {}),
+        "logs": previous_state.get("logs", {}),
+        "modmail": previous_state.get("modmail", {}),
+        "cogs": previous_state.get("cogs", {}),
+        "moderation": {
+            "enabled": previous_state.get("moderation", {}).get("enabled"),
+            "smart_antiflood": previous_state.get("moderation", {}).get("smart_antiflood"),
+            "warning_limit": previous_state.get("moderation", {}).get("warning_limit"),
+            "default_action": previous_state.get("moderation", {}).get("default_action"),
+            "modmail_enabled": previous_state.get("moderation", {}).get("modmail_enabled"),
+        },
+    }
+
+    previous_flat = _flatten_state_for_diff(previous_scopes)
+    updated_flat = _flatten_state_for_diff(tracked_scopes)
+
+    labels = {
+        "guild.guild_name": "Guild name",
+        "guild.language": "Language",
+        "guild.log_channel": "Default log channel",
+        "automation.enabled": "AutoMod checks",
+        "automation.invite_filter": "Invite filter",
+        "automation.link_filter": "External links filter",
+        "automation.caps_filter": "Caps filter",
+        "automation.spam_threshold": "Spam threshold",
+        "automation.quarantine_role": "Quarantine role",
+        "warnings.enabled": "Warn system",
+        "warnings.public_reason_prompt": "Warn public reason prompt",
+        "warnings.dm_user": "Warn DM user",
+        "warnings.threshold": "Warn threshold",
+        "warnings.escalate_to": "Warn escalation",
+        "logs.enabled": "Master logs",
+        "logs.moderation": "Moderation logs",
+        "logs.ban_events": "Ban logs",
+        "logs.join_leave": "Join/leave logs",
+        "logs.message_delete": "Message delete logs",
+        "logs.modmail_transcripts": "Modmail transcripts logs",
+        "logs.audit_channel": "Audit channel",
+        "logs.ban_channel": "Ban channel",
+        "modmail.enabled": "Modmail",
+        "modmail.anonymous_replies": "Anonymous replies",
+        "modmail.close_on_idle": "Auto-close idle",
+        "modmail.inbox_channel": "Modmail category",
+        "modmail.alert_role": "Modmail alert role",
+        "modmail.auto_close_hours": "Modmail auto-close hours",
+        "moderation.smart_antiflood": "Smart anti-flood",
+    }
+
+    changes: list[str] = []
+    for key in sorted(updated_flat.keys()):
+        old_value = previous_flat.get(key)
+        new_value = updated_flat.get(key)
+        if old_value == new_value:
+            continue
+
+        if key.startswith("cogs."):
+            cog_name = key.split(".", 1)[1]
+            label = f"Cog {cog_name}"
+        else:
+            label = labels.get(key, key.replace("_", " ").replace(".", " -> ").title())
+
+        changes.append(f"{label}: {_format_diff_value(old_value)} -> {_format_diff_value(new_value)}")
+
+    return changes
+
+
+async def _log_dashboard_changes(guild_id: str, moderator_id: int | None, changes: list[str]) -> None:
+    if not changes:
+        return
+
+    pool = _db_pool()
+    if pool is None:
+        return
+
+    try:
+        guild_id_int = int(guild_id)
+    except (TypeError, ValueError):
+        return
+
+    if moderator_id is None:
+        moderator_id = 0
+
+    try:
+        async with pool.acquire() as connection:
+            await connection.executemany(
+                """
+                INSERT INTO moderation_logs (guild_id, moderator_id, user_id, action, reason)
+                VALUES ($1, $2, $3, $4, $5)
+                """,
+                [
+                    (
+                        guild_id_int,
+                        moderator_id,
+                        moderator_id,
+                        "config_update",
+                        f"Dashboard setup: {change}"[:255],
+                    )
+                    for change in changes
+                ],
+            )
+    except Exception as exc:
+        print(f"[Dashboard] Failed to record setup change logs for {guild_id}: {exc}")
+
+
 async def _connect_database_pool() -> Any | None:
     try:
         asyncpg = importlib.import_module("asyncpg")
@@ -1132,6 +1278,7 @@ async def update_setup(payload: SetupUpdatePayload, request: Request) -> dict[st
     guild_name = str(active_guild.get("name", f"Guild {guild_id}"))
 
     state = await _get_effective_state_for_guild(guild_id, guild_name)
+    previous_state = json.loads(json.dumps(state))
 
     guild_payload = payload.guild.model_dump()
     moderation_payload = payload.moderation.model_dump()
@@ -1159,7 +1306,18 @@ async def update_setup(payload: SetupUpdatePayload, request: Request) -> dict[st
 
     state = await _persist_state_for_guild(guild_id, guild_name, state)
 
-    return {"ok": True, "active_guild_id": guild_id, "state": _state_with_metrics(state)}
+    changes = _collect_setup_changes(previous_state, state)
+    user = request.session.get("user")
+    moderator_id = _extract_discord_id(user.get("id") if isinstance(user, dict) else None)
+    await _log_dashboard_changes(guild_id, moderator_id, changes)
+
+    return {
+        "ok": True,
+        "active_guild_id": guild_id,
+        "state": _state_with_metrics(state),
+        "applied_changes": changes,
+        "applied_changes_count": len(changes),
+    }
 
 
 @app.put("/api/dashboard/cogs")
