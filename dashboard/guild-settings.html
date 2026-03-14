@@ -150,6 +150,23 @@
                                 <select id="auto-role"></select>
                             </div>
                         </div>
+
+                        <div class="grid-2 compact-grid">
+                            <div class="field">
+                                <label for="auto-immune-role-picker">Add immune role</label>
+                                <select id="auto-immune-role-picker"></select>
+                            </div>
+                            <div class="field">
+                                <label>AutoMod immunity</label>
+                                <p class="lead" style="margin:0;">Users with admin powers are always immune.</p>
+                            </div>
+                        </div>
+
+                        <div class="role-picker-actions">
+                            <button class="btn" id="auto-immune-role-add" type="button">Add Immune Role</button>
+                            <button class="btn danger" id="auto-immune-role-remove" type="button">Remove Selected</button>
+                        </div>
+                        <div class="role-chip-list" id="auto-immune-role-list"></div>
                     </article>
 
                     <article class="section setup-card">

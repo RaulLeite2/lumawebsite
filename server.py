@@ -71,6 +71,7 @@ class AutomationSettings(BaseModel):
     caps_filter: bool = False
     spam_threshold: int = Field(default=6, ge=3, le=20)
     quarantine_role: str = "@Muted"
+    immune_roles: list[str] = Field(default_factory=list)
 
 
 class WarningSystemSettings(BaseModel):
@@ -308,6 +309,7 @@ def _collect_setup_changes(previous_state: dict[str, Any], updated_state: dict[s
         "automation.caps_filter": "Caps filter",
         "automation.spam_threshold": "Spam threshold",
         "automation.quarantine_role": "Quarantine role",
+        "automation.immune_roles": "AutoMod immune roles",
         "warnings.enabled": "Warn system",
         "warnings.public_reason_prompt": "Warn public reason prompt",
         "warnings.dm_user": "Warn DM user",
@@ -510,6 +512,16 @@ async def _ensure_dashboard_tables(pool: Any) -> None:
                 )
                 """
             )
+            await connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS guild_immune_roles (
+                    guild_id BIGINT NOT NULL REFERENCES guilds(guild_id) ON DELETE CASCADE,
+                    role_id BIGINT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (guild_id, role_id)
+                )
+                """
+            )
     except Exception as exc:
         print(f"[Dashboard] Failed to ensure dashboard tables: {exc}")
 
@@ -645,6 +657,10 @@ async def _fetch_guild_db_row(guild_id: str) -> dict[str, Any] | None:
                 "SELECT role_id FROM guild_modmail_roles WHERE guild_id = $1 ORDER BY role_id",
                 guild_id_int,
             )
+            immune_role_rows = await connection.fetch(
+                "SELECT role_id FROM guild_immune_roles WHERE guild_id = $1 ORDER BY role_id",
+                guild_id_int,
+            )
             escalation_rows = await connection.fetch(
                 "SELECT threshold, action FROM guild_warning_escalations WHERE guild_id = $1 ORDER BY threshold ASC",
                 guild_id_int,
@@ -658,6 +674,8 @@ async def _fetch_guild_db_row(guild_id: str) -> dict[str, Any] | None:
         payload["cogs_from_db"] = {str(item["cog_name"]): bool(item["enabled"]) for item in cog_rows}
     if modmail_role_rows:
         payload["modmail_alert_roles"] = [_id_to_input_value(item["role_id"]) for item in modmail_role_rows if item.get("role_id") is not None]
+    if immune_role_rows:
+        payload["automod_immune_roles"] = [_id_to_input_value(item["role_id"]) for item in immune_role_rows if item.get("role_id") is not None]
     if escalation_rows:
         payload["warning_escalation_steps"] = [
             {"threshold": int(item["threshold"]), "action": str(item["action"]).lower()}
@@ -715,6 +733,10 @@ def _merge_db_row_into_state(state: dict[str, Any], row: dict[str, Any]) -> dict
     quarantine_role_id = row.get("automod_quarantine_role_id")
     if quarantine_role_id is not None:
         state["automation"]["quarantine_role"] = _id_to_input_value(quarantine_role_id, state["automation"].get("quarantine_role", ""))
+
+    immune_roles = row.get("automod_immune_roles")
+    if isinstance(immune_roles, list):
+        state["automation"]["immune_roles"] = [str(item) for item in immune_roles if str(item).strip()]
 
     warn_public_reason_prompt = row.get("warn_public_reason_prompt")
     if warn_public_reason_prompt is not None:
@@ -814,6 +836,11 @@ async def _sync_state_to_database(guild_id: str, state: dict[str, Any]) -> bool:
     language_code = str(state["guild"].get("language") or "pt")
     ai_enabled = bool(state["cogs"].get("ai", True))
     quarantine_role_id = _extract_discord_id(state["automation"].get("quarantine_role"))
+    immune_role_ids = [
+        _extract_discord_id(item)
+        for item in state["automation"].get("immune_roles", [])
+    ]
+    immune_role_ids = [item for item in immune_role_ids if item is not None]
     ban_channel_id = _extract_discord_id(state["logs"].get("ban_channel"))
     alert_role_ids = [
         _extract_discord_id(item)
@@ -946,6 +973,13 @@ async def _sync_state_to_database(guild_id: str, state: dict[str, Any]) -> bool:
                         (guild_id_int, int(step["threshold"]), "mute" if step["action"] == "timeout" else str(step["action"]))
                         for step in warning_steps
                     ],
+                )
+
+            await connection.execute("DELETE FROM guild_immune_roles WHERE guild_id = $1", guild_id_int)
+            if immune_role_ids:
+                await connection.executemany(
+                    "INSERT INTO guild_immune_roles (guild_id, role_id) VALUES ($1, $2) ON CONFLICT (guild_id, role_id) DO NOTHING",
+                    [(guild_id_int, role_id) for role_id in immune_role_ids],
                 )
         return True
     except Exception as exc:

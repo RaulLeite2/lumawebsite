@@ -3,6 +3,7 @@ let setupDirty = false;
 let setupDirtyTrackingBound = false;
 let setupResources = { text_channels: [], categories: [], roles: [] };
 let selectedModmailRoles = [];
+let selectedAutoImmuneRoles = [];
 
 const page = document.body.dataset.page || "overview";
 
@@ -191,6 +192,31 @@ function renderModmailRoleChips() {
     });
 }
 
+function renderAutoImmuneRoleChips() {
+    const list = document.getElementById("auto-immune-role-list");
+    if (!list) return;
+
+    list.innerHTML = "";
+    if (!selectedAutoImmuneRoles.length) {
+        const hint = document.createElement("span");
+        hint.className = "save-hint";
+        hint.textContent = "No custom immune roles selected.";
+        list.appendChild(hint);
+        return;
+    }
+
+    selectedAutoImmuneRoles.forEach((roleId) => {
+        const role = (setupResources.roles || []).find((item) => item.id === roleId);
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "role-chip";
+        chip.dataset.roleId = roleId;
+        chip.textContent = role ? `@${role.name}` : roleId;
+        chip.addEventListener("click", () => chip.classList.toggle("selected"));
+        list.appendChild(chip);
+    });
+}
+
 function applyResourceSelectors(context) {
     setupResources = context.resources || { text_channels: [], categories: [], roles: [] };
     populateSelect(document.getElementById("guild-log"), setupResources.text_channels || [], "Choose a default log channel");
@@ -198,6 +224,7 @@ function applyResourceSelectors(context) {
     populateSelect(document.getElementById("log-ban-channel"), setupResources.text_channels || [], "Choose a ban log channel");
     populateSelect(document.getElementById("modmail-channel"), setupResources.categories || [], "Choose a modmail category");
     populateRoleSelect(document.getElementById("auto-role"), setupResources.roles || []);
+    populateRoleSelect(document.getElementById("auto-immune-role-picker"), setupResources.roles || []);
     populateRoleSelect(document.getElementById("modmail-role-picker"), setupResources.roles || []);
 }
 
@@ -227,7 +254,7 @@ function getWarnEscalationStepsFromForm() {
 function bindSetupDirtyTracking() {
     if (page !== "guild-settings" || setupDirtyTrackingBound) return;
 
-    const trackedSelector = "#guild-language, #guild-log, #auto-enabled, #auto-antiflood, #auto-invite, #auto-link, #auto-caps, #auto-threshold, #auto-role, #warn-public-reason, #warn-dm-user, #warn-step-1-threshold, #warn-step-1-action, #warn-step-2-threshold, #warn-step-2-action, #warn-step-3-threshold, #warn-step-3-action, #log-enabled, #log-moderation, #log-ban-events, #log-join-leave, #log-message-delete, #log-modmail, #log-audit-channel, #log-ban-channel, #modmail-enabled, #modmail-anonymous, #modmail-idle, #modmail-channel, #modmail-role-picker, #modmail-hours, input[data-setup-cog]";
+    const trackedSelector = "#guild-language, #guild-log, #auto-enabled, #auto-antiflood, #auto-invite, #auto-link, #auto-caps, #auto-threshold, #auto-role, #auto-immune-role-picker, #warn-public-reason, #warn-dm-user, #warn-step-1-threshold, #warn-step-1-action, #warn-step-2-threshold, #warn-step-2-action, #warn-step-3-threshold, #warn-step-3-action, #log-enabled, #log-moderation, #log-ban-events, #log-join-leave, #log-message-delete, #log-modmail, #log-audit-channel, #log-ban-channel, #modmail-enabled, #modmail-anonymous, #modmail-idle, #modmail-channel, #modmail-role-picker, #modmail-hours, input[data-setup-cog]";
 
     const markDirty = (event) => {
         const target = event.target;
@@ -493,6 +520,10 @@ function renderGuildSettings(context) {
     refs.autoThreshold.value = automation.spam_threshold;
     ensureOption(refs.autoRole, automation.quarantine_role, automation.quarantine_role);
     refs.autoRole.value = automation.quarantine_role;
+    selectedAutoImmuneRoles = Array.isArray(automation.immune_roles)
+        ? [...new Set(automation.immune_roles.filter(Boolean).map(String))]
+        : [];
+    renderAutoImmuneRoleChips();
 
     refs.warnEnabled.checked = true;
     refs.warnEnabled.disabled = true;
@@ -781,6 +812,7 @@ function bindPageActions() {
                     caps_filter: document.getElementById("auto-caps").checked,
                     spam_threshold: Number(document.getElementById("auto-threshold").value || 6),
                     quarantine_role: document.getElementById("auto-role").value.trim(),
+                    immune_roles: [...selectedAutoImmuneRoles],
                 },
                 warnings: {
                     enabled: true,
@@ -845,6 +877,31 @@ function bindPageActions() {
                 renderModmailRoleChips();
                 updateSetupDirtyState(true);
             }
+        });
+    }
+
+    const addImmuneRole = document.getElementById("auto-immune-role-add");
+    if (addImmuneRole) {
+        addImmuneRole.addEventListener("click", () => {
+            const picker = document.getElementById("auto-immune-role-picker");
+            if (!picker || !picker.value) return;
+            if (!selectedAutoImmuneRoles.includes(picker.value)) {
+                selectedAutoImmuneRoles.push(picker.value);
+                renderAutoImmuneRoleChips();
+                updateSetupDirtyState(true);
+            }
+        });
+    }
+
+    const removeImmuneRole = document.getElementById("auto-immune-role-remove");
+    if (removeImmuneRole) {
+        removeImmuneRole.addEventListener("click", () => {
+            const selectedChips = Array.from(document.querySelectorAll("#auto-immune-role-list .role-chip.selected"));
+            if (!selectedChips.length) return;
+            const removeSet = new Set(selectedChips.map((item) => item.dataset.roleId));
+            selectedAutoImmuneRoles = selectedAutoImmuneRoles.filter((roleId) => !removeSet.has(roleId));
+            renderAutoImmuneRoleChips();
+            updateSetupDirtyState(true);
         });
     }
 
