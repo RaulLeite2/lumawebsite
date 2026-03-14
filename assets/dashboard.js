@@ -1,4 +1,6 @@
 let dashboardContext = null;
+let setupDirty = false;
+let setupDirtyTrackingBound = false;
 
 const page = document.body.dataset.page || "overview";
 
@@ -23,6 +25,69 @@ function flash(message) {
     el.textContent = message;
     el.classList.add("show");
     setTimeout(() => el.classList.remove("show"), 1800);
+}
+
+function updateSetupDirtyState(isDirty, message) {
+    setupDirty = isDirty;
+    const hint = document.getElementById("setup-dirty-state");
+    const saveButton = document.getElementById("save-setup");
+    if (hint) {
+        hint.textContent = message || (isDirty ? "You have unsaved changes in this setup." : "Everything saved for this guild.");
+        hint.classList.toggle("is-dirty", isDirty);
+        hint.classList.toggle("is-clean", !isDirty);
+    }
+    if (saveButton) {
+        saveButton.textContent = isDirty ? "Save Bot Setup" : "Saved";
+    }
+}
+
+function showSetupSaveBanner(state) {
+    const banner = document.getElementById("setup-save-banner");
+    if (!banner || !state) return;
+
+    const title = document.getElementById("setup-save-title");
+    const detail = document.getElementById("setup-save-detail");
+    const meta = document.getElementById("setup-save-meta");
+    const status = document.getElementById("setup-save-state");
+    const guildName = state.guild?.guild_name || "this guild";
+    const enabledCogs = Object.values(state.cogs || {}).filter(Boolean).length;
+    const logStreams = [state.logs?.moderation, state.logs?.ban_events, state.logs?.join_leave, state.logs?.message_delete, state.logs?.modmail_transcripts].filter(Boolean).length;
+
+    banner.hidden = false;
+    if (status) status.textContent = "Saved";
+    if (title) title.textContent = "Configuration updated successfully";
+    if (detail) detail.textContent = `${guildName} now has ${enabledCogs} enabled modules and ${logStreams} active log streams.`;
+    if (meta) meta.textContent = `Last sync at ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.`;
+}
+
+function bindSetupDirtyTracking() {
+    if (page !== "guild-settings" || setupDirtyTrackingBound) return;
+
+    const trackedSelector = "#guild-name, #guild-language, #guild-log, #auto-enabled, #auto-invite, #auto-link, #auto-caps, #auto-threshold, #auto-role, #warn-enabled, #warn-public-reason, #warn-dm-user, #warn-threshold, #warn-action, #log-enabled, #log-moderation, #log-ban-events, #log-join-leave, #log-message-delete, #log-modmail, #log-audit-channel, #log-ban-channel, #modmail-enabled, #modmail-anonymous, #modmail-idle, #modmail-channel, #modmail-role, #modmail-hours, input[data-setup-cog]";
+
+    const markDirty = (event) => {
+        const target = event.target;
+        if (!(target instanceof Element) || !target.matches(trackedSelector)) return;
+        updateSetupDirtyState(true);
+    };
+
+    document.addEventListener("input", markDirty);
+    document.addEventListener("change", markDirty);
+    setupDirtyTrackingBound = true;
+}
+
+function bindSetupTopicNav() {
+    if (page !== "guild-settings") return;
+
+    const links = Array.from(document.querySelectorAll(".topic-link"));
+    if (!links.length) return;
+
+    links.forEach((link) => {
+        link.addEventListener("click", () => {
+            links.forEach((item) => item.classList.remove("active"));
+            link.classList.add("active");
+        });
+    });
 }
 
 async function api(path, options = {}) {
@@ -268,6 +333,8 @@ function renderGuildSettings(context) {
     refs.logCount.textContent = String(metrics.logs_enabled ?? 0);
     refs.warnActionSummary.textContent = String(warnings.escalate_to || moderation.default_action).toUpperCase();
 
+    updateSetupDirtyState(false);
+
     renderSetupCogs(context);
 }
 
@@ -500,6 +567,8 @@ function bindPageActions() {
                 });
                 dashboardContext.state = res.state;
                 renderPage(dashboardContext);
+                showSetupSaveBanner(res.state);
+                updateSetupDirtyState(false, "Everything saved for this guild.");
                 flash("Bot setup updated");
             } catch (error) {
                 flash("Failed to update bot setup");
@@ -548,6 +617,8 @@ function bindPageActions() {
     try {
         bindGuildSwitcher();
         bindPageActions();
+        bindSetupDirtyTracking();
+        bindSetupTopicNav();
         const session = await api("/api/auth/session");
         if (!session.authenticated) {
             const next = encodeURIComponent(window.location.pathname || "/dashboard/servers");
