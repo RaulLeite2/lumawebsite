@@ -134,11 +134,16 @@ def _active_guild_from_session(request: Request) -> dict[str, Any] | None:
 
     selected_id = request.session.get("active_guild_id")
     for guild in guilds:
-        if guild.get("id") == selected_id:
+        if guild.get("id") == selected_id and bool(guild.get("configurable")):
             return guild
 
-    request.session["active_guild_id"] = guilds[0].get("id")
-    return guilds[0]
+    for guild in guilds:
+        if bool(guild.get("configurable")):
+            request.session["active_guild_id"] = guild.get("id")
+            return guild
+
+    request.session["active_guild_id"] = None
+    return None
 
 
 def _require_active_guild(request: Request) -> dict[str, Any]:
@@ -228,24 +233,24 @@ async def _fetch_discord_guilds(access_token: str) -> list[dict[str, Any]]:
     if not isinstance(response, list):
         return []
 
-    manageable: list[dict[str, Any]] = []
+    guilds: list[dict[str, Any]] = []
     for guild in response:
         if not isinstance(guild, dict):
             continue
         owner = bool(guild.get("owner"))
-        if not _has_dashboard_permission(str(guild.get("permissions", "0")), owner):
-            continue
-        manageable.append(
+        configurable = _has_dashboard_permission(str(guild.get("permissions", "0")), owner)
+        guilds.append(
             {
                 "id": str(guild.get("id", "")),
                 "name": str(guild.get("name", "Unknown Guild")),
                 "icon": guild.get("icon"),
                 "owner": owner,
                 "permissions": str(guild.get("permissions", "0")),
+                "configurable": configurable,
             }
         )
 
-    return [g for g in manageable if g.get("id")]
+    return [g for g in guilds if g.get("id")]
 
 
 def _read_available_cogs() -> list[str]:
@@ -426,7 +431,8 @@ async def auth_callback(request: Request, code: str = "", state: str = "") -> Re
         "discriminator": user.get("discriminator"),
     }
     request.session["guilds"] = guilds
-    request.session["active_guild_id"] = guilds[0]["id"] if guilds else None
+    selected = next((g for g in guilds if g.get("configurable")), None)
+    request.session["active_guild_id"] = selected.get("id") if selected else None
 
     destination = request.session.pop("post_login_redirect", "/dashboard/servers")
     if not isinstance(destination, str) or not destination.startswith("/"):
@@ -444,11 +450,17 @@ async def auth_logout(request: Request) -> RedirectResponse:
 async def auth_session(request: Request) -> dict[str, Any]:
     user = request.session.get("user")
     active_guild = _active_guild_from_session(request)
+    guilds = _session_guilds(request)
+    configurable_count = sum(1 for g in guilds if bool(g.get("configurable")))
     return {
         "authenticated": _is_authenticated(request),
         "user": user if isinstance(user, dict) else None,
-        "guilds": _session_guilds(request),
+        "guilds": guilds,
         "active_guild_id": active_guild.get("id") if active_guild else None,
+        "guild_counts": {
+            "total": len(guilds),
+            "configurable": configurable_count,
+        },
     }
 
 
@@ -456,8 +468,11 @@ async def auth_session(request: Request) -> dict[str, Any]:
 async def set_active_guild(payload: ActiveGuildPayload, request: Request) -> dict[str, Any]:
     _require_auth(request)
     guilds = _session_guilds(request)
-    if not any(g.get("id") == payload.guild_id for g in guilds):
+    match = next((g for g in guilds if g.get("id") == payload.guild_id), None)
+    if match is None:
         raise HTTPException(status_code=400, detail="Guild is not available for this user")
+    if not bool(match.get("configurable")):
+        raise HTTPException(status_code=403, detail="You do not have permission to configure this guild")
     request.session["active_guild_id"] = payload.guild_id
     return {"ok": True, "active_guild_id": payload.guild_id}
 
@@ -508,6 +523,8 @@ async def dashboard_cogs(request: Request) -> Response:
 @app.get("/api/dashboard/state")
 async def dashboard_state(request: Request) -> dict[str, Any]:
     _require_auth(request)
+    guilds = _session_guilds(request)
+    configurable_count = sum(1 for g in guilds if bool(g.get("configurable")))
     active_guild = _require_active_guild(request)
     guild_id = str(active_guild.get("id"))
     guild_name = str(active_guild.get("name", f"Guild {guild_id}"))
@@ -518,7 +535,11 @@ async def dashboard_state(request: Request) -> dict[str, Any]:
 
     return {
         "active_guild_id": guild_id,
-        "guilds": _session_guilds(request),
+        "guilds": guilds,
+        "guild_counts": {
+            "total": len(guilds),
+            "configurable": configurable_count,
+        },
         "state": _state_with_metrics(state),
     }
 

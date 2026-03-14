@@ -133,6 +133,12 @@ input {
     background: linear-gradient(130deg, var(--brand), var(--brand-2));
 }
 
+.btn[disabled] {
+    cursor: not-allowed;
+    filter: grayscale(0.35);
+    opacity: 0.62;
+}
+
 .btn.danger {
     border-color: rgba(255, 109, 122, 0.38);
     color: #ffdce1;

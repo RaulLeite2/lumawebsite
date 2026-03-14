@@ -88,11 +88,13 @@ function renderServers(context) {
     if (!grid) return;
 
     const guilds = context.guilds || [];
-    const manageableCount = guilds.length;
+    const counts = context.guild_counts || {};
+    const manageableCount = Number.isFinite(counts.configurable) ? counts.configurable : guilds.filter((g) => g.configurable).length;
+    const totalCount = Number.isFinite(counts.total) ? counts.total : guilds.length;
 
     const totalEl = document.getElementById("servers-total");
     const manageableEl = document.getElementById("servers-manageable");
-    if (totalEl) totalEl.textContent = String(guilds.length);
+    if (totalEl) totalEl.textContent = String(totalCount);
     if (manageableEl) manageableEl.textContent = String(manageableCount);
 
     grid.innerHTML = "";
@@ -105,7 +107,9 @@ function renderServers(context) {
             ? `<img class="server-icon" src="https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png?size=128" alt="${guild.name}">`
             : `<span class="server-fallback">${(guild.name || "?").slice(0, 1).toUpperCase()}</span>`;
 
-        const role = guild.owner ? "Owner" : "Administrator";
+        const role = guild.owner ? "Owner" : guild.configurable ? "Administrator" : "Member";
+        const disabledAttr = guild.configurable ? "" : "disabled";
+        const buttonLabel = guild.configurable ? "Configure" : "No Access";
         card.innerHTML = `
             <div class="server-meta">
                 ${iconMarkup}
@@ -114,7 +118,7 @@ function renderServers(context) {
                     <div class="server-role">${role}</div>
                 </div>
             </div>
-            <button class="btn primary" data-configure-guild="${guild.id}">Configure</button>
+            <button class="btn primary" data-configure-guild="${guild.id}" ${disabledAttr}>${buttonLabel}</button>
         `;
 
         grid.appendChild(card);
@@ -336,7 +340,22 @@ function bindPageActions() {
     try {
         bindGuildSwitcher();
         bindPageActions();
-        await loadSession();
+        const session = await api("/api/auth/session");
+        if (!session.authenticated) {
+            const next = encodeURIComponent(window.location.pathname || "/dashboard/servers");
+            window.location.href = `/auth/login?next=${next}`;
+            return;
+        }
+
+        setUser(session);
+        setGuildSwitcher(session.guilds || [], session.active_guild_id || "");
+
+        if (page === "servers") {
+            dashboardContext = session;
+            renderServers(session);
+            return;
+        }
+
         await loadState();
     } catch (error) {
         flash("Failed to load dashboard");
