@@ -24,12 +24,17 @@ const COG_DESCRIPTIONS = {
     ticket: "Ticket flows, support panels and close actions.",
 };
 
-function flash(message) {
+function flash(message, type = "info") {
     const el = document.getElementById("flash");
     if (!el) return;
+    el.classList.remove("success", "error");
+    if (type === "success") el.classList.add("success");
+    if (type === "error") el.classList.add("error");
     el.textContent = message;
     el.classList.add("show");
-    setTimeout(() => el.classList.remove("show"), 1800);
+    setTimeout(() => {
+        el.classList.remove("show", "success", "error");
+    }, 1900);
 }
 
 function updateConfigLogBadge(unreadCount) {
@@ -353,6 +358,7 @@ function bindSetupDirtyTracking() {
         const target = event.target;
         if (!(target instanceof Element) || !target.matches(trackedSelector)) return;
         updateSetupDirtyState(true);
+        refreshSetupChangePreview();
     };
 
     document.addEventListener("input", markDirty);
@@ -728,6 +734,7 @@ function renderGuildSettings(context) {
     }
 
     updateSetupDirtyState(false);
+    refreshSetupChangePreview();
 
     renderSetupCogs(context);
 }
@@ -856,6 +863,143 @@ function renderHealthMetrics(health) {
     refs.banRate.textContent = `${Number(health.ban_rate ?? 0).toFixed(2)}%`;
     refs.spamBlocks.textContent = String(health.spam_blocks ?? 0);
     refs.openTickets.textContent = String(health.open_tickets ?? 0);
+}
+
+function renderStatusOfDay(health) {
+    const target = document.getElementById("status-of-day");
+    if (!target) return;
+    const warns = Number(health?.warns || 0);
+    const spam = Number(health?.spam_blocks || 0);
+    const banRate = Number(health?.ban_rate || 0);
+
+    let tone = "Stable";
+    let detail = "Moderation load is calm and under control.";
+    if (warns >= 10 || spam >= 12 || banRate >= 30) {
+        tone = "High Pressure";
+        detail = "Staff attention recommended: elevated moderation pressure detected.";
+    } else if (warns >= 5 || spam >= 6 || banRate >= 15) {
+        tone = "Watch";
+        detail = "Traffic is active with moderate moderation risk.";
+    }
+
+    target.textContent = `${tone}: ${detail}`;
+}
+
+function renderSparkline(points) {
+    const svg = document.getElementById("overview-sparkline");
+    if (!svg) return;
+    const values = Array.isArray(points) && points.length ? points : [0, 0, 0, 0, 0, 0];
+    const width = 360;
+    const height = 120;
+    const max = Math.max(...values, 1);
+
+    const pathPoints = values
+        .map((value, index) => {
+            const x = (index / Math.max(values.length - 1, 1)) * width;
+            const y = height - (value / max) * (height - 12) - 6;
+            return `${x.toFixed(2)},${y.toFixed(2)}`;
+        })
+        .join(" ");
+
+    svg.innerHTML = `
+        <polyline fill="none" stroke="rgba(102,216,255,0.35)" stroke-width="8" points="${pathPoints}" stroke-linecap="round" stroke-linejoin="round"></polyline>
+        <polyline fill="none" stroke="rgba(42,165,255,0.95)" stroke-width="3" points="${pathPoints}" stroke-linecap="round" stroke-linejoin="round"></polyline>
+    `;
+}
+
+function renderRiskHeatmap(heatmap) {
+    const container = document.getElementById("risk-heatmap");
+    if (!container) return;
+    container.innerHTML = "";
+
+    const rows = Array.isArray(heatmap?.rows) ? heatmap.rows : [];
+    if (!rows.length) {
+        const empty = document.createElement("article");
+        empty.className = "log-item";
+        empty.innerHTML = "<h3>No risk data</h3><p>No channel-hour risk signals in this period.</p>";
+        container.appendChild(empty);
+        return;
+    }
+
+    const max = Number(heatmap?.max_score || 1);
+    rows.forEach((row) => {
+        const wrapper = document.createElement("div");
+        wrapper.className = "risk-row";
+
+        const label = document.createElement("div");
+        label.className = "risk-label";
+        label.textContent = row.channel_id === "unknown" ? "Unknown channel" : `#${row.channel_id}`;
+        wrapper.appendChild(label);
+
+        const scores = Array.isArray(row.scores) ? row.scores : [];
+        for (let hour = 0; hour < 24; hour += 1) {
+            const score = Number(scores[hour] || 0);
+            const cell = document.createElement("div");
+            cell.className = "risk-cell";
+            const pct = max > 0 ? score / max : 0;
+            const level = score <= 0 ? 0 : Math.min(5, Math.max(1, Math.ceil(pct * 5)));
+            if (level > 0) cell.classList.add(`level-${level}`);
+            cell.title = `Hour ${String(hour).padStart(2, "0")}:00 | Score ${score}`;
+            wrapper.appendChild(cell);
+        }
+
+        container.appendChild(wrapper);
+    });
+}
+
+function showSkeleton(containerId, lines = 3) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = "";
+    for (let i = 0; i < lines; i += 1) {
+        const line = document.createElement("div");
+        line.className = "skeleton";
+        line.style.height = i === 0 ? "20px" : "14px";
+        line.style.marginBottom = "0.45rem";
+        container.appendChild(line);
+    }
+}
+
+function toggleFocusMode() {
+    const enabled = document.body.classList.toggle("focus-mode");
+    flash(enabled ? "Focus mode enabled" : "Focus mode disabled", "success");
+}
+
+function refreshSetupChangePreview() {
+    const panel = document.getElementById("setup-change-preview");
+    const list = document.getElementById("setup-change-preview-list");
+    if (!panel || !list || page !== "guild-settings" || !dashboardContext?.state) return;
+
+    const current = dashboardContext.state;
+    const payload = buildSetupPayloadFromForm();
+    const checks = [
+        ["Language", current.guild?.language, payload.guild.language],
+        ["AutoMod invite filter", current.automation?.invite_filter, payload.automation.invite_filter],
+        ["AutoMod link filter", current.automation?.link_filter, payload.automation.link_filter],
+        ["AutoMod caps filter", current.automation?.caps_filter, payload.automation.caps_filter],
+        ["Spam threshold", current.automation?.spam_threshold, payload.automation.spam_threshold],
+        ["Warn ladder", JSON.stringify(current.warnings?.escalation_steps || []), JSON.stringify(payload.warnings.escalation_steps || [])],
+        ["Modmail enabled", current.modmail?.enabled, payload.modmail.enabled],
+        ["Welcome embed enabled", current.entry_exit?.welcome_enabled, payload.entry_exit.welcome_enabled],
+        ["Leave embed enabled", current.entry_exit?.leave_enabled, payload.entry_exit.leave_enabled],
+        ["Cogs", JSON.stringify(current.cogs || {}), JSON.stringify(payload.cogs || {})],
+    ];
+
+    const changed = checks.filter((item) => item[1] !== item[2]);
+    if (!changed.length) {
+        panel.hidden = true;
+        list.innerHTML = "";
+        return;
+    }
+
+    panel.hidden = false;
+    list.innerHTML = "";
+    changed.slice(0, 10).forEach((item) => {
+        const row = document.createElement("article");
+        row.className = "log-item";
+        row.innerHTML = `<h3>${item[0]}</h3><p>Current: ${String(item[1])}</p><p>New: ${String(item[2])}</p>`;
+        list.appendChild(row);
+    });
 }
 
 function renderSmartAlerts(alerts) {
@@ -1021,6 +1165,7 @@ async function loadHealthMetrics() {
     const period = document.getElementById("health-period")?.value || "24h";
     const response = await api(`/api/dashboard/health?period=${encodeURIComponent(period)}`);
     renderHealthMetrics(response.health || {});
+    renderStatusOfDay(response.health || {});
 }
 
 async function loadSmartAlerts() {
@@ -1031,6 +1176,22 @@ async function loadSmartAlerts() {
 async function loadLiveActivity() {
     const response = await api("/api/dashboard/activity/recent?limit=40");
     renderLiveActivity(response.logs || []);
+
+    const byHour = new Array(24).fill(0);
+    (response.logs || []).forEach((item) => {
+        if (!item.created_at) return;
+        const date = new Date(item.created_at);
+        if (Number.isNaN(date.getTime())) return;
+        byHour[date.getHours()] += 1;
+    });
+    renderSparkline(byHour);
+}
+
+async function loadRiskHeatmap() {
+    const period = document.getElementById("risk-period")?.value || "24h";
+    showSkeleton("risk-heatmap", 6);
+    const response = await api(`/api/dashboard/risk-heatmap?period=${encodeURIComponent(period)}`);
+    renderRiskHeatmap(response.heatmap || {});
 }
 
 function startActivityStream() {
@@ -1191,9 +1352,13 @@ async function loadState() {
     renderPage(payload);
     setGuildSwitcher(payload.guilds || [], payload.active_guild_id);
     if (page === "overview") {
+        showSkeleton("live-activity-feed", 4);
+        showSkeleton("smart-alerts-feed", 3);
+        showSkeleton("risk-heatmap", 6);
         await loadHealthMetrics();
         await loadLiveActivity();
         await loadSmartAlerts();
+        await loadRiskHeatmap();
         startActivityStream();
     }
     if (page === "config-logs") {
@@ -1279,9 +1444,26 @@ function bindPageActions() {
                 });
                 dashboardContext.state = res.state;
                 renderPage(dashboardContext);
-                flash("Moderation updated");
+                flash("Moderation updated", "success");
             } catch (error) {
-                flash("Failed to update moderation");
+                flash("Failed to update moderation", "error");
+            }
+        });
+    }
+
+    const toggleFocus = document.getElementById("toggle-focus-mode");
+    if (toggleFocus) {
+        toggleFocus.addEventListener("click", toggleFocusMode);
+    }
+
+    const refreshRisk = document.getElementById("refresh-risk-heatmap");
+    if (refreshRisk) {
+        refreshRisk.addEventListener("click", async () => {
+            try {
+                await loadRiskHeatmap();
+                flash("Risk heatmap refreshed", "success");
+            } catch (error) {
+                flash("Failed to refresh risk heatmap", "error");
             }
         });
     }
@@ -1308,9 +1490,9 @@ function bindPageActions() {
         refreshAlerts.addEventListener("click", async () => {
             try {
                 await loadSmartAlerts();
-                flash("Smart alerts refreshed");
+                flash("Smart alerts refreshed", "success");
             } catch (error) {
-                flash("Failed to refresh alerts");
+                flash("Failed to refresh alerts", "error");
             }
         });
     }
@@ -1320,9 +1502,9 @@ function bindPageActions() {
         applyAuditFilters.addEventListener("click", async () => {
             try {
                 await loadConfigLogs();
-                flash("Audit filters applied");
+                flash("Audit filters applied", "success");
             } catch (error) {
-                flash("Failed to load audit logs");
+                flash("Failed to load audit logs", "error");
             }
         });
     }
@@ -1369,9 +1551,9 @@ function bindPageActions() {
                 });
                 dashboardContext.state = res.state;
                 renderPage(dashboardContext);
-                flash("Guild settings updated");
+                flash("Guild settings updated", "success");
             } catch (error) {
-                flash("Failed to update guild settings");
+                flash("Failed to update guild settings", "error");
             }
         });
     }
@@ -1391,15 +1573,16 @@ function bindPageActions() {
                 showSetupSaveBanner(res.state, res.applied_changes || []);
                 playApplySound();
                 updateSetupDirtyState(false, "Everything saved for this guild.");
+                refreshSetupChangePreview();
                 try {
                     const logSync = await api("/api/dashboard/config-logs");
                     updateConfigLogBadge(logSync.unread || 0);
                 } catch (error) {
                     // If log fetch fails we still keep setup save as successful.
                 }
-                flash("Bot setup updated");
+                flash("Bot setup updated", "success");
             } catch (error) {
-                flash("Failed to update bot setup");
+                flash("Failed to update bot setup", "error");
             }
         });
     }
@@ -1414,9 +1597,9 @@ function bindPageActions() {
                 });
                 const status = document.getElementById("staging-status");
                 if (status) status.textContent = "Staging config saved from current form.";
-                flash("Saved to staging");
+                flash("Saved to staging", "success");
             } catch (error) {
-                flash("Failed to save staging config");
+                flash("Failed to save staging config", "error");
             }
         });
     }
@@ -1432,9 +1615,10 @@ function bindPageActions() {
                 }
                 dashboardContext.state = response.state;
                 renderGuildSettings(dashboardContext);
-                flash("Staging loaded into form");
+                refreshSetupChangePreview();
+                flash("Staging loaded into form", "success");
             } catch (error) {
-                flash("Failed to load staging config");
+                flash("Failed to load staging config", "error");
             }
         });
     }
@@ -1447,9 +1631,9 @@ function bindPageActions() {
                 dashboardContext.state = response.state;
                 dashboardContext.has_staging = false;
                 renderGuildSettings(dashboardContext);
-                flash("Staging applied to production");
+                flash("Staging applied to production", "success");
             } catch (error) {
-                flash("Failed to apply staging");
+                flash("Failed to apply staging", "error");
             }
         });
     }
@@ -1462,9 +1646,9 @@ function bindPageActions() {
                 dashboardContext.has_staging = false;
                 const status = document.getElementById("staging-status");
                 if (status) status.textContent = "No staging config loaded.";
-                flash("Staging discarded");
+                flash("Staging discarded", "success");
             } catch (error) {
-                flash("Failed to discard staging");
+                flash("Failed to discard staging", "error");
             }
         });
     }
@@ -1481,9 +1665,9 @@ function bindPageActions() {
                 dashboardContext.has_staging = true;
                 const status = document.getElementById("staging-status");
                 if (status) status.textContent = `Preset '${presetName}' applied to staging.`;
-                flash("Preset applied to staging");
+                flash("Preset applied to staging", "success");
             } catch (error) {
-                flash("Failed to apply preset to staging");
+                flash("Failed to apply preset to staging", "error");
             }
         });
     }
@@ -1499,9 +1683,9 @@ function bindPageActions() {
                 });
                 dashboardContext.state = response.state;
                 renderGuildSettings(dashboardContext);
-                flash("Preset applied to production");
+                flash("Preset applied to production", "success");
             } catch (error) {
-                flash("Failed to apply preset to production");
+                flash("Failed to apply preset to production", "error");
             }
         });
     }
@@ -1562,9 +1746,9 @@ function bindPageActions() {
             try {
                 await api("/api/dashboard/config-logs/ack", { method: "POST", body: "{}" });
                 updateConfigLogBadge(0);
-                flash("Config logs marked as read");
+                flash("Config logs marked as read", "success");
             } catch (error) {
-                flash("Failed to update log notification state");
+                flash("Failed to update log notification state", "error");
             }
         });
     }
@@ -1584,9 +1768,9 @@ function bindPageActions() {
                     body: JSON.stringify({ user_id: userId, role }),
                 });
                 await loadDashboardRoles();
-                flash("Dashboard role saved");
+                flash("Dashboard role saved", "success");
             } catch (error) {
-                flash("Failed to save dashboard role");
+                flash("Failed to save dashboard role", "error");
             }
         });
     }
@@ -1596,9 +1780,9 @@ function bindPageActions() {
         refreshDashboardRoles.addEventListener("click", async () => {
             try {
                 await loadDashboardRoles();
-                flash("Roles refreshed");
+                flash("Roles refreshed", "success");
             } catch (error) {
-                flash("Failed to load roles");
+                flash("Failed to load roles", "error");
             }
         });
     }
@@ -1608,9 +1792,9 @@ function bindPageActions() {
         refreshSnapshots.addEventListener("click", async () => {
             try {
                 await loadSnapshots();
-                flash("Snapshots refreshed");
+                flash("Snapshots refreshed", "success");
             } catch (error) {
-                flash("Failed to refresh snapshots");
+                flash("Failed to refresh snapshots", "error");
             }
         });
     }
@@ -1629,9 +1813,9 @@ function bindPageActions() {
                 });
                 dashboardContext.state = response.state;
                 await loadSnapshots();
-                flash("Snapshot rollback applied");
+                flash("Snapshot rollback applied", "success");
             } catch (error) {
-                flash("Failed to rollback snapshot");
+                flash("Failed to rollback snapshot", "error");
             }
         });
     }
@@ -1651,9 +1835,9 @@ function bindPageActions() {
                 });
                 dashboardContext.state = res.state;
                 renderPage(dashboardContext);
-                flash("Cogs updated");
+                flash("Cogs updated", "success");
             } catch (error) {
-                flash("Failed to update cogs");
+                flash("Failed to update cogs", "error");
             }
         });
     }
@@ -1665,9 +1849,9 @@ function bindPageActions() {
                 const res = await api("/api/dashboard/reset", { method: "POST", body: "{}" });
                 dashboardContext.state = res.state;
                 renderPage(dashboardContext);
-                flash("Guild dashboard reset");
+                flash("Guild dashboard reset", "success");
             } catch (error) {
-                flash("Failed to reset guild dashboard");
+                flash("Failed to reset guild dashboard", "error");
             }
         });
     }

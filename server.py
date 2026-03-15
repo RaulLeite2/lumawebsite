@@ -1765,6 +1765,61 @@ async def _detect_smart_alerts(guild_id: str, state: dict[str, Any]) -> list[dic
     return alert_items
 
 
+def _risk_score_for_action(action: str) -> int:
+    normalized = str(action or "").lower()
+    if normalized in {"ban", "moderation:ban"}:
+        return 5
+    if normalized in {"kick", "moderation:kick"}:
+        return 4
+    if normalized in {"timeout", "mute", "moderation:timeout"}:
+        return 3
+    if normalized in {"warn", "moderation:warn", "automod_warn"}:
+        return 2
+    if normalized in {"automod_spam", "automod_invite", "automod_link", "automod_caps", "automod_violation"}:
+        return 1
+    return 0
+
+
+async def _build_risk_heatmap(guild_id: str, period: str = "24h") -> dict[str, Any]:
+    logs = await _fetch_audit_logs(guild_id, period=period, limit=1000)
+
+    channel_scores: dict[str, dict[int, int]] = {}
+    max_score = 0
+    for item in logs:
+        channel_id = str(item.get("channel_id") or "unknown")
+        raw_ts = item.get("created_at")
+        if not raw_ts:
+            continue
+        try:
+            ts = datetime.fromisoformat(str(raw_ts))
+        except ValueError:
+            continue
+
+        hour = ts.hour
+        score = _risk_score_for_action(str(item.get("action") or ""))
+        if score <= 0:
+            continue
+
+        bucket = channel_scores.setdefault(channel_id, {})
+        bucket[hour] = int(bucket.get(hour, 0)) + score
+        if bucket[hour] > max_score:
+            max_score = bucket[hour]
+
+    channels = sorted(channel_scores.keys(), key=lambda key: (key == "unknown", key))[:12]
+    grid = []
+    for channel in channels:
+        hours = channel_scores.get(channel, {})
+        row = [int(hours.get(hour, 0)) for hour in range(24)]
+        grid.append({"channel_id": channel, "scores": row})
+
+    return {
+        "period": period,
+        "max_score": max_score,
+        "hours": list(range(24)),
+        "rows": grid,
+    }
+
+
 def _discord_request(url: str, *, method: str, headers: dict[str, str], data: dict[str, str] | None = None) -> dict[str, Any]:
     encoded_data = None
     if data is not None:
@@ -2274,6 +2329,18 @@ async def dashboard_alerts(request: Request) -> dict[str, Any]:
     state = _state_with_metrics(await _get_effective_state_for_guild(guild_id, guild_name))
     alerts = await _detect_smart_alerts(guild_id, state)
     return {"ok": True, "active_guild_id": guild_id, "alerts": alerts}
+
+
+@app.get("/api/dashboard/risk-heatmap")
+async def dashboard_risk_heatmap(
+    request: Request,
+    period: str = Query(default="24h", pattern="^(24h|7d|30d)$"),
+) -> dict[str, Any]:
+    _require_auth(request)
+    active_guild = _require_active_guild(request)
+    guild_id = str(active_guild.get("id"))
+    heatmap = await _build_risk_heatmap(guild_id, period=period)
+    return {"ok": True, "active_guild_id": guild_id, "heatmap": heatmap}
 
 
 @app.get("/api/dashboard/roles")

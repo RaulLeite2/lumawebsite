@@ -27,27 +27,46 @@
         <main class="main">
             <header class="topbar">
                 <div>
-                    <h1 class="title">Choose a Guild and Configure</h1>
-                    <p class="subtitle">Modular dashboard with separate pages for staff operations.</p>
+                    <h1 class="title">Guild Home</h1>
+                    <p class="subtitle">Narrative overview with risk, incidents and operational status.</p>
                 </div>
                 <div class="actions">
                     <select id="guild-select"></select>
+                    <button class="btn" id="toggle-focus-mode" type="button">Focus Mode</button>
                     <a class="btn" href="/auth/logout">Logout</a>
                 </div>
             </header>
 
-            <section class="section">
-                <h2>Overview</h2>
-                <p class="lead">Quick health snapshot of current guild settings.</p>
-                <div class="metrics">
-                    <div class="metric"><span>Guild</span><strong id="metric-guild-name">-</strong></div>
-                    <div class="metric"><span>Warnings (24h)</span><strong id="metric-warnings">-</strong></div>
-                    <div class="metric"><span>Open Tickets</span><strong id="metric-tickets">-</strong></div>
-                    <div class="metric"><span>Cogs Enabled</span><strong id="metric-cogs">-</strong></div>
+            <section class="section hero-shell focus-hide-on-staff">
+                <div>
+                    <span class="eyebrow">Status of the Day</span>
+                    <h2 style="margin-top:0.6rem;">Operational Pulse</h2>
+                    <p class="lead" id="status-of-day">Loading guild status...</p>
+                    <div class="metrics" style="margin-top:0.7rem;">
+                        <div class="metric"><span>Guild</span><strong id="metric-guild-name">-</strong></div>
+                        <div class="metric"><span>Warnings (24h)</span><strong id="metric-warnings">-</strong></div>
+                        <div class="metric"><span>Open Tickets</span><strong id="metric-tickets">-</strong></div>
+                        <div class="metric"><span>Cogs Enabled</span><strong id="metric-cogs">-</strong></div>
+                    </div>
+                </div>
+                <div class="hero-graph-wrap">
+                    <h3 style="margin-bottom:0.4rem;">Moderation Rhythm</h3>
+                    <svg id="overview-sparkline" viewBox="0 0 360 120" preserveAspectRatio="none" aria-label="Moderation trend sparkline"></svg>
+                    <p class="lead" style="margin-top:0.45rem;">Smooth trend based on recent moderation volume.</p>
                 </div>
             </section>
 
-            <section class="section">
+            <section class="section focus-priority">
+                <h2>Focus Actions</h2>
+                <p class="lead">Rapid actions for active incidents.</p>
+                <div class="actions">
+                    <a class="btn primary" href="/dashboard/moderation">Open Moderation</a>
+                    <a class="btn" href="/dashboard/config-logs">Open Audit Center</a>
+                    <a class="btn" href="/dashboard/guild-settings">Open Bot Setup</a>
+                </div>
+            </section>
+
+            <section class="section focus-priority">
                 <div class="topbar" style="margin-bottom:0.7rem;">
                     <div>
                         <h2>Server Health</h2>
@@ -70,13 +89,31 @@
                 </div>
             </section>
 
-            <section class="section">
+            <section class="section focus-priority">
                 <h2>Live Activity Feed</h2>
                 <p class="lead">Real-time stream: warns, deletes, kicks, bans, joins/leaves, tickets and config updates.</p>
                 <div id="live-activity-feed" class="log-feed"></div>
             </section>
 
-            <section class="section">
+            <section class="section focus-priority">
+                <div class="topbar" style="margin-bottom:0.7rem;">
+                    <div>
+                        <h2>Risk Heatmap</h2>
+                        <p class="lead">Color severity by channel and hour for moderation pressure.</p>
+                    </div>
+                    <div class="actions">
+                        <select id="risk-period">
+                            <option value="24h">Last 24h</option>
+                            <option value="7d">Last 7d</option>
+                            <option value="30d">Last 30d</option>
+                        </select>
+                        <button class="btn" id="refresh-risk-heatmap" type="button">Refresh Heatmap</button>
+                    </div>
+                </div>
+                <div id="risk-heatmap" class="risk-heatmap"></div>
+            </section>
+
+            <section class="section focus-hide-on-staff">
                 <div class="topbar" style="margin-bottom:0.7rem;">
                     <div>
                         <h2>Smart Alerts</h2>
