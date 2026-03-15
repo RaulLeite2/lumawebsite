@@ -737,11 +737,27 @@ function applyStaticTranslations() {
     const textNodes = document.querySelectorAll("h1, h2, h3, h4, p, span, button, label, small, option");
     textNodes.forEach((node) => {
         if (node.closest(".sidebar .nav") || node.id === "status-of-day") return;
-        const source = node.dataset.i18nSource || node.textContent.trim();
-        if (!source) return;
-        if (!node.dataset.i18nSource) node.dataset.i18nSource = source;
-        const translated = translateStaticText(source);
-        if (translated !== source) node.textContent = translated;
+        if (!node.children.length) {
+            const source = node.dataset.i18nSource || node.textContent.trim();
+            if (!source) return;
+            if (!node.dataset.i18nSource) node.dataset.i18nSource = source;
+            const translated = translateStaticText(source);
+            if (translated !== source) node.textContent = translated;
+            return;
+        }
+
+        Array.from(node.childNodes).forEach((child) => {
+            if (child.nodeType !== Node.TEXT_NODE) return;
+            const currentText = child.textContent || "";
+            const trimmed = currentText.trim();
+            if (!trimmed) return;
+            const source = child._i18nSource || trimmed;
+            if (!child._i18nSource) child._i18nSource = source;
+            const translated = translateStaticText(source);
+            if (translated !== source) {
+                child.textContent = currentText.replace(trimmed, translated);
+            }
+        });
     });
 
     const placeholders = document.querySelectorAll("input[placeholder], textarea[placeholder]");
@@ -2374,7 +2390,7 @@ function bindPageActions() {
                 }
                 flash("Bot setup updated", "success");
             } catch (error) {
-                flash("Failed to update bot setup", "error");
+                flash(error instanceof Error && error.message ? error.message : "Failed to update bot setup", "error");
             }
         });
     }
