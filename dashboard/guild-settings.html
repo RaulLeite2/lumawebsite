@@ -186,6 +186,13 @@
                         <div class="warn-steps">
                             <h3>Warn escalation ladder</h3>
                             <p>Configure multiple actions based on warning count.</p>
+                            <div class="flow-editor">
+                                <div class="role-picker-actions">
+                                    <button class="btn" id="warn-flow-add-step" type="button">Add Step</button>
+                                </div>
+                                <div id="warn-flow-list" class="warn-flow-list"></div>
+                                <p class="lead" style="margin-top:0.3rem;">Drag cards to reorder the ladder. Top item is the first escalation.</p>
+                            </div>
                             <div class="warn-step-row">
                                 <label for="warn-step-1-threshold">At</label>
                                 <input id="warn-step-1-threshold" type="number" min="1" max="50" value="3">

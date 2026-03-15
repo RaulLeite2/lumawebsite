@@ -1,20 +1,23 @@
 import asyncio
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timedelta
 import importlib
 import json
 import os
+import re
 import secrets
 import threading
 import urllib.error
 import urllib.parse
 import urllib.request
+from io import StringIO
+import csv
 from pathlib import Path
 from typing import Any
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Query, Request
-from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from starlette.middleware.sessions import SessionMiddleware
@@ -176,6 +179,10 @@ class SetupUpdatePayload(BaseModel):
     modmail: ModmailSettings
     entry_exit: EntryExitEmbedSettings
     cogs: dict[str, bool]
+
+
+class AutoModSimulationPayload(BaseModel):
+    message: str = Field(min_length=1, max_length=2000)
 
 
 state_lock = threading.Lock()
@@ -494,6 +501,173 @@ def _count_unread_config_logs(logs: list[dict[str, Any]], seen_iso: str | None) 
     return unread
 
 
+def _period_to_since(period: str | None) -> datetime:
+    normalized = str(period or "24h").lower().strip()
+    if normalized == "7d":
+        return datetime.utcnow() - timedelta(days=7)
+    if normalized == "30d":
+        return datetime.utcnow() - timedelta(days=30)
+    return datetime.utcnow() - timedelta(hours=24)
+
+
+def _normalize_audit_action(raw: Any) -> str:
+    value = str(raw or "unknown").strip().lower()
+    return value or "unknown"
+
+
+async def _fetch_audit_logs(
+    guild_id: str,
+    *,
+    period: str = "24h",
+    action: str = "",
+    moderator_id: str = "",
+    user_id: str = "",
+    channel_id: str = "",
+    limit: int = 100,
+) -> list[dict[str, Any]]:
+    pool = _db_pool()
+    if pool is None:
+        return []
+
+    try:
+        guild_id_int = int(guild_id)
+    except (TypeError, ValueError):
+        return []
+
+    since = _period_to_since(period)
+    query = [
+        """
+        SELECT moderator_id, user_id, channel_id, action, reason, created_at
+        FROM moderation_logs
+        WHERE guild_id = $1 AND created_at >= $2
+        """
+    ]
+    params: list[Any] = [guild_id_int, since]
+    idx = 3
+
+    normalized_action = str(action or "").strip().lower()
+    if normalized_action:
+        query.append(f"AND LOWER(action) = ${idx}")
+        params.append(normalized_action)
+        idx += 1
+
+    parsed_mod = _extract_discord_id(moderator_id)
+    if parsed_mod is not None:
+        query.append(f"AND moderator_id = ${idx}")
+        params.append(parsed_mod)
+        idx += 1
+
+    parsed_user = _extract_discord_id(user_id)
+    if parsed_user is not None:
+        query.append(f"AND user_id = ${idx}")
+        params.append(parsed_user)
+        idx += 1
+
+    parsed_channel = _extract_discord_id(channel_id)
+    if parsed_channel is not None:
+        query.append(f"AND channel_id = ${idx}")
+        params.append(parsed_channel)
+        idx += 1
+
+    query.append(f"ORDER BY created_at DESC LIMIT ${idx}")
+    params.append(max(1, min(limit, 500)))
+
+    try:
+        async with pool.acquire() as connection:
+            rows = await connection.fetch("\n".join(query), *params)
+    except Exception as exc:
+        print(f"[Dashboard] Failed to fetch audit logs for {guild_id}: {exc}")
+        return []
+
+    return [
+        {
+            "moderator_id": _id_to_input_value(row.get("moderator_id")),
+            "user_id": _id_to_input_value(row.get("user_id")),
+            "channel_id": _id_to_input_value(row.get("channel_id")),
+            "action": _normalize_audit_action(row.get("action")),
+            "reason": str(row.get("reason") or ""),
+            "created_at": row.get("created_at").isoformat() if hasattr(row.get("created_at"), "isoformat") else "",
+        }
+        for row in rows
+    ]
+
+
+async def _fetch_server_health(guild_id: str, period: str, state: dict[str, Any]) -> dict[str, Any]:
+    logs = await _fetch_audit_logs(guild_id, period=period, limit=500)
+    warns = sum(1 for item in logs if item.get("action") in {"warn", "moderation:warn", "automod_warn"})
+    bans = sum(1 for item in logs if item.get("action") in {"ban", "moderation:ban"})
+    spam_blocks = sum(
+        1
+        for item in logs
+        if item.get("action") in {"automod_spam", "automod_invite", "automod_link", "automod_caps", "automod_violation"}
+    )
+    moderation_actions = sum(
+        1
+        for item in logs
+        if item.get("action") in {"warn", "ban", "kick", "timeout", "mute", "automod_warn", "automod_violation"}
+    )
+    ban_rate = round((bans / moderation_actions) * 100, 2) if moderation_actions > 0 else 0.0
+
+    # Placeholder while ticket response latency is not yet persisted per thread.
+    avg_response_minutes = 0
+
+    return {
+        "period": period,
+        "warns": warns,
+        "ban_rate": ban_rate,
+        "spam_blocks": spam_blocks,
+        "open_tickets": int(state.get("metrics", {}).get("open_tickets") or 0),
+        "avg_response_minutes": avg_response_minutes,
+    }
+
+
+def _simulate_automod(message: str, state: dict[str, Any]) -> dict[str, Any]:
+    text = str(message or "")
+    automation = state.get("automation", {})
+    warnings = state.get("warnings", {})
+
+    invite_pattern = re.compile(r"discord\.gg/\w+|discord(app)?\.com/invite/\w+", re.IGNORECASE)
+    link_pattern = re.compile(r"https?://\S+|www\.\S+", re.IGNORECASE)
+
+    matched: list[dict[str, str]] = []
+
+    if bool(automation.get("invite_filter")) and invite_pattern.search(text):
+        matched.append({"rule": "invite_filter", "reason": "Invite link detected"})
+
+    if bool(automation.get("link_filter")) and link_pattern.search(text) and not invite_pattern.search(text):
+        matched.append({"rule": "link_filter", "reason": "External link detected"})
+
+    if bool(automation.get("caps_filter")) and len(text) > 10:
+        caps_count = sum(1 for ch in text if ch.isupper())
+        caps_ratio = caps_count / max(len(text), 1)
+        if caps_ratio > 0.70:
+            matched.append({"rule": "caps_filter", "reason": "Excessive caps ratio"})
+
+    max_repeat = 0
+    current_repeat = 0
+    previous = ""
+    for ch in text:
+        if ch == previous:
+            current_repeat += 1
+        else:
+            current_repeat = 1
+            previous = ch
+        if current_repeat > max_repeat:
+            max_repeat = current_repeat
+    if max_repeat > 10:
+        matched.append({"rule": "repeat_filter", "reason": "Repeated characters detected"})
+
+    steps = _parse_warning_steps(warnings.get("escalation_steps"))
+    default_action = str(steps[0].get("action") if steps else warnings.get("escalate_to") or "timeout")
+
+    return {
+        "triggered": bool(matched),
+        "rules": matched,
+        "suggested_action": default_action,
+        "message_length": len(text),
+    }
+
+
 async def _connect_database_pool() -> Any | None:
     try:
         asyncpg = importlib.import_module("asyncpg")
@@ -524,6 +698,7 @@ async def _connect_database_pool() -> Any | None:
 async def _ensure_dashboard_tables(pool: Any) -> None:
     try:
         async with pool.acquire() as connection:
+            await connection.execute("ALTER TABLE moderation_logs ADD COLUMN IF NOT EXISTS channel_id BIGINT")
             await connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS guild_modmail_roles (
@@ -1716,6 +1891,148 @@ async def dashboard_config_logs_data(request: Request) -> dict[str, Any]:
         "logs": logs,
         "unread": unread,
     }
+
+
+@app.get("/api/dashboard/audit")
+async def dashboard_audit_logs(
+    request: Request,
+    period: str = Query(default="24h", pattern="^(24h|7d|30d)$"),
+    action: str = "",
+    moderator_id: str = "",
+    user_id: str = "",
+    channel_id: str = "",
+    limit: int = Query(default=100, ge=1, le=500),
+) -> dict[str, Any]:
+    _require_auth(request)
+    active_guild = _require_active_guild(request)
+    guild_id = str(active_guild.get("id"))
+    logs = await _fetch_audit_logs(
+        guild_id,
+        period=period,
+        action=action,
+        moderator_id=moderator_id,
+        user_id=user_id,
+        channel_id=channel_id,
+        limit=limit,
+    )
+    return {
+        "ok": True,
+        "active_guild_id": guild_id,
+        "period": period,
+        "logs": logs,
+        "count": len(logs),
+    }
+
+
+@app.get("/api/dashboard/audit/export")
+async def dashboard_audit_export(
+    request: Request,
+    format: str = Query(default="csv", pattern="^(csv|json)$"),
+    period: str = Query(default="24h", pattern="^(24h|7d|30d)$"),
+    action: str = "",
+    moderator_id: str = "",
+    user_id: str = "",
+    channel_id: str = "",
+    limit: int = Query(default=500, ge=1, le=2000),
+) -> Response:
+    _require_auth(request)
+    active_guild = _require_active_guild(request)
+    guild_id = str(active_guild.get("id"))
+    logs = await _fetch_audit_logs(
+        guild_id,
+        period=period,
+        action=action,
+        moderator_id=moderator_id,
+        user_id=user_id,
+        channel_id=channel_id,
+        limit=limit,
+    )
+
+    if format == "json":
+        payload = json.dumps({"guild_id": guild_id, "period": period, "logs": logs}, ensure_ascii=False, indent=2)
+        return Response(
+            content=payload,
+            media_type="application/json",
+            headers={"Content-Disposition": f'attachment; filename="audit-{guild_id}-{period}.json"'},
+        )
+
+    out = StringIO()
+    writer = csv.DictWriter(out, fieldnames=["created_at", "action", "moderator_id", "user_id", "channel_id", "reason"])
+    writer.writeheader()
+    for item in logs:
+        writer.writerow(
+            {
+                "created_at": item.get("created_at", ""),
+                "action": item.get("action", ""),
+                "moderator_id": item.get("moderator_id", ""),
+                "user_id": item.get("user_id", ""),
+                "channel_id": item.get("channel_id", ""),
+                "reason": item.get("reason", ""),
+            }
+        )
+
+    return Response(
+        content=out.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="audit-{guild_id}-{period}.csv"'},
+    )
+
+
+@app.get("/api/dashboard/health")
+async def dashboard_health_metrics(
+    request: Request,
+    period: str = Query(default="24h", pattern="^(24h|7d|30d)$"),
+) -> dict[str, Any]:
+    _require_auth(request)
+    active_guild = _require_active_guild(request)
+    guild_id = str(active_guild.get("id"))
+    guild_name = str(active_guild.get("name", f"Guild {guild_id}"))
+    state = _state_with_metrics(await _get_effective_state_for_guild(guild_id, guild_name))
+    health = await _fetch_server_health(guild_id, period, state)
+    return {"ok": True, "active_guild_id": guild_id, "health": health}
+
+
+@app.post("/api/dashboard/automod/simulate")
+async def dashboard_automod_simulate(payload: AutoModSimulationPayload, request: Request) -> dict[str, Any]:
+    _require_auth(request)
+    active_guild = _require_active_guild(request)
+    guild_id = str(active_guild.get("id"))
+    guild_name = str(active_guild.get("name", f"Guild {guild_id}"))
+    state = await _get_effective_state_for_guild(guild_id, guild_name)
+    simulation = _simulate_automod(payload.message, state)
+    return {"ok": True, "active_guild_id": guild_id, "simulation": simulation}
+
+
+@app.get("/api/dashboard/activity/recent")
+async def dashboard_activity_recent(
+    request: Request,
+    limit: int = Query(default=30, ge=1, le=200),
+) -> dict[str, Any]:
+    _require_auth(request)
+    active_guild = _require_active_guild(request)
+    guild_id = str(active_guild.get("id"))
+    logs = await _fetch_audit_logs(guild_id, period="30d", limit=limit)
+    return {"ok": True, "active_guild_id": guild_id, "logs": logs}
+
+
+@app.get("/api/dashboard/activity/stream")
+async def dashboard_activity_stream(request: Request) -> StreamingResponse:
+    _require_auth(request)
+    active_guild = _require_active_guild(request)
+    guild_id = str(active_guild.get("id"))
+
+    async def generator():
+        last_seen = ""
+        for _ in range(120):
+            logs = await _fetch_audit_logs(guild_id, period="24h", limit=25)
+            if logs:
+                newest = logs[0].get("created_at", "")
+                if newest and newest != last_seen:
+                    last_seen = newest
+                    yield f"data: {json.dumps({'logs': logs[:10]})}\n\n"
+            await asyncio.sleep(5)
+
+    return StreamingResponse(generator(), media_type="text/event-stream")
 
 
 @app.post("/api/dashboard/config-logs/ack")

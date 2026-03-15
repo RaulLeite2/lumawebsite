@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Luma Dashboard - Config Logs</title>
+    <title>Luma Dashboard - Audit Center</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
@@ -19,7 +19,7 @@
                 <a href="/dashboard/moderation">Moderation</a>
                 <a href="/dashboard/guild-settings">Bot Setup</a>
                 <a href="/dashboard/cogs">Cogs</a>
-                <a class="active" href="/dashboard/config-logs">Config Logs <span class="config-log-dot" id="config-log-dot" hidden>0</span></a>
+                <a class="active" href="/dashboard/config-logs">Audit Center <span class="config-log-dot" id="config-log-dot" hidden>0</span></a>
             </nav>
             <div class="user-box" id="session-user">Signed in...</div>
         </aside>
@@ -27,8 +27,8 @@
         <main class="main">
             <header class="topbar">
                 <div>
-                    <h1 class="title">Configuration Logs</h1>
-                    <p class="subtitle">Track every setup change applied to the selected guild.</p>
+                    <h1 class="title">Audit Center</h1>
+                    <p class="subtitle">Filter moderation and configuration events with export support.</p>
                 </div>
                 <div class="actions">
                     <select id="guild-select"></select>
@@ -38,8 +38,44 @@
             </header>
 
             <section class="section">
-                <h2>Recent Setup Updates</h2>
-                <p class="lead">Each entry records exactly what changed and when it was applied.</p>
+                <h2>Filters</h2>
+                <p class="lead">Filter by period, action, moderator, target user and channel.</p>
+                <div class="grid-2">
+                    <div class="field">
+                        <label for="audit-period">Period</label>
+                        <select id="audit-period">
+                            <option value="24h">Last 24h</option>
+                            <option value="7d">Last 7d</option>
+                            <option value="30d">Last 30d</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="audit-action">Action</label>
+                        <input id="audit-action" type="text" placeholder="warn, ban, config_update...">
+                    </div>
+                    <div class="field">
+                        <label for="audit-moderator">Moderator ID</label>
+                        <input id="audit-moderator" type="text" placeholder="Optional moderator ID">
+                    </div>
+                    <div class="field">
+                        <label for="audit-user">User ID</label>
+                        <input id="audit-user" type="text" placeholder="Optional target user ID">
+                    </div>
+                    <div class="field">
+                        <label for="audit-channel">Channel ID</label>
+                        <input id="audit-channel" type="text" placeholder="Optional channel ID">
+                    </div>
+                </div>
+                <div class="actions">
+                    <button class="btn primary" id="apply-audit-filters" type="button">Apply Filters</button>
+                    <button class="btn" id="export-audit-csv" type="button">Export CSV</button>
+                    <button class="btn" id="export-audit-json" type="button">Export JSON</button>
+                </div>
+            </section>
+
+            <section class="section">
+                <h2>Audit Feed</h2>
+                <p class="lead">Live, filterable timeline of moderation and setup events.</p>
                 <div id="config-log-feed" class="log-feed"></div>
             </section>
         </main>

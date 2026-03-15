@@ -48,6 +48,35 @@
             </section>
 
             <section class="section">
+                <div class="topbar" style="margin-bottom:0.7rem;">
+                    <div>
+                        <h2>Server Health</h2>
+                        <p class="lead">Metrics by selected window for moderation performance.</p>
+                    </div>
+                    <div class="actions">
+                        <select id="health-period">
+                            <option value="24h">Last 24h</option>
+                            <option value="7d">Last 7d</option>
+                            <option value="30d">Last 30d</option>
+                        </select>
+                        <button class="btn" id="refresh-health" type="button">Refresh</button>
+                    </div>
+                </div>
+                <div class="metrics" id="health-metrics">
+                    <div class="metric"><span>Warns</span><strong id="health-warns">-</strong></div>
+                    <div class="metric"><span>Ban Rate</span><strong id="health-ban-rate">-</strong></div>
+                    <div class="metric"><span>Spam Blocks</span><strong id="health-spam-blocks">-</strong></div>
+                    <div class="metric"><span>Open Tickets</span><strong id="health-open-tickets">-</strong></div>
+                </div>
+            </section>
+
+            <section class="section">
+                <h2>Live Activity Feed</h2>
+                <p class="lead">Real-time stream: warns, deletes, kicks, bans, joins/leaves, tickets and config updates.</p>
+                <div id="live-activity-feed" class="log-feed"></div>
+            </section>
+
+            <section class="section">
                 <h2>Current Cogs</h2>
                 <p class="lead">Live status for modules in this guild.</p>
                 <div id="overview-cogs"></div>

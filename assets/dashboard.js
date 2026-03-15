@@ -4,6 +4,8 @@ let setupDirtyTrackingBound = false;
 let setupResources = { text_channels: [], categories: [], roles: [] };
 let selectedModmailRoles = [];
 let selectedAutoImmuneRoles = [];
+let liveActivityEventSource = null;
+let warnFlowSteps = [];
 
 const page = document.body.dataset.page || "overview";
 
@@ -239,6 +241,20 @@ function applyResourceSelectors(context) {
 }
 
 function getWarnEscalationStepsFromForm() {
+    const flowRows = Array.from(document.querySelectorAll("#warn-flow-list .warn-flow-item"));
+    if (flowRows.length) {
+        const fromEditor = flowRows.map((row) => ({
+            threshold: Number(row.querySelector("input")?.value || 1),
+            action: row.querySelector("select")?.value || "timeout",
+        }));
+        const sanitizedEditor = fromEditor
+            .filter((step) => Number.isFinite(step.threshold) && step.threshold >= 1)
+            .sort((a, b) => a.threshold - b.threshold);
+        if (sanitizedEditor.length) {
+            return sanitizedEditor;
+        }
+    }
+
     const steps = [
         {
             threshold: Number(document.getElementById("warn-step-1-threshold")?.value || 3),
@@ -259,6 +275,73 @@ function getWarnEscalationStepsFromForm() {
         .sort((a, b) => a.threshold - b.threshold);
 
     return sanitized.length ? sanitized : [{ threshold: 3, action: "timeout" }];
+}
+
+function renderWarnFlowEditor(steps) {
+    const list = document.getElementById("warn-flow-list");
+    if (!list) return;
+
+    const sanitized = (Array.isArray(steps) ? steps : [])
+        .map((item) => ({
+            threshold: Number(item.threshold || 1),
+            action: String(item.action || "timeout"),
+        }))
+        .filter((item) => Number.isFinite(item.threshold) && item.threshold >= 1);
+
+    warnFlowSteps = sanitized.length ? sanitized : [{ threshold: 3, action: "timeout" }];
+    list.innerHTML = "";
+
+    warnFlowSteps.forEach((step, index) => {
+        const row = document.createElement("div");
+        row.className = "warn-flow-item";
+        row.draggable = true;
+        row.dataset.index = String(index);
+        row.innerHTML = `
+            <span class="drag-handle" title="Drag to reorder">::</span>
+            <label>At</label>
+            <input type="number" min="1" max="100" value="${step.threshold}">
+            <span>warns apply</span>
+            <select>
+                <option value="timeout" ${step.action === "timeout" ? "selected" : ""}>Timeout</option>
+                <option value="kick" ${step.action === "kick" ? "selected" : ""}>Kick</option>
+                <option value="ban" ${step.action === "ban" ? "selected" : ""}>Ban</option>
+                <option value="mute" ${step.action === "mute" ? "selected" : ""}>Mute</option>
+            </select>
+            <button type="button" class="btn danger warn-flow-remove">Remove</button>
+        `;
+
+        const thresholdInput = row.querySelector("input");
+        const actionSelect = row.querySelector("select");
+        const removeButton = row.querySelector(".warn-flow-remove");
+
+        thresholdInput?.addEventListener("input", () => updateSetupDirtyState(true));
+        actionSelect?.addEventListener("change", () => updateSetupDirtyState(true));
+        removeButton?.addEventListener("click", () => {
+            row.remove();
+            updateSetupDirtyState(true);
+        });
+
+        row.addEventListener("dragstart", () => row.classList.add("dragging"));
+        row.addEventListener("dragend", () => row.classList.remove("dragging"));
+
+        list.appendChild(row);
+    });
+
+    if (!list.dataset.dragBound) {
+        list.addEventListener("dragover", (event) => {
+            event.preventDefault();
+            const dragging = list.querySelector(".warn-flow-item.dragging");
+            if (!dragging) return;
+            const after = Array.from(list.querySelectorAll(".warn-flow-item:not(.dragging)"))
+                .find((item) => {
+                    const rect = item.getBoundingClientRect();
+                    return event.clientY < rect.top + rect.height / 2;
+                });
+            if (after) list.insertBefore(dragging, after);
+            else list.appendChild(dragging);
+        });
+        list.dataset.dragBound = "1";
+    }
 }
 
 function bindSetupDirtyTracking() {
@@ -576,6 +659,7 @@ function renderGuildSettings(context) {
         ? warnings.escalation_steps
         : [{ threshold: 3, action: "timeout" }, { threshold: 6, action: "kick" }, { threshold: 9, action: "ban" }];
     const safe = [steps[0], steps[1] || steps[0], steps[2] || steps[1] || steps[0]];
+    renderWarnFlowEditor(steps);
     refs.warnStep1Threshold.value = safe[0].threshold;
     refs.warnStep1Action.value = safe[0].action;
     refs.warnStep2Threshold.value = safe[1].threshold;
@@ -704,13 +788,147 @@ function renderConfigLogs(logs) {
         const row = document.createElement("article");
         row.className = "log-item";
         const when = item.created_at ? new Date(item.created_at).toLocaleString() : "Unknown time";
+        const action = item.action || "config_update";
+        const target = item.user_id ? `Target: ${item.user_id}` : "";
+        const channel = item.channel_id ? `Channel: ${item.channel_id}` : "";
         row.innerHTML = `
-            <h3>${item.reason || "Configuration update"}</h3>
+            <h3>[${action}] ${item.reason || "Configuration update"}</h3>
             <p>By: ${item.moderator_id || "unknown"}</p>
+            <p>${target} ${channel}</p>
             <p>${when}</p>
         `;
         feed.appendChild(row);
     });
+}
+
+function renderLiveActivity(logs) {
+    const feed = document.getElementById("live-activity-feed");
+    if (!feed) return;
+    feed.innerHTML = "";
+
+    const items = Array.isArray(logs) ? logs.slice(0, 20) : [];
+    if (!items.length) {
+        const empty = document.createElement("article");
+        empty.className = "log-item";
+        empty.innerHTML = "<h3>No recent activity</h3><p>New moderation and setup events will appear here in real time.</p>";
+        feed.appendChild(empty);
+        return;
+    }
+
+    items.forEach((item) => {
+        const row = document.createElement("article");
+        row.className = "log-item";
+        const when = item.created_at ? new Date(item.created_at).toLocaleTimeString() : "-";
+        row.innerHTML = `
+            <h3>${item.action || "event"}</h3>
+            <p>${item.reason || "No details"}</p>
+            <p>${when}</p>
+        `;
+        feed.appendChild(row);
+    });
+}
+
+function renderHealthMetrics(health) {
+    const refs = {
+        warns: document.getElementById("health-warns"),
+        banRate: document.getElementById("health-ban-rate"),
+        spamBlocks: document.getElementById("health-spam-blocks"),
+        openTickets: document.getElementById("health-open-tickets"),
+    };
+    if (!refs.warns) return;
+    refs.warns.textContent = String(health.warns ?? 0);
+    refs.banRate.textContent = `${Number(health.ban_rate ?? 0).toFixed(2)}%`;
+    refs.spamBlocks.textContent = String(health.spam_blocks ?? 0);
+    refs.openTickets.textContent = String(health.open_tickets ?? 0);
+}
+
+async function loadHealthMetrics() {
+    const period = document.getElementById("health-period")?.value || "24h";
+    const response = await api(`/api/dashboard/health?period=${encodeURIComponent(period)}`);
+    renderHealthMetrics(response.health || {});
+}
+
+async function loadLiveActivity() {
+    const response = await api("/api/dashboard/activity/recent?limit=40");
+    renderLiveActivity(response.logs || []);
+}
+
+function startActivityStream() {
+    if (liveActivityEventSource) {
+        liveActivityEventSource.close();
+        liveActivityEventSource = null;
+    }
+    if (page !== "overview") return;
+
+    const stream = new EventSource("/api/dashboard/activity/stream");
+    liveActivityEventSource = stream;
+    stream.onmessage = (event) => {
+        try {
+            const data = JSON.parse(event.data || "{}");
+            if (Array.isArray(data.logs)) {
+                renderLiveActivity(data.logs);
+            }
+        } catch (error) {
+            // Ignore malformed stream chunks.
+        }
+    };
+    stream.onerror = () => {
+        // Stream may close on network transitions; keep existing feed snapshot.
+    };
+}
+
+function currentAuditFilterQuery() {
+    const period = document.getElementById("audit-period")?.value || "24h";
+    const action = document.getElementById("audit-action")?.value?.trim() || "";
+    const moderator = document.getElementById("audit-moderator")?.value?.trim() || "";
+    const user = document.getElementById("audit-user")?.value?.trim() || "";
+    const channel = document.getElementById("audit-channel")?.value?.trim() || "";
+    const params = new URLSearchParams({ period });
+    if (action) params.set("action", action);
+    if (moderator) params.set("moderator_id", moderator);
+    if (user) params.set("user_id", user);
+    if (channel) params.set("channel_id", channel);
+    return params.toString();
+}
+
+async function runAutoModSimulation() {
+    const message = document.getElementById("automod-simulator-message")?.value?.trim() || "";
+    const result = document.getElementById("automod-simulator-result");
+    if (!result) return;
+    if (!message) {
+        flash("Write a message to simulate");
+        return;
+    }
+
+    try {
+        const response = await api("/api/dashboard/automod/simulate", {
+            method: "POST",
+            body: JSON.stringify({ message }),
+        });
+        const simulation = response.simulation || {};
+        const rules = Array.isArray(simulation.rules) ? simulation.rules : [];
+        result.innerHTML = "";
+
+        const item = document.createElement("article");
+        item.className = "log-item";
+        item.innerHTML = `
+            <h3>${simulation.triggered ? "Rule Triggered" : "No Rule Triggered"}</h3>
+            <p>Suggested action: ${simulation.suggested_action || "timeout"}</p>
+            <p>Message length: ${simulation.message_length || 0}</p>
+        `;
+        result.appendChild(item);
+
+        if (rules.length) {
+            rules.forEach((rule) => {
+                const row = document.createElement("article");
+                row.className = "log-item";
+                row.innerHTML = `<h3>${rule.rule}</h3><p>${rule.reason}</p>`;
+                result.appendChild(row);
+            });
+        }
+    } catch (error) {
+        flash("Failed to run AutoMod simulation");
+    }
 }
 
 function applyPreviewTokens(template, guildName) {
@@ -755,9 +973,15 @@ function bindEntryExitPreviewButtons() {
 }
 
 async function loadConfigLogs() {
-    const response = await api("/api/dashboard/config-logs");
+    const query = currentAuditFilterQuery();
+    const response = await api(`/api/dashboard/audit?${query}`);
     renderConfigLogs(response.logs || []);
-    updateConfigLogBadge(response.unread || 0);
+    try {
+        const badge = await api("/api/dashboard/config-logs");
+        updateConfigLogBadge(badge.unread || 0);
+    } catch (error) {
+        // Keep audit data even if unread badge update fails.
+    }
 }
 
 function renderPage(context) {
@@ -776,6 +1000,11 @@ async function loadState() {
     updateConfigLogBadge(payload.config_logs_unread || 0);
     renderPage(payload);
     setGuildSwitcher(payload.guilds || [], payload.active_guild_id);
+    if (page === "overview") {
+        await loadHealthMetrics();
+        await loadLiveActivity();
+        startActivityStream();
+    }
     if (page === "config-logs") {
         await loadConfigLogs();
     }
@@ -861,6 +1090,62 @@ function bindPageActions() {
             } catch (error) {
                 flash("Failed to update moderation");
             }
+        });
+    }
+
+    const runSimulation = document.getElementById("run-automod-simulator");
+    if (runSimulation) {
+        runSimulation.addEventListener("click", runAutoModSimulation);
+    }
+
+    const refreshHealth = document.getElementById("refresh-health");
+    if (refreshHealth) {
+        refreshHealth.addEventListener("click", async () => {
+            try {
+                await loadHealthMetrics();
+                flash("Health metrics refreshed");
+            } catch (error) {
+                flash("Failed to refresh health metrics");
+            }
+        });
+    }
+
+    const applyAuditFilters = document.getElementById("apply-audit-filters");
+    if (applyAuditFilters) {
+        applyAuditFilters.addEventListener("click", async () => {
+            try {
+                await loadConfigLogs();
+                flash("Audit filters applied");
+            } catch (error) {
+                flash("Failed to load audit logs");
+            }
+        });
+    }
+
+    const exportAuditCsv = document.getElementById("export-audit-csv");
+    if (exportAuditCsv) {
+        exportAuditCsv.addEventListener("click", () => {
+            const query = currentAuditFilterQuery();
+            window.location.href = `/api/dashboard/audit/export?format=csv&${query}`;
+        });
+    }
+
+    const exportAuditJson = document.getElementById("export-audit-json");
+    if (exportAuditJson) {
+        exportAuditJson.addEventListener("click", () => {
+            const query = currentAuditFilterQuery();
+            window.location.href = `/api/dashboard/audit/export?format=json&${query}`;
+        });
+    }
+
+    const addWarnFlowStep = document.getElementById("warn-flow-add-step");
+    if (addWarnFlowStep) {
+        addWarnFlowStep.addEventListener("click", () => {
+            const current = getWarnEscalationStepsFromForm();
+            const nextThreshold = Math.max(...current.map((step) => Number(step.threshold || 1)), 1) + 1;
+            current.push({ threshold: nextThreshold, action: "timeout" });
+            renderWarnFlowEditor(current);
+            updateSetupDirtyState(true);
         });
     }
 
