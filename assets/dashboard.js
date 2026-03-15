@@ -626,12 +626,23 @@ function renderGuildSettings(context) {
         protectionCount: document.getElementById("setup-protection-count"),
         logCount: document.getElementById("setup-log-count"),
         warnActionSummary: document.getElementById("setup-warn-action"),
+        stagingStatus: document.getElementById("staging-status"),
+        presetSelect: document.getElementById("preset-select"),
     };
 
     if (!refs.name) return;
 
     const activeGuild = (context.guilds || []).find((guild) => guild.id === context.active_guild_id);
     refs.name.value = activeGuild?.name || g.guild_name;
+    if (refs.presetSelect && Array.isArray(context.preset_names) && context.preset_names.length) {
+        refs.presetSelect.innerHTML = "";
+        context.preset_names.forEach((presetName) => {
+            const option = document.createElement("option");
+            option.value = presetName;
+            option.textContent = presetName;
+            refs.presetSelect.appendChild(option);
+        });
+    }
     refs.language.value = g.language;
     applyResourceSelectors(context);
     ensureOption(refs.log, g.log_channel, g.log_channel);
@@ -710,6 +721,11 @@ function renderGuildSettings(context) {
     refs.protectionCount.textContent = String(metrics.protection_layers ?? 0);
     refs.logCount.textContent = String(metrics.logs_enabled ?? 0);
     refs.warnActionSummary.textContent = String(safe[0].action || moderation.default_action).toUpperCase();
+    if (refs.stagingStatus) {
+        refs.stagingStatus.textContent = context.has_staging
+            ? "Staging config available for this guild."
+            : "No staging config loaded.";
+    }
 
     updateSetupDirtyState(false);
 
@@ -842,10 +858,174 @@ function renderHealthMetrics(health) {
     refs.openTickets.textContent = String(health.open_tickets ?? 0);
 }
 
+function renderSmartAlerts(alerts) {
+    const feed = document.getElementById("smart-alerts-feed");
+    if (!feed) return;
+    feed.innerHTML = "";
+
+    const items = Array.isArray(alerts) ? alerts : [];
+    items.forEach((item) => {
+        const row = document.createElement("article");
+        row.className = "log-item";
+        row.innerHTML = `
+            <h3>${item.title || "Alert"}</h3>
+            <p>Severity: ${(item.severity || "low").toUpperCase()}</p>
+            <p>${item.detail || ""}</p>
+        `;
+        feed.appendChild(row);
+    });
+}
+
+function renderDashboardRoles(data) {
+    const list = document.getElementById("dashboard-role-list");
+    if (!list) return;
+    list.innerHTML = "";
+
+    const currentRole = data?.current_role || "viewer";
+    const header = document.createElement("article");
+    header.className = "log-item";
+    header.innerHTML = `<h3>Your role: ${currentRole}</h3><p>Use admin/owner role to manage dashboard permissions.</p>`;
+    list.appendChild(header);
+
+    const entries = Array.isArray(data?.entries) ? data.entries : [];
+    if (!entries.length) {
+        const empty = document.createElement("article");
+        empty.className = "log-item";
+        empty.innerHTML = "<h3>No custom role entries</h3><p>Default Discord-derived permissions are active.</p>";
+        list.appendChild(empty);
+        return;
+    }
+
+    entries.forEach((entry) => {
+        const row = document.createElement("article");
+        row.className = "log-item";
+        row.innerHTML = `<h3>User ${entry.user_id}</h3><p>Role: ${String(entry.role || "viewer").toUpperCase()}</p>`;
+        list.appendChild(row);
+    });
+}
+
+function renderSnapshots(items) {
+    const feed = document.getElementById("snapshot-feed");
+    if (!feed) return;
+    feed.innerHTML = "";
+
+    const snapshots = Array.isArray(items) ? items : [];
+    if (!snapshots.length) {
+        const empty = document.createElement("article");
+        empty.className = "log-item";
+        empty.innerHTML = "<h3>No snapshots yet</h3><p>Snapshots are created after setup updates and rollbacks.</p>";
+        feed.appendChild(empty);
+        return;
+    }
+
+    snapshots.forEach((snapshot) => {
+        const row = document.createElement("article");
+        row.className = "log-item";
+        const when = snapshot.created_at ? new Date(snapshot.created_at).toLocaleString() : "Unknown time";
+        const changes = Array.isArray(snapshot.changes) ? snapshot.changes.slice(0, 4).join(" | ") : "No diff summary";
+        row.innerHTML = `
+            <h3>Snapshot #${snapshot.id} (${snapshot.source || "setup"})</h3>
+            <p>By: ${snapshot.created_by || "unknown"}</p>
+            <p>${when}</p>
+            <p>${changes}</p>
+            <div class="actions"><button class="btn danger" data-rollback-snapshot="${snapshot.id}" type="button">Rollback</button></div>
+        `;
+        feed.appendChild(row);
+    });
+}
+
+function buildSetupPayloadFromForm() {
+    const setupToggles = document.querySelectorAll("input[data-setup-cog]");
+    const cogs = {};
+    setupToggles.forEach((toggle) => {
+        cogs[toggle.dataset.setupCog] = toggle.checked;
+    });
+
+    const warningSteps = getWarnEscalationStepsFromForm();
+    const firstStep = warningSteps[0];
+    const currentModeration = dashboardContext?.state?.moderation || {};
+
+    return {
+        guild: {
+            guild_name: document.getElementById("guild-name")?.value?.trim() || "",
+            language: document.getElementById("guild-language")?.value || "pt",
+            log_channel: document.getElementById("guild-log")?.value?.trim() || "",
+        },
+        moderation: {
+            enabled: true,
+            smart_antiflood: document.getElementById("auto-antiflood")?.checked ?? true,
+            warning_limit: Number(firstStep.threshold || 3),
+            default_action: firstStep.action === "timeout" ? "mute" : firstStep.action,
+            modmail_enabled: document.getElementById("modmail-enabled")?.checked ?? true,
+            tickets_enabled: Boolean(currentModeration.tickets_enabled),
+            invite_filter: document.getElementById("auto-invite")?.checked ?? true,
+            link_filter: document.getElementById("auto-link")?.checked ?? true,
+            caps_filter: document.getElementById("auto-caps")?.checked ?? false,
+            spam_threshold: Number(document.getElementById("auto-threshold")?.value || 6),
+            quarantine_role: document.getElementById("auto-role")?.value?.trim() || "",
+            immune_roles: [...selectedAutoImmuneRoles],
+        },
+        automation: {
+            enabled: document.getElementById("auto-antiflood")?.checked ?? true,
+            invite_filter: document.getElementById("auto-invite")?.checked ?? true,
+            link_filter: document.getElementById("auto-link")?.checked ?? true,
+            caps_filter: document.getElementById("auto-caps")?.checked ?? false,
+            spam_threshold: Number(document.getElementById("auto-threshold")?.value || 6),
+            quarantine_role: document.getElementById("auto-role")?.value?.trim() || "",
+            immune_roles: [...selectedAutoImmuneRoles],
+        },
+        warnings: {
+            enabled: true,
+            public_reason_prompt: document.getElementById("warn-public-reason")?.checked ?? true,
+            dm_user: document.getElementById("warn-dm-user")?.checked ?? true,
+            threshold: Number(firstStep.threshold || 3),
+            escalate_to: firstStep.action,
+            escalation_steps: warningSteps,
+        },
+        logs: {
+            enabled: document.getElementById("log-enabled")?.checked ?? true,
+            moderation: document.getElementById("log-moderation")?.checked ?? true,
+            ban_events: document.getElementById("log-ban-events")?.checked ?? true,
+            join_leave: document.getElementById("log-join-leave")?.checked ?? false,
+            message_delete: document.getElementById("log-message-delete")?.checked ?? true,
+            modmail_transcripts: document.getElementById("log-modmail")?.checked ?? true,
+            audit_channel: document.getElementById("log-audit-channel")?.value?.trim() || "",
+            ban_channel: document.getElementById("log-ban-channel")?.value?.trim() || "",
+        },
+        modmail: {
+            enabled: document.getElementById("modmail-enabled")?.checked ?? true,
+            anonymous_replies: document.getElementById("modmail-anonymous")?.checked ?? false,
+            close_on_idle: document.getElementById("modmail-idle")?.checked ?? true,
+            inbox_channel: document.getElementById("modmail-channel")?.value?.trim() || "",
+            alert_role: selectedModmailRoles[0] || "",
+            alert_roles: [...selectedModmailRoles],
+            auto_close_hours: Number(document.getElementById("modmail-hours")?.value || 48),
+        },
+        entry_exit: {
+            welcome_enabled: document.getElementById("welcome-enabled")?.checked ?? false,
+            welcome_channel: document.getElementById("welcome-channel")?.value?.trim() || "",
+            welcome_title: document.getElementById("welcome-title")?.value?.trim() || "",
+            welcome_description: document.getElementById("welcome-description")?.value?.trim() || "",
+            welcome_color: document.getElementById("welcome-color")?.value?.trim() || "#57cc99",
+            leave_enabled: document.getElementById("leave-enabled")?.checked ?? false,
+            leave_channel: document.getElementById("leave-channel")?.value?.trim() || "",
+            leave_title: document.getElementById("leave-title")?.value?.trim() || "",
+            leave_description: document.getElementById("leave-description")?.value?.trim() || "",
+            leave_color: document.getElementById("leave-color")?.value?.trim() || "#ef476f",
+        },
+        cogs,
+    };
+}
+
 async function loadHealthMetrics() {
     const period = document.getElementById("health-period")?.value || "24h";
     const response = await api(`/api/dashboard/health?period=${encodeURIComponent(period)}`);
     renderHealthMetrics(response.health || {});
+}
+
+async function loadSmartAlerts() {
+    const response = await api("/api/dashboard/alerts");
+    renderSmartAlerts(response.alerts || []);
 }
 
 async function loadLiveActivity() {
@@ -984,6 +1164,16 @@ async function loadConfigLogs() {
     }
 }
 
+async function loadDashboardRoles() {
+    const response = await api("/api/dashboard/roles");
+    renderDashboardRoles(response);
+}
+
+async function loadSnapshots() {
+    const response = await api("/api/dashboard/snapshots?limit=40");
+    renderSnapshots(response.snapshots || []);
+}
+
 function renderPage(context) {
     renderCommon(context);
     if (page === "servers") renderServers(context);
@@ -1003,10 +1193,13 @@ async function loadState() {
     if (page === "overview") {
         await loadHealthMetrics();
         await loadLiveActivity();
+        await loadSmartAlerts();
         startActivityStream();
     }
     if (page === "config-logs") {
         await loadConfigLogs();
+        await loadDashboardRoles();
+        await loadSnapshots();
     }
 }
 
@@ -1110,6 +1303,18 @@ function bindPageActions() {
         });
     }
 
+    const refreshAlerts = document.getElementById("refresh-alerts");
+    if (refreshAlerts) {
+        refreshAlerts.addEventListener("click", async () => {
+            try {
+                await loadSmartAlerts();
+                flash("Smart alerts refreshed");
+            } catch (error) {
+                flash("Failed to refresh alerts");
+            }
+        });
+    }
+
     const applyAuditFilters = document.getElementById("apply-audit-filters");
     if (applyAuditFilters) {
         applyAuditFilters.addEventListener("click", async () => {
@@ -1174,79 +1379,7 @@ function bindPageActions() {
     const saveSetup = document.getElementById("save-setup");
     if (saveSetup) {
         saveSetup.addEventListener("click", async () => {
-            const setupToggles = document.querySelectorAll("input[data-setup-cog]");
-            const cogs = {};
-            setupToggles.forEach((toggle) => {
-                cogs[toggle.dataset.setupCog] = toggle.checked;
-            });
-
-            const warningSteps = getWarnEscalationStepsFromForm();
-            const firstStep = warningSteps[0];
-            const currentModeration = dashboardContext?.state?.moderation || {};
-            const payload = {
-                guild: {
-                    guild_name: document.getElementById("guild-name").value.trim(),
-                    language: document.getElementById("guild-language").value,
-                    log_channel: document.getElementById("guild-log").value.trim(),
-                },
-                moderation: {
-                    enabled: true,
-                    smart_antiflood: document.getElementById("auto-antiflood").checked,
-                    warning_limit: Number(firstStep.threshold || 3),
-                    default_action: firstStep.action === "timeout" ? "mute" : firstStep.action,
-                    modmail_enabled: document.getElementById("modmail-enabled").checked,
-                    tickets_enabled: Boolean(currentModeration.tickets_enabled),
-                },
-                automation: {
-                    enabled: document.getElementById("auto-antiflood").checked,
-                    invite_filter: document.getElementById("auto-invite").checked,
-                    link_filter: document.getElementById("auto-link").checked,
-                    caps_filter: document.getElementById("auto-caps").checked,
-                    spam_threshold: Number(document.getElementById("auto-threshold").value || 6),
-                    quarantine_role: document.getElementById("auto-role").value.trim(),
-                    immune_roles: [...selectedAutoImmuneRoles],
-                },
-                warnings: {
-                    enabled: true,
-                    public_reason_prompt: document.getElementById("warn-public-reason").checked,
-                    dm_user: document.getElementById("warn-dm-user").checked,
-                    threshold: Number(firstStep.threshold || 3),
-                    escalate_to: firstStep.action,
-                    escalation_steps: warningSteps,
-                },
-                logs: {
-                    enabled: document.getElementById("log-enabled").checked,
-                    moderation: document.getElementById("log-moderation").checked,
-                    ban_events: document.getElementById("log-ban-events").checked,
-                    join_leave: document.getElementById("log-join-leave").checked,
-                    message_delete: document.getElementById("log-message-delete").checked,
-                    modmail_transcripts: document.getElementById("log-modmail").checked,
-                    audit_channel: document.getElementById("log-audit-channel").value.trim(),
-                    ban_channel: document.getElementById("log-ban-channel").value.trim(),
-                },
-                modmail: {
-                    enabled: document.getElementById("modmail-enabled").checked,
-                    anonymous_replies: document.getElementById("modmail-anonymous").checked,
-                    close_on_idle: document.getElementById("modmail-idle").checked,
-                    inbox_channel: document.getElementById("modmail-channel").value.trim(),
-                    alert_role: selectedModmailRoles[0] || "",
-                    alert_roles: [...selectedModmailRoles],
-                    auto_close_hours: Number(document.getElementById("modmail-hours").value || 48),
-                },
-                entry_exit: {
-                    welcome_enabled: document.getElementById("welcome-enabled").checked,
-                    welcome_channel: document.getElementById("welcome-channel").value.trim(),
-                    welcome_title: document.getElementById("welcome-title").value.trim(),
-                    welcome_description: document.getElementById("welcome-description").value.trim(),
-                    welcome_color: document.getElementById("welcome-color").value.trim() || "#57cc99",
-                    leave_enabled: document.getElementById("leave-enabled").checked,
-                    leave_channel: document.getElementById("leave-channel").value.trim(),
-                    leave_title: document.getElementById("leave-title").value.trim(),
-                    leave_description: document.getElementById("leave-description").value.trim(),
-                    leave_color: document.getElementById("leave-color").value.trim() || "#ef476f",
-                },
-                cogs,
-            };
+            const payload = buildSetupPayloadFromForm();
 
             try {
                 const res = await api("/api/dashboard/setup", {
@@ -1267,6 +1400,108 @@ function bindPageActions() {
                 flash("Bot setup updated");
             } catch (error) {
                 flash("Failed to update bot setup");
+            }
+        });
+    }
+
+    const saveStaging = document.getElementById("save-staging");
+    if (saveStaging) {
+        saveStaging.addEventListener("click", async () => {
+            try {
+                await api("/api/dashboard/staging", {
+                    method: "PUT",
+                    body: JSON.stringify(buildSetupPayloadFromForm()),
+                });
+                const status = document.getElementById("staging-status");
+                if (status) status.textContent = "Staging config saved from current form.";
+                flash("Saved to staging");
+            } catch (error) {
+                flash("Failed to save staging config");
+            }
+        });
+    }
+
+    const loadStaging = document.getElementById("load-staging");
+    if (loadStaging) {
+        loadStaging.addEventListener("click", async () => {
+            try {
+                const response = await api("/api/dashboard/staging");
+                if (!response.state) {
+                    flash("No staging configuration found");
+                    return;
+                }
+                dashboardContext.state = response.state;
+                renderGuildSettings(dashboardContext);
+                flash("Staging loaded into form");
+            } catch (error) {
+                flash("Failed to load staging config");
+            }
+        });
+    }
+
+    const applyStaging = document.getElementById("apply-staging");
+    if (applyStaging) {
+        applyStaging.addEventListener("click", async () => {
+            try {
+                const response = await api("/api/dashboard/staging/apply", { method: "POST", body: "{}" });
+                dashboardContext.state = response.state;
+                dashboardContext.has_staging = false;
+                renderGuildSettings(dashboardContext);
+                flash("Staging applied to production");
+            } catch (error) {
+                flash("Failed to apply staging");
+            }
+        });
+    }
+
+    const discardStaging = document.getElementById("discard-staging");
+    if (discardStaging) {
+        discardStaging.addEventListener("click", async () => {
+            try {
+                await api("/api/dashboard/staging", { method: "DELETE", body: "{}" });
+                dashboardContext.has_staging = false;
+                const status = document.getElementById("staging-status");
+                if (status) status.textContent = "No staging config loaded.";
+                flash("Staging discarded");
+            } catch (error) {
+                flash("Failed to discard staging");
+            }
+        });
+    }
+
+    const applyPresetStaging = document.getElementById("apply-preset-staging");
+    if (applyPresetStaging) {
+        applyPresetStaging.addEventListener("click", async () => {
+            const presetName = document.getElementById("preset-select")?.value || "gamer";
+            try {
+                await api("/api/dashboard/presets/apply", {
+                    method: "POST",
+                    body: JSON.stringify({ preset_name: presetName, target: "staging" }),
+                });
+                dashboardContext.has_staging = true;
+                const status = document.getElementById("staging-status");
+                if (status) status.textContent = `Preset '${presetName}' applied to staging.`;
+                flash("Preset applied to staging");
+            } catch (error) {
+                flash("Failed to apply preset to staging");
+            }
+        });
+    }
+
+    const applyPresetProduction = document.getElementById("apply-preset-production");
+    if (applyPresetProduction) {
+        applyPresetProduction.addEventListener("click", async () => {
+            const presetName = document.getElementById("preset-select")?.value || "gamer";
+            try {
+                const response = await api("/api/dashboard/presets/apply", {
+                    method: "POST",
+                    body: JSON.stringify({ preset_name: presetName, target: "production" }),
+                });
+                dashboardContext.state = response.state;
+                renderGuildSettings(dashboardContext);
+                flash("Preset applied to production");
+            } catch (error) {
+                flash("Failed to apply preset to production");
             }
         });
     }
@@ -1330,6 +1565,73 @@ function bindPageActions() {
                 flash("Config logs marked as read");
             } catch (error) {
                 flash("Failed to update log notification state");
+            }
+        });
+    }
+
+    const saveDashboardRole = document.getElementById("save-dashboard-role");
+    if (saveDashboardRole) {
+        saveDashboardRole.addEventListener("click", async () => {
+            const userId = document.getElementById("role-user-id")?.value?.trim() || "";
+            const role = document.getElementById("role-name")?.value || "viewer";
+            if (!userId) {
+                flash("Provide a user ID");
+                return;
+            }
+            try {
+                await api("/api/dashboard/roles", {
+                    method: "PUT",
+                    body: JSON.stringify({ user_id: userId, role }),
+                });
+                await loadDashboardRoles();
+                flash("Dashboard role saved");
+            } catch (error) {
+                flash("Failed to save dashboard role");
+            }
+        });
+    }
+
+    const refreshDashboardRoles = document.getElementById("refresh-dashboard-roles");
+    if (refreshDashboardRoles) {
+        refreshDashboardRoles.addEventListener("click", async () => {
+            try {
+                await loadDashboardRoles();
+                flash("Roles refreshed");
+            } catch (error) {
+                flash("Failed to load roles");
+            }
+        });
+    }
+
+    const refreshSnapshots = document.getElementById("refresh-snapshots");
+    if (refreshSnapshots) {
+        refreshSnapshots.addEventListener("click", async () => {
+            try {
+                await loadSnapshots();
+                flash("Snapshots refreshed");
+            } catch (error) {
+                flash("Failed to refresh snapshots");
+            }
+        });
+    }
+
+    const snapshotFeed = document.getElementById("snapshot-feed");
+    if (snapshotFeed) {
+        snapshotFeed.addEventListener("click", async (event) => {
+            const target = event.target;
+            if (!(target instanceof HTMLElement)) return;
+            const snapshotId = target.dataset.rollbackSnapshot;
+            if (!snapshotId) return;
+            try {
+                const response = await api(`/api/dashboard/snapshots/${encodeURIComponent(snapshotId)}/rollback`, {
+                    method: "POST",
+                    body: "{}",
+                });
+                dashboardContext.state = response.state;
+                await loadSnapshots();
+                flash("Snapshot rollback applied");
+            } catch (error) {
+                flash("Failed to rollback snapshot");
             }
         });
     }

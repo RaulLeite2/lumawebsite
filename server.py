@@ -50,6 +50,67 @@ DEFAULT_COGS = [
 
 LOCKED_COGS = {"events", "mod", "setup"}
 
+ROLE_LEVELS = {"viewer": 1, "moderator": 2, "admin": 3, "owner": 4}
+
+PRESET_TEMPLATES: dict[str, dict[str, Any]] = {
+    "gamer": {
+        "automation": {"invite_filter": True, "link_filter": True, "caps_filter": True, "spam_threshold": 5},
+        "warnings": {
+            "escalation_steps": [
+                {"threshold": 2, "action": "timeout"},
+                {"threshold": 4, "action": "kick"},
+                {"threshold": 6, "action": "ban"},
+            ]
+        },
+        "logs": {"join_leave": True, "message_delete": True},
+    },
+    "study": {
+        "automation": {"invite_filter": True, "link_filter": False, "caps_filter": True, "spam_threshold": 7},
+        "warnings": {
+            "escalation_steps": [
+                {"threshold": 3, "action": "timeout"},
+                {"threshold": 6, "action": "kick"},
+                {"threshold": 10, "action": "ban"},
+            ]
+        },
+        "logs": {"join_leave": True},
+    },
+    "creator": {
+        "automation": {"invite_filter": True, "link_filter": False, "caps_filter": False, "spam_threshold": 8},
+        "warnings": {
+            "escalation_steps": [
+                {"threshold": 3, "action": "timeout"},
+                {"threshold": 7, "action": "kick"},
+                {"threshold": 12, "action": "ban"},
+            ]
+        },
+        "logs": {"join_leave": True, "moderation": True},
+    },
+    "support": {
+        "automation": {"invite_filter": True, "link_filter": True, "caps_filter": True, "spam_threshold": 6},
+        "warnings": {
+            "escalation_steps": [
+                {"threshold": 2, "action": "timeout"},
+                {"threshold": 5, "action": "kick"},
+                {"threshold": 8, "action": "ban"},
+            ]
+        },
+        "modmail": {"enabled": True, "close_on_idle": True},
+        "logs": {"modmail_transcripts": True},
+    },
+    "large-community": {
+        "automation": {"invite_filter": True, "link_filter": True, "caps_filter": True, "spam_threshold": 4},
+        "warnings": {
+            "escalation_steps": [
+                {"threshold": 2, "action": "timeout"},
+                {"threshold": 3, "action": "kick"},
+                {"threshold": 5, "action": "ban"},
+            ]
+        },
+        "logs": {"join_leave": True, "message_delete": True, "moderation": True},
+    },
+}
+
 
 class GuildSettings(BaseModel):
     guild_id: str = "1476329967674724494"
@@ -183,6 +244,16 @@ class SetupUpdatePayload(BaseModel):
 
 class AutoModSimulationPayload(BaseModel):
     message: str = Field(min_length=1, max_length=2000)
+
+
+class PresetApplyPayload(BaseModel):
+    preset_name: str = Field(pattern="^(gamer|study|creator|support|large-community)$")
+    target: str = Field(default="production", pattern="^(production|staging)$")
+
+
+class DashboardRoleUpdatePayload(BaseModel):
+    user_id: str
+    role: str = Field(pattern="^(admin|moderator|viewer)$")
 
 
 state_lock = threading.Lock()
@@ -745,6 +816,31 @@ async def _ensure_dashboard_tables(pool: Any) -> None:
                     leave_description TEXT,
                     leave_color VARCHAR(16),
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+            await connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS guild_dashboard_roles (
+                    guild_id BIGINT NOT NULL REFERENCES guilds(guild_id) ON DELETE CASCADE,
+                    user_id BIGINT NOT NULL,
+                    role VARCHAR(20) NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (guild_id, user_id)
+                )
+                """
+            )
+            await connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS guild_config_snapshots (
+                    id BIGSERIAL PRIMARY KEY,
+                    guild_id BIGINT NOT NULL REFERENCES guilds(guild_id) ON DELETE CASCADE,
+                    state_json TEXT NOT NULL,
+                    changes_json TEXT,
+                    source VARCHAR(30) DEFAULT 'setup',
+                    created_by BIGINT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
                 """
             )
@@ -1387,6 +1483,288 @@ def _require_configurable_active_guild(request: Request) -> dict[str, Any]:
     return guild
 
 
+def _role_level(role_name: str) -> int:
+    return ROLE_LEVELS.get(role_name, 0)
+
+
+def _default_role_from_guild_record(guild: dict[str, Any]) -> str:
+    if bool(guild.get("owner")):
+        return "owner"
+    if bool(guild.get("configurable")):
+        return "admin"
+    return "viewer"
+
+
+async def _dashboard_role_for_user(request: Request, guild: dict[str, Any]) -> str:
+    default_role = _default_role_from_guild_record(guild)
+    if default_role == "owner":
+        return "owner"
+
+    pool = _db_pool()
+    if pool is None:
+        return default_role
+
+    guild_id = _extract_discord_id(guild.get("id"))
+    user = request.session.get("user")
+    user_id = _extract_discord_id(user.get("id") if isinstance(user, dict) else None)
+    if guild_id is None or user_id is None:
+        return default_role
+
+    try:
+        async with pool.acquire() as connection:
+            row = await connection.fetchrow(
+                "SELECT role FROM guild_dashboard_roles WHERE guild_id = $1 AND user_id = $2",
+                guild_id,
+                user_id,
+            )
+    except Exception:
+        return default_role
+
+    if row and str(row.get("role") or "").lower() in {"admin", "moderator", "viewer"}:
+        return str(row.get("role")).lower()
+    return default_role
+
+
+async def _require_dashboard_role(request: Request, minimum_role: str) -> dict[str, Any]:
+    guild = _require_active_guild(request)
+    role = await _dashboard_role_for_user(request, guild)
+    if _role_level(role) < _role_level(minimum_role):
+        raise HTTPException(status_code=403, detail=f"Dashboard role '{role}' cannot perform this action")
+    return guild
+
+
+def _load_staging_state_for_guild(guild_id: str, guild_name: str) -> dict[str, Any] | None:
+    container = _load_state_container()
+    staged = container.get("staged_states", {}).get(guild_id)
+    if isinstance(staged, dict):
+        return _normalize_guild_state(staged, guild_id, guild_name)
+    return None
+
+
+def _store_staging_state_for_guild(guild_id: str, guild_name: str, state: dict[str, Any]) -> dict[str, Any]:
+    container = _load_state_container()
+    staged = container.setdefault("staged_states", {})
+    staged[guild_id] = _normalize_guild_state(state, guild_id, guild_name)
+    _save_state(container)
+    return staged[guild_id]
+
+
+def _clear_staging_state_for_guild(guild_id: str) -> None:
+    container = _load_state_container()
+    staged = container.setdefault("staged_states", {})
+    if guild_id in staged:
+        del staged[guild_id]
+        _save_state(container)
+
+
+def _apply_preset_to_state(state: dict[str, Any], preset_name: str) -> dict[str, Any]:
+    preset = PRESET_TEMPLATES.get(preset_name)
+    if not preset:
+        return state
+
+    updated = json.loads(json.dumps(state))
+    for section, payload in preset.items():
+        if section in updated and isinstance(updated[section], dict) and isinstance(payload, dict):
+            updated[section].update(payload)
+
+    if "warnings" in preset and isinstance(preset["warnings"], dict):
+        steps = _parse_warning_steps(preset["warnings"].get("escalation_steps"))
+        updated["warnings"]["escalation_steps"] = steps
+        updated["warnings"]["threshold"] = int(steps[0]["threshold"])
+        updated["warnings"]["escalate_to"] = str(steps[0]["action"])
+        updated["moderation"]["warning_limit"] = int(steps[0]["threshold"])
+        updated["moderation"]["default_action"] = "mute" if steps[0]["action"] == "timeout" else str(steps[0]["action"])
+
+    return updated
+
+
+async def _create_snapshot(
+    guild_id: str,
+    state: dict[str, Any],
+    *,
+    created_by: int | None,
+    source: str,
+    changes: list[str],
+) -> None:
+    pool = _db_pool()
+    if pool is None:
+        return
+
+    guild_id_int = _extract_discord_id(guild_id)
+    if guild_id_int is None:
+        return
+
+    try:
+        async with pool.acquire() as connection:
+            await connection.execute(
+                """
+                INSERT INTO guild_config_snapshots (guild_id, state_json, changes_json, source, created_by)
+                VALUES ($1, $2, $3, $4, $5)
+                """,
+                guild_id_int,
+                json.dumps(state, ensure_ascii=False),
+                json.dumps(changes, ensure_ascii=False),
+                source,
+                created_by,
+            )
+    except Exception as exc:
+        print(f"[Dashboard] Failed to create snapshot for guild {guild_id}: {exc}")
+
+
+async def _fetch_snapshots(guild_id: str, limit: int = 30) -> list[dict[str, Any]]:
+    pool = _db_pool()
+    if pool is None:
+        return []
+
+    guild_id_int = _extract_discord_id(guild_id)
+    if guild_id_int is None:
+        return []
+
+    try:
+        async with pool.acquire() as connection:
+            rows = await connection.fetch(
+                """
+                SELECT id, source, created_by, created_at, changes_json
+                FROM guild_config_snapshots
+                WHERE guild_id = $1
+                ORDER BY created_at DESC
+                LIMIT $2
+                """,
+                guild_id_int,
+                max(1, min(limit, 100)),
+            )
+    except Exception:
+        return []
+
+    snapshots: list[dict[str, Any]] = []
+    for row in rows:
+        raw_changes = row.get("changes_json")
+        changes = []
+        if isinstance(raw_changes, str) and raw_changes.strip():
+            try:
+                parsed = json.loads(raw_changes)
+                if isinstance(parsed, list):
+                    changes = [str(item) for item in parsed]
+            except Exception:
+                changes = []
+        snapshots.append(
+            {
+                "id": int(row.get("id")),
+                "source": str(row.get("source") or "setup"),
+                "created_by": _id_to_input_value(row.get("created_by")),
+                "created_at": row.get("created_at").isoformat() if hasattr(row.get("created_at"), "isoformat") else "",
+                "changes": changes,
+            }
+        )
+    return snapshots
+
+
+async def _load_snapshot_state(guild_id: str, snapshot_id: int) -> dict[str, Any] | None:
+    pool = _db_pool()
+    if pool is None:
+        return None
+
+    guild_id_int = _extract_discord_id(guild_id)
+    if guild_id_int is None:
+        return None
+
+    try:
+        async with pool.acquire() as connection:
+            row = await connection.fetchrow(
+                "SELECT state_json FROM guild_config_snapshots WHERE guild_id = $1 AND id = $2",
+                guild_id_int,
+                snapshot_id,
+            )
+    except Exception:
+        return None
+
+    if not row:
+        return None
+
+    raw_state = row.get("state_json")
+    if not isinstance(raw_state, str):
+        return None
+
+    try:
+        parsed = json.loads(raw_state)
+    except Exception:
+        return None
+    return parsed if isinstance(parsed, dict) else None
+
+
+async def _detect_smart_alerts(guild_id: str, state: dict[str, Any]) -> list[dict[str, Any]]:
+    logs = await _fetch_audit_logs(guild_id, period="24h", limit=500)
+    now = datetime.utcnow()
+    alert_items: list[dict[str, Any]] = []
+
+    def _within_minutes(item: dict[str, Any], minutes: int) -> bool:
+        raw = item.get("created_at")
+        if not raw:
+            return False
+        try:
+            dt = datetime.fromisoformat(str(raw))
+        except ValueError:
+            return False
+        return dt >= now - timedelta(minutes=minutes)
+
+    warns_last_hour = sum(1 for item in logs if item.get("action") in {"warn", "moderation:warn", "automod_warn"} and _within_minutes(item, 60))
+    warns_prev_hour = sum(
+        1
+        for item in logs
+        if item.get("action") in {"warn", "moderation:warn", "automod_warn"}
+        and not _within_minutes(item, 60)
+        and _within_minutes(item, 120)
+    )
+    if warns_last_hour >= 5 and warns_last_hour > max(2, warns_prev_hour * 2):
+        alert_items.append(
+            {
+                "type": "warn_spike",
+                "severity": "high",
+                "title": "Warn explosion detected",
+                "detail": f"{warns_last_hour} warns in the last hour.",
+            }
+        )
+
+    spam_15m = sum(
+        1
+        for item in logs
+        if item.get("action") in {"automod_spam", "automod_invite", "automod_link", "automod_caps", "automod_violation"}
+        and _within_minutes(item, 15)
+    )
+    if spam_15m >= 8:
+        alert_items.append(
+            {
+                "type": "spam_spike",
+                "severity": "high",
+                "title": "Abnormal spam detected",
+                "detail": f"{spam_15m} AutoMod hits in the last 15 minutes.",
+            }
+        )
+
+    joins_10m = sum(1 for item in logs if item.get("action") in {"member_join", "join"} and _within_minutes(item, 10))
+    if joins_10m >= 12:
+        alert_items.append(
+            {
+                "type": "raid_signal",
+                "severity": "critical",
+                "title": "Potential raid pattern",
+                "detail": f"{joins_10m} joins in the last 10 minutes.",
+            }
+        )
+
+    if not alert_items:
+        alert_items.append(
+            {
+                "type": "stable",
+                "severity": "low",
+                "title": "No anomaly detected",
+                "detail": "Current moderation traffic looks stable.",
+            }
+        )
+
+    return alert_items
+
+
 def _discord_request(url: str, *, method: str, headers: dict[str, str], data: dict[str, str] | None = None) -> dict[str, Any]:
     encoded_data = None
     if data is not None:
@@ -1563,7 +1941,7 @@ def _normalize_guild_state(raw_state: dict[str, Any], guild_id: str, guild_name:
 
 def _load_state_container() -> dict[str, Any]:
     if not STATE_FILE.exists():
-        container = {"guild_states": {}}
+        container = {"guild_states": {}, "staged_states": {}}
         _save_state(container)
         return container
 
@@ -1571,9 +1949,9 @@ def _load_state_container() -> dict[str, Any]:
         with STATE_FILE.open("r", encoding="utf-8") as f:
             raw = json.load(f)
     except (json.JSONDecodeError, OSError):
-        raw = {"guild_states": {}}
+        raw = {"guild_states": {}, "staged_states": {}}
 
-    container = {"guild_states": {}}
+    container = {"guild_states": {}, "staged_states": {}}
     if isinstance(raw, dict) and "guild_states" in raw and isinstance(raw.get("guild_states"), dict):
         for gid, state in raw["guild_states"].items():
             if not isinstance(gid, str) or not isinstance(state, dict):
@@ -1585,6 +1963,13 @@ def _load_state_container() -> dict[str, Any]:
         gid = str(raw.get("guild", {}).get("guild_id", GuildSettings().guild_id))
         gname = str(raw.get("guild", {}).get("guild_name", GuildSettings().guild_name))
         container["guild_states"][gid] = _normalize_guild_state(raw, gid, gname)
+
+    if isinstance(raw, dict) and isinstance(raw.get("staged_states"), dict):
+        for gid, state in raw.get("staged_states", {}).items():
+            if not isinstance(gid, str) or not isinstance(state, dict):
+                continue
+            default_name = str(state.get("guild", {}).get("guild_name", f"Guild {gid}"))
+            container["staged_states"][gid] = _normalize_guild_state(state, gid, default_name)
 
     _save_state(container)
     return container
@@ -1794,8 +2179,6 @@ async def set_active_guild(payload: ActiveGuildPayload, request: Request) -> dic
     match = next((g for g in guilds if g.get("id") == payload.guild_id), None)
     if match is None:
         raise HTTPException(status_code=400, detail="Guild is not available for this user")
-    if not bool(match.get("configurable")):
-        raise HTTPException(status_code=403, detail="You do not have permission to configure this guild")
     request.session["active_guild_id"] = payload.guild_id
     return {"ok": True, "active_guild_id": payload.guild_id}
 
@@ -1860,10 +2243,12 @@ async def dashboard_state(request: Request) -> dict[str, Any]:
     guild_name = str(active_guild.get("name", f"Guild {guild_id}"))
 
     state = await _get_effective_state_for_guild(guild_id, guild_name)
+    staging_state = _load_staging_state_for_guild(guild_id, guild_name)
     resources = await _fetch_guild_resources(guild_id)
     logs = await _fetch_config_logs(guild_id, limit=50)
     seen_map = _get_config_seen_map(request)
     unread = _count_unread_config_logs(logs, seen_map.get(guild_id))
+    dashboard_role = await _dashboard_role_for_user(request, active_guild)
 
     return {
         "active_guild_id": guild_id,
@@ -1871,10 +2256,212 @@ async def dashboard_state(request: Request) -> dict[str, Any]:
         "guild_counts": counts,
         "resources": resources,
         "config_logs_unread": unread,
+        "dashboard_role": dashboard_role,
+        "has_staging": staging_state is not None,
+        "preset_names": sorted(PRESET_TEMPLATES.keys()),
         "locked_cogs": sorted(LOCKED_COGS),
         "is_dev_user": _is_dev_user(request),
         "state": _state_with_metrics(state),
     }
+
+
+@app.get("/api/dashboard/alerts")
+async def dashboard_alerts(request: Request) -> dict[str, Any]:
+    _require_auth(request)
+    active_guild = _require_active_guild(request)
+    guild_id = str(active_guild.get("id"))
+    guild_name = str(active_guild.get("name", f"Guild {guild_id}"))
+    state = _state_with_metrics(await _get_effective_state_for_guild(guild_id, guild_name))
+    alerts = await _detect_smart_alerts(guild_id, state)
+    return {"ok": True, "active_guild_id": guild_id, "alerts": alerts}
+
+
+@app.get("/api/dashboard/roles")
+async def dashboard_roles(request: Request) -> dict[str, Any]:
+    _require_auth(request)
+    active_guild = _require_active_guild(request)
+    guild_id = _extract_discord_id(active_guild.get("id"))
+    role = await _dashboard_role_for_user(request, active_guild)
+
+    entries: list[dict[str, Any]] = []
+    if guild_id is not None:
+        pool = _db_pool()
+        if pool is not None:
+            try:
+                async with pool.acquire() as connection:
+                    rows = await connection.fetch(
+                        "SELECT user_id, role FROM guild_dashboard_roles WHERE guild_id = $1 ORDER BY updated_at DESC",
+                        guild_id,
+                    )
+                entries = [
+                    {"user_id": _id_to_input_value(row.get("user_id")), "role": str(row.get("role") or "viewer")}
+                    for row in rows
+                ]
+            except Exception:
+                entries = []
+
+    return {
+        "ok": True,
+        "active_guild_id": str(active_guild.get("id")),
+        "current_role": role,
+        "entries": entries,
+    }
+
+
+@app.put("/api/dashboard/roles")
+async def dashboard_roles_update(payload: DashboardRoleUpdatePayload, request: Request) -> dict[str, Any]:
+    _require_auth(request)
+    active_guild = await _require_dashboard_role(request, "admin")
+    guild_id = _extract_discord_id(active_guild.get("id"))
+    user_id = _extract_discord_id(payload.user_id)
+    if guild_id is None or user_id is None:
+        raise HTTPException(status_code=400, detail="Invalid guild/user id")
+
+    pool = _db_pool()
+    if pool is None:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
+    try:
+        async with pool.acquire() as connection:
+            await connection.execute(
+                """
+                INSERT INTO guild_dashboard_roles (guild_id, user_id, role, updated_at)
+                VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+                ON CONFLICT (guild_id, user_id)
+                DO UPDATE SET role = EXCLUDED.role, updated_at = CURRENT_TIMESTAMP
+                """,
+                guild_id,
+                user_id,
+                payload.role,
+            )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to save role: {exc}") from exc
+
+    return {"ok": True}
+
+
+@app.get("/api/dashboard/staging")
+async def dashboard_staging_get(request: Request) -> dict[str, Any]:
+    _require_auth(request)
+    active_guild = _require_active_guild(request)
+    guild_id = str(active_guild.get("id"))
+    guild_name = str(active_guild.get("name", f"Guild {guild_id}"))
+    staging = _load_staging_state_for_guild(guild_id, guild_name)
+    return {"ok": True, "active_guild_id": guild_id, "has_staging": staging is not None, "state": _state_with_metrics(staging) if staging else None}
+
+
+@app.put("/api/dashboard/staging")
+async def dashboard_staging_put(payload: SetupUpdatePayload, request: Request) -> dict[str, Any]:
+    _require_auth(request)
+    active_guild = await _require_dashboard_role(request, "admin")
+    guild_id = str(active_guild.get("id"))
+    guild_name = str(active_guild.get("name", f"Guild {guild_id}"))
+
+    base_state = await _get_effective_state_for_guild(guild_id, guild_name)
+    state = json.loads(json.dumps(base_state))
+    state["guild"].update(payload.guild.model_dump())
+    state["moderation"].update(payload.moderation.model_dump())
+    state["automation"].update(payload.automation.model_dump())
+    state["warnings"].update(payload.warnings.model_dump())
+    state["logs"].update(payload.logs.model_dump())
+    state["modmail"].update(payload.modmail.model_dump())
+    state["entry_exit"].update(payload.entry_exit.model_dump())
+    state["cogs"].update(payload.cogs)
+    state["guild"]["guild_name"] = guild_name
+    state["guild"]["guild_id"] = guild_id
+
+    staged = _store_staging_state_for_guild(guild_id, guild_name, state)
+    return {"ok": True, "active_guild_id": guild_id, "state": _state_with_metrics(staged)}
+
+
+@app.post("/api/dashboard/staging/apply")
+async def dashboard_staging_apply(request: Request) -> dict[str, Any]:
+    _require_auth(request)
+    active_guild = await _require_dashboard_role(request, "admin")
+    guild_id = str(active_guild.get("id"))
+    guild_name = str(active_guild.get("name", f"Guild {guild_id}"))
+
+    staging = _load_staging_state_for_guild(guild_id, guild_name)
+    if staging is None:
+        raise HTTPException(status_code=404, detail="No staging configuration found")
+
+    previous = await _get_effective_state_for_guild(guild_id, guild_name)
+    persisted = await _persist_state_for_guild(guild_id, guild_name, staging)
+    _clear_staging_state_for_guild(guild_id)
+
+    changes = _collect_setup_changes(previous, persisted)
+    user = request.session.get("user")
+    moderator_id = _extract_discord_id(user.get("id") if isinstance(user, dict) else None)
+    await _create_snapshot(guild_id, persisted, created_by=moderator_id, source="staging_apply", changes=changes)
+    await _log_dashboard_changes(guild_id, moderator_id, changes)
+
+    return {"ok": True, "active_guild_id": guild_id, "state": _state_with_metrics(persisted), "applied_changes": changes}
+
+
+@app.delete("/api/dashboard/staging")
+async def dashboard_staging_delete(request: Request) -> dict[str, Any]:
+    _require_auth(request)
+    active_guild = await _require_dashboard_role(request, "admin")
+    guild_id = str(active_guild.get("id"))
+    _clear_staging_state_for_guild(guild_id)
+    return {"ok": True, "active_guild_id": guild_id}
+
+
+@app.post("/api/dashboard/presets/apply")
+async def dashboard_apply_preset(payload: PresetApplyPayload, request: Request) -> dict[str, Any]:
+    _require_auth(request)
+    active_guild = await _require_dashboard_role(request, "admin")
+    guild_id = str(active_guild.get("id"))
+    guild_name = str(active_guild.get("name", f"Guild {guild_id}"))
+
+    current = await _get_effective_state_for_guild(guild_id, guild_name)
+    updated = _apply_preset_to_state(current, payload.preset_name)
+    updated = _normalize_guild_state(updated, guild_id, guild_name)
+
+    user = request.session.get("user")
+    moderator_id = _extract_discord_id(user.get("id") if isinstance(user, dict) else None)
+
+    if payload.target == "staging":
+        staged = _store_staging_state_for_guild(guild_id, guild_name, updated)
+        return {"ok": True, "target": "staging", "active_guild_id": guild_id, "state": _state_with_metrics(staged)}
+
+    persisted = await _persist_state_for_guild(guild_id, guild_name, updated)
+    changes = _collect_setup_changes(current, persisted)
+    await _create_snapshot(guild_id, persisted, created_by=moderator_id, source=f"preset:{payload.preset_name}", changes=changes)
+    await _log_dashboard_changes(guild_id, moderator_id, changes)
+    return {"ok": True, "target": "production", "active_guild_id": guild_id, "state": _state_with_metrics(persisted), "applied_changes": changes}
+
+
+@app.get("/api/dashboard/snapshots")
+async def dashboard_snapshots(request: Request, limit: int = Query(default=30, ge=1, le=100)) -> dict[str, Any]:
+    _require_auth(request)
+    active_guild = _require_active_guild(request)
+    guild_id = str(active_guild.get("id"))
+    snapshots = await _fetch_snapshots(guild_id, limit=limit)
+    return {"ok": True, "active_guild_id": guild_id, "snapshots": snapshots}
+
+
+@app.post("/api/dashboard/snapshots/{snapshot_id}/rollback")
+async def dashboard_snapshot_rollback(snapshot_id: int, request: Request) -> dict[str, Any]:
+    _require_auth(request)
+    active_guild = await _require_dashboard_role(request, "admin")
+    guild_id = str(active_guild.get("id"))
+    guild_name = str(active_guild.get("name", f"Guild {guild_id}"))
+
+    target = await _load_snapshot_state(guild_id, snapshot_id)
+    if target is None:
+        raise HTTPException(status_code=404, detail="Snapshot not found")
+
+    previous = await _get_effective_state_for_guild(guild_id, guild_name)
+    restored = await _persist_state_for_guild(guild_id, guild_name, target)
+    changes = _collect_setup_changes(previous, restored)
+
+    user = request.session.get("user")
+    moderator_id = _extract_discord_id(user.get("id") if isinstance(user, dict) else None)
+    await _create_snapshot(guild_id, restored, created_by=moderator_id, source=f"rollback:{snapshot_id}", changes=changes)
+    await _log_dashboard_changes(guild_id, moderator_id, changes)
+
+    return {"ok": True, "active_guild_id": guild_id, "state": _state_with_metrics(restored), "applied_changes": changes}
 
 
 @app.get("/api/dashboard/config-logs")
@@ -2049,7 +2636,7 @@ async def dashboard_config_logs_ack(request: Request) -> dict[str, Any]:
 @app.put("/api/dashboard/guild")
 async def update_guild_settings(payload: GuildUpdatePayload, request: Request) -> dict[str, Any]:
     _require_auth(request)
-    active_guild = _require_configurable_active_guild(request)
+    active_guild = await _require_dashboard_role(request, "admin")
     guild_id = str(active_guild.get("id"))
     guild_name = str(active_guild.get("name", f"Guild {guild_id}"))
 
@@ -2067,7 +2654,7 @@ async def update_guild_settings(payload: GuildUpdatePayload, request: Request) -
 @app.put("/api/dashboard/moderation")
 async def update_moderation_settings(payload: ModerationUpdatePayload, request: Request) -> dict[str, Any]:
     _require_auth(request)
-    active_guild = _require_configurable_active_guild(request)
+    active_guild = await _require_dashboard_role(request, "admin")
     guild_id = str(active_guild.get("id"))
     guild_name = str(active_guild.get("name", f"Guild {guild_id}"))
 
@@ -2090,7 +2677,7 @@ async def update_moderation_settings(payload: ModerationUpdatePayload, request: 
 @app.put("/api/dashboard/setup")
 async def update_setup(payload: SetupUpdatePayload, request: Request) -> dict[str, Any]:
     _require_auth(request)
-    active_guild = _require_configurable_active_guild(request)
+    active_guild = await _require_dashboard_role(request, "admin")
     guild_id = str(active_guild.get("id"))
     guild_name = str(active_guild.get("name", f"Guild {guild_id}"))
 
@@ -2136,6 +2723,7 @@ async def update_setup(payload: SetupUpdatePayload, request: Request) -> dict[st
     changes = _collect_setup_changes(previous_state, state)
     user = request.session.get("user")
     moderator_id = _extract_discord_id(user.get("id") if isinstance(user, dict) else None)
+    await _create_snapshot(guild_id, state, created_by=moderator_id, source="setup", changes=changes)
     await _log_dashboard_changes(guild_id, moderator_id, changes)
 
     return {
@@ -2150,7 +2738,7 @@ async def update_setup(payload: SetupUpdatePayload, request: Request) -> dict[st
 @app.put("/api/dashboard/cogs")
 async def bulk_update_cogs(payload: CogBulkUpdatePayload, request: Request) -> dict[str, Any]:
     _require_auth(request)
-    active_guild = _require_configurable_active_guild(request)
+    active_guild = await _require_dashboard_role(request, "admin")
     guild_id = str(active_guild.get("id"))
     guild_name = str(active_guild.get("name", f"Guild {guild_id}"))
 
@@ -2169,7 +2757,7 @@ async def bulk_update_cogs(payload: CogBulkUpdatePayload, request: Request) -> d
 @app.patch("/api/dashboard/cogs/{cog_name}")
 async def toggle_cog(cog_name: str, payload: CogTogglePayload, request: Request) -> dict[str, Any]:
     _require_auth(request)
-    active_guild = _require_configurable_active_guild(request)
+    active_guild = await _require_dashboard_role(request, "admin")
     guild_id = str(active_guild.get("id"))
     guild_name = str(active_guild.get("name", f"Guild {guild_id}"))
 
@@ -2186,7 +2774,7 @@ async def toggle_cog(cog_name: str, payload: CogTogglePayload, request: Request)
 @app.post("/api/dashboard/reset")
 async def reset_dashboard_state(request: Request) -> dict[str, Any]:
     _require_auth(request)
-    active_guild = _require_configurable_active_guild(request)
+    active_guild = await _require_dashboard_role(request, "admin")
     guild_id = str(active_guild.get("id"))
     guild_name = str(active_guild.get("name", f"Guild {guild_id}"))
 

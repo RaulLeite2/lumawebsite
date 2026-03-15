@@ -114,6 +114,36 @@
                                 <select id="guild-log"></select>
                             </div>
                         </div>
+
+                        <h3 style="margin:0.8rem 0 0.5rem;">Community Presets</h3>
+                        <div class="grid-2 compact-grid">
+                            <div class="field">
+                                <label for="preset-select">Preset template</label>
+                                <select id="preset-select">
+                                    <option value="gamer">Gamer</option>
+                                    <option value="study">Study</option>
+                                    <option value="creator">Creator</option>
+                                    <option value="support">Support</option>
+                                    <option value="large-community">Large Community</option>
+                                </select>
+                            </div>
+                            <div class="field">
+                                <label>Apply target</label>
+                                <div class="role-picker-actions" style="margin:0;">
+                                    <button class="btn" id="apply-preset-staging" type="button">Apply to Staging</button>
+                                    <button class="btn primary" id="apply-preset-production" type="button">Apply to Production</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <h3 style="margin:0.9rem 0 0.5rem;">Staging Environment</h3>
+                        <p class="lead" id="staging-status">No staging config loaded.</p>
+                        <div class="role-picker-actions">
+                            <button class="btn" id="save-staging" type="button">Save Current Form to Staging</button>
+                            <button class="btn" id="load-staging" type="button">Load Staging Into Form</button>
+                            <button class="btn primary" id="apply-staging" type="button">Apply Staging to Production</button>
+                            <button class="btn danger" id="discard-staging" type="button">Discard Staging</button>
+                        </div>
                     </article>
                 </div>
             </section>
