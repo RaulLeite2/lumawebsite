@@ -194,6 +194,7 @@ function renderModmailRoleChips() {
 
 function renderAutoImmuneRoleChips() {
     const list = document.getElementById("auto-immune-role-list");
+    const hint = document.getElementById("auto-immune-hint");
     if (!list) return;
 
     list.innerHTML = "";
@@ -202,6 +203,9 @@ function renderAutoImmuneRoleChips() {
         hint.className = "save-hint";
         hint.textContent = "No custom immune roles selected.";
         list.appendChild(hint);
+        if (document.getElementById("auto-immune-hint")) {
+            document.getElementById("auto-immune-hint").textContent = "AutoMod immunity list is empty. Admin and moderation permissions remain immune by default.";
+        }
         return;
     }
 
@@ -211,10 +215,14 @@ function renderAutoImmuneRoleChips() {
         chip.type = "button";
         chip.className = "role-chip";
         chip.dataset.roleId = roleId;
-        chip.textContent = role ? `@${role.name}` : roleId;
+        chip.textContent = role ? `@${role.name} (ID: ${roleId})` : `ID: ${roleId}`;
         chip.addEventListener("click", () => chip.classList.toggle("selected"));
         list.appendChild(chip);
     });
+
+    if (hint) {
+        hint.textContent = `${selectedAutoImmuneRoles.length} immune role(s): ${selectedAutoImmuneRoles.join(", ")}`;
+    }
 }
 
 function applyResourceSelectors(context) {
@@ -223,6 +231,8 @@ function applyResourceSelectors(context) {
     populateSelect(document.getElementById("log-audit-channel"), setupResources.text_channels || [], "Choose an audit channel");
     populateSelect(document.getElementById("log-ban-channel"), setupResources.text_channels || [], "Choose a ban log channel");
     populateSelect(document.getElementById("modmail-channel"), setupResources.categories || [], "Choose a modmail category");
+    populateSelect(document.getElementById("welcome-channel"), setupResources.text_channels || [], "Choose welcome channel");
+    populateSelect(document.getElementById("leave-channel"), setupResources.text_channels || [], "Choose leave channel");
     populateRoleSelect(document.getElementById("auto-role"), setupResources.roles || []);
     populateRoleSelect(document.getElementById("auto-immune-role-picker"), setupResources.roles || []);
     populateRoleSelect(document.getElementById("modmail-role-picker"), setupResources.roles || []);
@@ -254,7 +264,7 @@ function getWarnEscalationStepsFromForm() {
 function bindSetupDirtyTracking() {
     if (page !== "guild-settings" || setupDirtyTrackingBound) return;
 
-    const trackedSelector = "#guild-language, #guild-log, #auto-enabled, #auto-antiflood, #auto-invite, #auto-link, #auto-caps, #auto-threshold, #auto-role, #auto-immune-role-picker, #warn-public-reason, #warn-dm-user, #warn-step-1-threshold, #warn-step-1-action, #warn-step-2-threshold, #warn-step-2-action, #warn-step-3-threshold, #warn-step-3-action, #log-enabled, #log-moderation, #log-ban-events, #log-join-leave, #log-message-delete, #log-modmail, #log-audit-channel, #log-ban-channel, #modmail-enabled, #modmail-anonymous, #modmail-idle, #modmail-channel, #modmail-role-picker, #modmail-hours, input[data-setup-cog]";
+    const trackedSelector = "#guild-language, #guild-log, #auto-enabled, #auto-antiflood, #auto-invite, #auto-link, #auto-caps, #auto-threshold, #auto-role, #auto-immune-role-picker, #warn-public-reason, #warn-dm-user, #warn-step-1-threshold, #warn-step-1-action, #warn-step-2-threshold, #warn-step-2-action, #warn-step-3-threshold, #warn-step-3-action, #log-enabled, #log-moderation, #log-ban-events, #log-join-leave, #log-message-delete, #log-modmail, #log-audit-channel, #log-ban-channel, #modmail-enabled, #modmail-anonymous, #modmail-idle, #modmail-channel, #modmail-role-picker, #modmail-hours, #welcome-enabled, #welcome-channel, #welcome-title, #welcome-description, #welcome-color, #leave-enabled, #leave-channel, #leave-title, #leave-description, #leave-color, input[data-setup-cog]";
 
     const markDirty = (event) => {
         const target = event.target;
@@ -438,6 +448,7 @@ function renderServers(context) {
 
 function renderModeration(context) {
     const m = context.state.moderation;
+    const automation = context.state.automation;
     const refs = {
         enabled: document.getElementById("mod-enabled"),
         flood: document.getElementById("mod-flood"),
@@ -445,15 +456,35 @@ function renderModeration(context) {
         action: document.getElementById("mod-action"),
         modmail: document.getElementById("mod-modmail"),
         tickets: document.getElementById("mod-tickets"),
+        autoInvite: document.getElementById("auto-invite"),
+        autoLink: document.getElementById("auto-link"),
+        autoCaps: document.getElementById("auto-caps"),
+        autoThreshold: document.getElementById("auto-threshold"),
+        autoRole: document.getElementById("auto-role"),
     };
 
     if (!refs.enabled) return;
+    applyResourceSelectors(context);
     refs.enabled.checked = m.enabled;
     refs.flood.checked = m.smart_antiflood;
     refs.limit.value = m.warning_limit;
     refs.action.value = m.default_action;
     refs.modmail.checked = m.modmail_enabled;
     refs.tickets.checked = m.tickets_enabled;
+
+    if (refs.autoInvite) refs.autoInvite.checked = Boolean(automation.invite_filter);
+    if (refs.autoLink) refs.autoLink.checked = Boolean(automation.link_filter);
+    if (refs.autoCaps) refs.autoCaps.checked = Boolean(automation.caps_filter);
+    if (refs.autoThreshold) refs.autoThreshold.value = Number(automation.spam_threshold || 6);
+    if (refs.autoRole) {
+        ensureOption(refs.autoRole, automation.quarantine_role, automation.quarantine_role);
+        refs.autoRole.value = automation.quarantine_role || "";
+    }
+
+    selectedAutoImmuneRoles = Array.isArray(automation.immune_roles)
+        ? [...new Set(automation.immune_roles.filter(Boolean).map(String))]
+        : [];
+    renderAutoImmuneRoleChips();
 }
 
 function renderGuildSettings(context) {
@@ -463,6 +494,7 @@ function renderGuildSettings(context) {
     const warnings = context.state.warnings;
     const logs = context.state.logs;
     const modmail = context.state.modmail;
+    const entryExit = context.state.entry_exit || {};
     const metrics = context.state.metrics || {};
 
     const refs = {
@@ -498,6 +530,16 @@ function renderGuildSettings(context) {
         modmailIdle: document.getElementById("modmail-idle"),
         modmailChannel: document.getElementById("modmail-channel"),
         modmailHours: document.getElementById("modmail-hours"),
+        welcomeEnabled: document.getElementById("welcome-enabled"),
+        welcomeChannel: document.getElementById("welcome-channel"),
+        welcomeTitle: document.getElementById("welcome-title"),
+        welcomeDescription: document.getElementById("welcome-description"),
+        welcomeColor: document.getElementById("welcome-color"),
+        leaveEnabled: document.getElementById("leave-enabled"),
+        leaveChannel: document.getElementById("leave-channel"),
+        leaveTitle: document.getElementById("leave-title"),
+        leaveDescription: document.getElementById("leave-description"),
+        leaveColor: document.getElementById("leave-color"),
         protectionCount: document.getElementById("setup-protection-count"),
         logCount: document.getElementById("setup-log-count"),
         warnActionSummary: document.getElementById("setup-warn-action"),
@@ -562,6 +604,24 @@ function renderGuildSettings(context) {
         ? [...new Set(modmail.alert_roles.filter(Boolean).map(String))]
         : (modmail.alert_role ? [String(modmail.alert_role)] : []);
     renderModmailRoleChips();
+
+    if (refs.welcomeEnabled) refs.welcomeEnabled.checked = Boolean(entryExit.welcome_enabled);
+    if (refs.welcomeChannel) {
+        ensureOption(refs.welcomeChannel, entryExit.welcome_channel, entryExit.welcome_channel);
+        refs.welcomeChannel.value = entryExit.welcome_channel || "";
+    }
+    if (refs.welcomeTitle) refs.welcomeTitle.value = entryExit.welcome_title || "Bem-vindo(a), {member}!";
+    if (refs.welcomeDescription) refs.welcomeDescription.value = entryExit.welcome_description || "Aproveite sua estadia em **{guild}**.";
+    if (refs.welcomeColor) refs.welcomeColor.value = entryExit.welcome_color || "#57cc99";
+
+    if (refs.leaveEnabled) refs.leaveEnabled.checked = Boolean(entryExit.leave_enabled);
+    if (refs.leaveChannel) {
+        ensureOption(refs.leaveChannel, entryExit.leave_channel, entryExit.leave_channel);
+        refs.leaveChannel.value = entryExit.leave_channel || "";
+    }
+    if (refs.leaveTitle) refs.leaveTitle.value = entryExit.leave_title || "Ate logo, {member}.";
+    if (refs.leaveDescription) refs.leaveDescription.value = entryExit.leave_description || "{member} saiu de **{guild}**.";
+    if (refs.leaveColor) refs.leaveColor.value = entryExit.leave_color || "#ef476f";
 
     refs.protectionCount.textContent = String(metrics.protection_layers ?? 0);
     refs.logCount.textContent = String(metrics.logs_enabled ?? 0);
@@ -653,6 +713,47 @@ function renderConfigLogs(logs) {
     });
 }
 
+function applyPreviewTokens(template, guildName) {
+    return String(template || "")
+        .replace(/\{member\}/g, "@ExampleMember")
+        .replace(/\{guild\}/g, guildName || "Your Guild");
+}
+
+function renderEntryExitPreview(kind) {
+    const isWelcome = kind === "welcome";
+    const titleInput = document.getElementById(isWelcome ? "welcome-title" : "leave-title");
+    const descInput = document.getElementById(isWelcome ? "welcome-description" : "leave-description");
+    const colorInput = document.getElementById(isWelcome ? "welcome-color" : "leave-color");
+    const card = document.getElementById(isWelcome ? "welcome-preview-card" : "leave-preview-card");
+    const titleEl = document.getElementById(isWelcome ? "welcome-preview-title" : "leave-preview-title");
+    const descEl = document.getElementById(isWelcome ? "welcome-preview-description" : "leave-preview-description");
+
+    if (!titleInput || !descInput || !colorInput || !card || !titleEl || !descEl) return;
+
+    const guildName = dashboardContext?.state?.guild?.guild_name || "Your Guild";
+    const title = applyPreviewTokens(titleInput.value.trim(), guildName);
+    const description = applyPreviewTokens(descInput.value.trim(), guildName);
+    const rawColor = colorInput.value.trim() || (isWelcome ? "#57cc99" : "#ef476f");
+    const safeColor = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(rawColor) ? rawColor : (isWelcome ? "#57cc99" : "#ef476f");
+
+    titleEl.textContent = title || (isWelcome ? "Bem-vindo(a), @ExampleMember!" : "Ate logo, @ExampleMember.");
+    descEl.textContent = description || (isWelcome ? "Aproveite sua estadia em **Your Guild**." : "@ExampleMember saiu de **Your Guild**.");
+    card.style.borderLeft = `5px solid ${safeColor}`;
+    card.hidden = false;
+}
+
+function bindEntryExitPreviewButtons() {
+    const welcomeBtn = document.getElementById("preview-welcome-embed");
+    if (welcomeBtn) {
+        welcomeBtn.addEventListener("click", () => renderEntryExitPreview("welcome"));
+    }
+
+    const leaveBtn = document.getElementById("preview-leave-embed");
+    if (leaveBtn) {
+        leaveBtn.addEventListener("click", () => renderEntryExitPreview("leave"));
+    }
+}
+
 async function loadConfigLogs() {
     const response = await api("/api/dashboard/config-logs");
     renderConfigLogs(response.logs || []);
@@ -742,6 +843,12 @@ function bindPageActions() {
                 default_action: document.getElementById("mod-action").value,
                 modmail_enabled: document.getElementById("mod-modmail").checked,
                 tickets_enabled: document.getElementById("mod-tickets").checked,
+                invite_filter: document.getElementById("auto-invite")?.checked ?? true,
+                link_filter: document.getElementById("auto-link")?.checked ?? true,
+                caps_filter: document.getElementById("auto-caps")?.checked ?? false,
+                spam_threshold: Number(document.getElementById("auto-threshold")?.value || 6),
+                quarantine_role: document.getElementById("auto-role")?.value?.trim() || "",
+                immune_roles: [...selectedAutoImmuneRoles],
             };
             try {
                 const res = await api("/api/dashboard/moderation", {
@@ -840,6 +947,18 @@ function bindPageActions() {
                     alert_role: selectedModmailRoles[0] || "",
                     alert_roles: [...selectedModmailRoles],
                     auto_close_hours: Number(document.getElementById("modmail-hours").value || 48),
+                },
+                entry_exit: {
+                    welcome_enabled: document.getElementById("welcome-enabled").checked,
+                    welcome_channel: document.getElementById("welcome-channel").value.trim(),
+                    welcome_title: document.getElementById("welcome-title").value.trim(),
+                    welcome_description: document.getElementById("welcome-description").value.trim(),
+                    welcome_color: document.getElementById("welcome-color").value.trim() || "#57cc99",
+                    leave_enabled: document.getElementById("leave-enabled").checked,
+                    leave_channel: document.getElementById("leave-channel").value.trim(),
+                    leave_title: document.getElementById("leave-title").value.trim(),
+                    leave_description: document.getElementById("leave-description").value.trim(),
+                    leave_color: document.getElementById("leave-color").value.trim() || "#ef476f",
                 },
                 cogs,
             };
@@ -971,6 +1090,7 @@ function bindPageActions() {
     try {
         bindGuildSwitcher();
         bindPageActions();
+        bindEntryExitPreviewButtons();
         bindSetupDirtyTracking();
         bindSetupTopicNav();
         const session = await api("/api/auth/session");

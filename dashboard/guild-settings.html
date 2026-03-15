@@ -167,6 +167,7 @@
                             <button class="btn danger" id="auto-immune-role-remove" type="button">Remove Selected</button>
                         </div>
                         <div class="role-chip-list" id="auto-immune-role-list"></div>
+                        <p class="lead" id="auto-immune-hint" style="margin-top:0.6rem;">AutoMod immunity list is empty. Admin and moderation permissions remain immune by default.</p>
                     </article>
 
                     <article class="section setup-card">
@@ -312,6 +313,74 @@
                             <label for="modmail-hours">Auto-close after (hours)</label>
                             <input id="modmail-hours" type="number" min="1" max="168">
                         </div>
+                    </article>
+
+                    <article class="section setup-card">
+                        <div class="card-head">
+                            <div>
+                                <h2>Entry / Exit Embeds</h2>
+                                <p class="lead">Customize welcome and leave embeds and choose exactly where they are posted.</p>
+                            </div>
+                            <span class="pill accent-green">Embeds</span>
+                        </div>
+
+                        <h3 style="margin-bottom:0.6rem;">Welcome Embed</h3>
+                        <div class="switch-row feature-row"><span>Enable welcome embed</span><input id="welcome-enabled" class="switch" type="checkbox"></div>
+                        <div class="grid-2 compact-grid">
+                            <div class="field">
+                                <label for="welcome-channel">Welcome channel</label>
+                                <select id="welcome-channel"></select>
+                            </div>
+                            <div class="field">
+                                <label for="welcome-color">Embed color (hex)</label>
+                                <input id="welcome-color" type="text" placeholder="#57cc99">
+                            </div>
+                        </div>
+                        <div class="field">
+                            <label for="welcome-title">Title</label>
+                            <input id="welcome-title" type="text" placeholder="Bem-vindo(a), {member}!">
+                        </div>
+                        <div class="field">
+                            <label for="welcome-description">Description</label>
+                            <textarea id="welcome-description" rows="3" placeholder="Aproveite sua estadia em **{guild}**."></textarea>
+                        </div>
+                        <div class="role-picker-actions">
+                            <button class="btn" id="preview-welcome-embed" type="button">Preview Welcome Embed</button>
+                        </div>
+                        <article class="section" id="welcome-preview-card" style="padding:0.8rem; border:1px solid var(--border); background:var(--panel-2);" hidden>
+                            <h4 id="welcome-preview-title" style="margin:0 0 0.4rem 0;"></h4>
+                            <p id="welcome-preview-description" style="margin:0; white-space:pre-wrap;"></p>
+                        </article>
+
+                        <h3 style="margin-top:1rem; margin-bottom:0.6rem;">Leave Embed</h3>
+                        <div class="switch-row feature-row"><span>Enable leave embed</span><input id="leave-enabled" class="switch" type="checkbox"></div>
+                        <div class="grid-2 compact-grid">
+                            <div class="field">
+                                <label for="leave-channel">Leave channel</label>
+                                <select id="leave-channel"></select>
+                            </div>
+                            <div class="field">
+                                <label for="leave-color">Embed color (hex)</label>
+                                <input id="leave-color" type="text" placeholder="#ef476f">
+                            </div>
+                        </div>
+                        <div class="field">
+                            <label for="leave-title">Title</label>
+                            <input id="leave-title" type="text" placeholder="Ate logo, {member}.">
+                        </div>
+                        <div class="field">
+                            <label for="leave-description">Description</label>
+                            <textarea id="leave-description" rows="3" placeholder="{member} saiu de **{guild}**."></textarea>
+                        </div>
+                        <div class="role-picker-actions">
+                            <button class="btn" id="preview-leave-embed" type="button">Preview Leave Embed</button>
+                        </div>
+                        <article class="section" id="leave-preview-card" style="padding:0.8rem; border:1px solid var(--border); background:var(--panel-2);" hidden>
+                            <h4 id="leave-preview-title" style="margin:0 0 0.4rem 0;"></h4>
+                            <p id="leave-preview-description" style="margin:0; white-space:pre-wrap;"></p>
+                        </article>
+
+                        <p class="lead" style="margin-top:0.6rem;">Variaveis disponiveis: <strong>{member}</strong> e <strong>{guild}</strong>.</p>
                     </article>
                 </div>
             </section>

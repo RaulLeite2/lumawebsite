@@ -110,6 +110,19 @@ class ModmailSettings(BaseModel):
     auto_close_hours: int = Field(default=48, ge=1, le=168)
 
 
+class EntryExitEmbedSettings(BaseModel):
+    welcome_enabled: bool = False
+    welcome_channel: str = ""
+    welcome_title: str = "Bem-vindo(a), {member}!"
+    welcome_description: str = "Aproveite sua estadia em **{guild}**."
+    welcome_color: str = "#57cc99"
+    leave_enabled: bool = False
+    leave_channel: str = ""
+    leave_title: str = "Ate logo, {member}."
+    leave_description: str = "{member} saiu de **{guild}**."
+    leave_color: str = "#ef476f"
+
+
 class DashboardState(BaseModel):
     guild: GuildSettings
     moderation: ModerationSettings
@@ -117,6 +130,7 @@ class DashboardState(BaseModel):
     warnings: WarningSystemSettings
     logs: LogSettings
     modmail: ModmailSettings
+    entry_exit: EntryExitEmbedSettings
     cogs: dict[str, bool]
 
 
@@ -133,6 +147,12 @@ class ModerationUpdatePayload(BaseModel):
     default_action: str = Field(pattern="^(kick|ban|mute)$")
     modmail_enabled: bool
     tickets_enabled: bool
+    invite_filter: bool = True
+    link_filter: bool = True
+    caps_filter: bool = False
+    spam_threshold: int = Field(default=6, ge=3, le=20)
+    quarantine_role: str = ""
+    immune_roles: list[str] = Field(default_factory=list)
 
 
 class CogBulkUpdatePayload(BaseModel):
@@ -154,6 +174,7 @@ class SetupUpdatePayload(BaseModel):
     warnings: WarningSystemSettings
     logs: LogSettings
     modmail: ModmailSettings
+    entry_exit: EntryExitEmbedSettings
     cogs: dict[str, bool]
 
 
@@ -270,6 +291,7 @@ def _collect_setup_changes(previous_state: dict[str, Any], updated_state: dict[s
         "warnings": updated_state.get("warnings", {}),
         "logs": updated_state.get("logs", {}),
         "modmail": updated_state.get("modmail", {}),
+        "entry_exit": updated_state.get("entry_exit", {}),
         "cogs": updated_state.get("cogs", {}),
         "moderation": {
             "enabled": updated_state.get("moderation", {}).get("enabled"),
@@ -286,6 +308,7 @@ def _collect_setup_changes(previous_state: dict[str, Any], updated_state: dict[s
         "warnings": previous_state.get("warnings", {}),
         "logs": previous_state.get("logs", {}),
         "modmail": previous_state.get("modmail", {}),
+        "entry_exit": previous_state.get("entry_exit", {}),
         "cogs": previous_state.get("cogs", {}),
         "moderation": {
             "enabled": previous_state.get("moderation", {}).get("enabled"),
@@ -329,6 +352,16 @@ def _collect_setup_changes(previous_state: dict[str, Any], updated_state: dict[s
         "modmail.inbox_channel": "Modmail category",
         "modmail.alert_role": "Modmail alert role",
         "modmail.auto_close_hours": "Modmail auto-close hours",
+        "entry_exit.welcome_enabled": "Welcome embed",
+        "entry_exit.welcome_channel": "Welcome channel",
+        "entry_exit.welcome_title": "Welcome title",
+        "entry_exit.welcome_description": "Welcome description",
+        "entry_exit.welcome_color": "Welcome color",
+        "entry_exit.leave_enabled": "Leave embed",
+        "entry_exit.leave_channel": "Leave channel",
+        "entry_exit.leave_title": "Leave title",
+        "entry_exit.leave_description": "Leave description",
+        "entry_exit.leave_color": "Leave color",
         "moderation.smart_antiflood": "Smart anti-flood",
     }
 
@@ -522,6 +555,24 @@ async def _ensure_dashboard_tables(pool: Any) -> None:
                 )
                 """
             )
+            await connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS guild_entry_exit_embeds (
+                    guild_id BIGINT PRIMARY KEY REFERENCES guilds(guild_id) ON DELETE CASCADE,
+                    welcome_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+                    welcome_channel_id BIGINT,
+                    welcome_title VARCHAR(256),
+                    welcome_description TEXT,
+                    welcome_color VARCHAR(16),
+                    leave_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+                    leave_channel_id BIGINT,
+                    leave_title VARCHAR(256),
+                    leave_description TEXT,
+                    leave_color VARCHAR(16),
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
     except Exception as exc:
         print(f"[Dashboard] Failed to ensure dashboard tables: {exc}")
 
@@ -665,6 +716,24 @@ async def _fetch_guild_db_row(guild_id: str) -> dict[str, Any] | None:
                 "SELECT threshold, action FROM guild_warning_escalations WHERE guild_id = $1 ORDER BY threshold ASC",
                 guild_id_int,
             )
+            entry_exit_row = await connection.fetchrow(
+                """
+                SELECT
+                    welcome_enabled,
+                    welcome_channel_id,
+                    welcome_title,
+                    welcome_description,
+                    welcome_color,
+                    leave_enabled,
+                    leave_channel_id,
+                    leave_title,
+                    leave_description,
+                    leave_color
+                FROM guild_entry_exit_embeds
+                WHERE guild_id = $1
+                """,
+                guild_id_int,
+            )
     except Exception as exc:
         print(f"[Dashboard] Failed to load guild state from database for {guild_id}: {exc}")
         return None
@@ -681,6 +750,8 @@ async def _fetch_guild_db_row(guild_id: str) -> dict[str, Any] | None:
             {"threshold": int(item["threshold"]), "action": str(item["action"]).lower()}
             for item in escalation_rows
         ]
+    if entry_exit_row:
+        payload["entry_exit_embed"] = dict(entry_exit_row)
 
     return payload or None
 
@@ -810,6 +881,19 @@ def _merge_db_row_into_state(state: dict[str, Any], row: dict[str, Any]) -> dict
             if cog_name in state["cogs"]:
                 state["cogs"][cog_name] = bool(enabled)
 
+    entry_exit_embed = row.get("entry_exit_embed")
+    if isinstance(entry_exit_embed, dict):
+        state["entry_exit"]["welcome_enabled"] = bool(entry_exit_embed.get("welcome_enabled"))
+        state["entry_exit"]["welcome_channel"] = _id_to_input_value(entry_exit_embed.get("welcome_channel_id"), state["entry_exit"].get("welcome_channel", ""))
+        state["entry_exit"]["welcome_title"] = str(entry_exit_embed.get("welcome_title") or state["entry_exit"].get("welcome_title", ""))
+        state["entry_exit"]["welcome_description"] = str(entry_exit_embed.get("welcome_description") or state["entry_exit"].get("welcome_description", ""))
+        state["entry_exit"]["welcome_color"] = str(entry_exit_embed.get("welcome_color") or state["entry_exit"].get("welcome_color", "#57cc99"))
+        state["entry_exit"]["leave_enabled"] = bool(entry_exit_embed.get("leave_enabled"))
+        state["entry_exit"]["leave_channel"] = _id_to_input_value(entry_exit_embed.get("leave_channel_id"), state["entry_exit"].get("leave_channel", ""))
+        state["entry_exit"]["leave_title"] = str(entry_exit_embed.get("leave_title") or state["entry_exit"].get("leave_title", ""))
+        state["entry_exit"]["leave_description"] = str(entry_exit_embed.get("leave_description") or state["entry_exit"].get("leave_description", ""))
+        state["entry_exit"]["leave_color"] = str(entry_exit_embed.get("leave_color") or state["entry_exit"].get("leave_color", "#ef476f"))
+
     state["moderation"]["modmail_enabled"] = state["modmail"]["enabled"]
     return state
 
@@ -848,6 +932,9 @@ async def _sync_state_to_database(guild_id: str, state: dict[str, Any]) -> bool:
     ]
     alert_role_ids = [item for item in alert_role_ids if item is not None]
     modmail_alert_role_id = alert_role_ids[0] if alert_role_ids else _extract_discord_id(state["modmail"].get("alert_role"))
+    entry_exit = state.get("entry_exit", {})
+    welcome_channel_id = _extract_discord_id(entry_exit.get("welcome_channel"))
+    leave_channel_id = _extract_discord_id(entry_exit.get("leave_channel"))
 
     try:
         async with pool.acquire() as connection:
@@ -981,6 +1068,50 @@ async def _sync_state_to_database(guild_id: str, state: dict[str, Any]) -> bool:
                     "INSERT INTO guild_immune_roles (guild_id, role_id) VALUES ($1, $2) ON CONFLICT (guild_id, role_id) DO NOTHING",
                     [(guild_id_int, role_id) for role_id in immune_role_ids],
                 )
+
+            await connection.execute(
+                """
+                INSERT INTO guild_entry_exit_embeds (
+                    guild_id,
+                    welcome_enabled,
+                    welcome_channel_id,
+                    welcome_title,
+                    welcome_description,
+                    welcome_color,
+                    leave_enabled,
+                    leave_channel_id,
+                    leave_title,
+                    leave_description,
+                    leave_color,
+                    updated_at
+                )
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP)
+                ON CONFLICT (guild_id)
+                DO UPDATE SET
+                    welcome_enabled = EXCLUDED.welcome_enabled,
+                    welcome_channel_id = EXCLUDED.welcome_channel_id,
+                    welcome_title = EXCLUDED.welcome_title,
+                    welcome_description = EXCLUDED.welcome_description,
+                    welcome_color = EXCLUDED.welcome_color,
+                    leave_enabled = EXCLUDED.leave_enabled,
+                    leave_channel_id = EXCLUDED.leave_channel_id,
+                    leave_title = EXCLUDED.leave_title,
+                    leave_description = EXCLUDED.leave_description,
+                    leave_color = EXCLUDED.leave_color,
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                guild_id_int,
+                bool(entry_exit.get("welcome_enabled")),
+                welcome_channel_id,
+                str(entry_exit.get("welcome_title") or "Bem-vindo(a), {member}!"),
+                str(entry_exit.get("welcome_description") or "Aproveite sua estadia em **{guild}**."),
+                str(entry_exit.get("welcome_color") or "#57cc99"),
+                bool(entry_exit.get("leave_enabled")),
+                leave_channel_id,
+                str(entry_exit.get("leave_title") or "Ate logo, {member}."),
+                str(entry_exit.get("leave_description") or "{member} saiu de **{guild}**."),
+                str(entry_exit.get("leave_color") or "#ef476f"),
+            )
         return True
     except Exception as exc:
         print(f"[Dashboard] Failed to persist guild state to database for {guild_id}: {exc}")
@@ -1208,6 +1339,7 @@ def _default_state() -> dict[str, Any]:
         "warnings": WarningSystemSettings().model_dump(),
         "logs": LogSettings().model_dump(),
         "modmail": ModmailSettings().model_dump(),
+        "entry_exit": EntryExitEmbedSettings().model_dump(),
         "cogs": {name: True for name in _read_available_cogs()},
     }
 
@@ -1220,6 +1352,7 @@ def _normalize_guild_state(raw_state: dict[str, Any], guild_id: str, guild_name:
     normalized["warnings"].update(raw_state.get("warnings", {}))
     normalized["logs"].update(raw_state.get("logs", {}))
     normalized["modmail"].update(raw_state.get("modmail", {}))
+    normalized["entry_exit"].update(raw_state.get("entry_exit", {}))
 
     normalized["guild"]["guild_id"] = guild_id
     if not normalized["guild"].get("guild_name"):
@@ -1626,6 +1759,13 @@ async def update_moderation_settings(payload: ModerationUpdatePayload, request: 
     state["warnings"]["threshold"] = payload.warning_limit
     state["warnings"]["escalate_to"] = payload.default_action
     state["modmail"]["enabled"] = payload.modmail_enabled
+    state["automation"]["enabled"] = payload.smart_antiflood
+    state["automation"]["invite_filter"] = payload.invite_filter
+    state["automation"]["link_filter"] = payload.link_filter
+    state["automation"]["caps_filter"] = payload.caps_filter
+    state["automation"]["spam_threshold"] = payload.spam_threshold
+    state["automation"]["quarantine_role"] = payload.quarantine_role
+    state["automation"]["immune_roles"] = [str(role_id) for role_id in payload.immune_roles if str(role_id).strip()]
     state = await _persist_state_for_guild(guild_id, guild_name, state)
     return {"ok": True, "active_guild_id": guild_id, "state": _state_with_metrics(state)}
 
@@ -1646,6 +1786,7 @@ async def update_setup(payload: SetupUpdatePayload, request: Request) -> dict[st
     warnings_payload = payload.warnings.model_dump()
     logs_payload = payload.logs.model_dump()
     modmail_payload = payload.modmail.model_dump()
+    entry_exit_payload = payload.entry_exit.model_dump()
 
     state["guild"].update(guild_payload)
     state["guild"]["guild_id"] = guild_id
@@ -1654,6 +1795,7 @@ async def update_setup(payload: SetupUpdatePayload, request: Request) -> dict[st
     state["warnings"].update(warnings_payload)
     state["logs"].update(logs_payload)
     state["modmail"].update(modmail_payload)
+    state["entry_exit"].update(entry_exit_payload)
 
     # Guild identity comes from the selected guild; do not allow manual rename in dashboard.
     state["guild"]["guild_name"] = guild_name

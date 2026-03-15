@@ -38,7 +38,7 @@
 
             <section class="section">
                 <h2>Rules</h2>
-                <p class="lead">Enable modules and set escalation defaults.</p>
+                <p class="lead">Enable modules, tune AutoMod filters and set escalation defaults.</p>
                 <div class="grid-2">
                     <div class="field">
                         <label for="mod-limit">Warning limit</label>
@@ -58,6 +58,42 @@
                 <div class="switch-row"><span>Smart Anti-flood</span><input id="mod-flood" class="switch" type="checkbox"></div>
                 <div class="switch-row"><span>Modmail Enabled</span><input id="mod-modmail" class="switch" type="checkbox"></div>
                 <div class="switch-row"><span>Tickets Enabled</span><input id="mod-tickets" class="switch" type="checkbox"></div>
+
+                <h2 style="margin-top:1.2rem;">AutoMod Filters</h2>
+                <p class="lead">Define what AutoMod blocks automatically. Immune roles bypass invite/link/caps/spam enforcement.</p>
+
+                <div class="switch-row"><span>Block invite links</span><input id="auto-invite" class="switch" type="checkbox"></div>
+                <div class="switch-row"><span>Block external links</span><input id="auto-link" class="switch" type="checkbox"></div>
+                <div class="switch-row"><span>Detect excessive caps</span><input id="auto-caps" class="switch" type="checkbox"></div>
+
+                <div class="grid-2">
+                    <div class="field">
+                        <label for="auto-threshold">Spam threshold</label>
+                        <input id="auto-threshold" type="number" min="3" max="20">
+                    </div>
+                    <div class="field">
+                        <label for="auto-role">Quarantine role</label>
+                        <select id="auto-role"></select>
+                    </div>
+                </div>
+
+                <div class="grid-2">
+                    <div class="field">
+                        <label for="auto-immune-role-picker">Add immune role</label>
+                        <select id="auto-immune-role-picker"></select>
+                    </div>
+                    <div class="field">
+                        <label>AutoMod immunity</label>
+                        <p class="lead" style="margin:0;">Admins and selected roles are ignored by AutoMod checks.</p>
+                    </div>
+                </div>
+
+                <div class="role-picker-actions">
+                    <button class="btn" id="auto-immune-role-add" type="button">Add Immune Role</button>
+                    <button class="btn danger" id="auto-immune-role-remove" type="button">Remove Selected</button>
+                </div>
+                <div class="role-chip-list" id="auto-immune-role-list"></div>
+                <p class="lead" id="auto-immune-hint" style="margin-top:0.6rem;">AutoMod immunity list is empty. Admin and moderation permissions remain immune by default.</p>
 
                 <div style="margin-top: 0.9rem; display:flex; justify-content:flex-end;">
                     <button class="btn primary" id="save-moderation">Save Moderation</button>
