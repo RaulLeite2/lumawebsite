@@ -6,6 +6,452 @@ let selectedModmailRoles = [];
 let selectedAutoImmuneRoles = [];
 let liveActivityEventSource = null;
 let warnFlowSteps = [];
+let dashboardLang = "en";
+
+const I18N = {
+    en: {
+        nav_servers: "Servers",
+        nav_overview: "Overview",
+        nav_moderation: "Moderation",
+        nav_setup: "Bot Setup",
+        nav_cogs: "Cogs",
+        nav_audit: "Audit Center",
+        logout: "Logout",
+        signed_in_as: "Signed in as",
+        no_servers_available: "No servers available",
+        unknown: "Unknown",
+        enabled: "Enabled",
+        disabled: "Disabled",
+        owner: "Owner",
+        administrator: "Administrator",
+        member: "Member",
+        configure: "Configure",
+        no_access: "No Access",
+        no_servers_found: "No servers found",
+        refresh_permissions_hint: "Try logging out and in again to refresh Discord guild permissions.",
+        setup_unsaved_hint: "You have unsaved changes in this setup.",
+        setup_saved_hint: "Everything saved for this guild.",
+        save_bot_setup: "Save Bot Setup",
+        saved: "Saved",
+        no_staging_found: "No staging configuration found",
+        alerts_refresh_success: "Smart alerts refreshed",
+        alerts_refresh_error: "Failed to refresh alerts",
+        loading_guild_status: "Loading guild status...",
+    },
+    pt: {
+        nav_servers: "Servidores",
+        nav_overview: "Visao Geral",
+        nav_moderation: "Moderacao",
+        nav_setup: "Configuracao do Bot",
+        nav_cogs: "Cogs",
+        nav_audit: "Central de Auditoria",
+        logout: "Sair",
+        signed_in_as: "Conectado como",
+        no_servers_available: "Nenhum servidor disponivel",
+        unknown: "Desconhecido",
+        enabled: "Ativado",
+        disabled: "Desativado",
+        owner: "Dono",
+        administrator: "Administrador",
+        member: "Membro",
+        configure: "Configurar",
+        no_access: "Sem Acesso",
+        no_servers_found: "Nenhum servidor encontrado",
+        refresh_permissions_hint: "Tente sair e entrar novamente para atualizar as permissoes de guild do Discord.",
+        setup_unsaved_hint: "Voce tem alteracoes nao salvas neste setup.",
+        setup_saved_hint: "Tudo salvo para esta guild.",
+        save_bot_setup: "Salvar Setup do Bot",
+        saved: "Salvo",
+        no_staging_found: "Nenhuma configuracao de staging encontrada",
+        alerts_refresh_success: "Alertas inteligentes atualizados",
+        alerts_refresh_error: "Falha ao atualizar alertas",
+        loading_guild_status: "Carregando status da guild...",
+    },
+    es: {
+        nav_servers: "Servidores",
+        nav_overview: "Resumen",
+        nav_moderation: "Moderacion",
+        nav_setup: "Configuracion del Bot",
+        nav_cogs: "Cogs",
+        nav_audit: "Centro de Auditoria",
+        logout: "Salir",
+        signed_in_as: "Conectado como",
+        no_servers_available: "No hay servidores disponibles",
+        unknown: "Desconocido",
+        enabled: "Activado",
+        disabled: "Desactivado",
+        owner: "Propietario",
+        administrator: "Administrador",
+        member: "Miembro",
+        configure: "Configurar",
+        no_access: "Sin Acceso",
+        no_servers_found: "No se encontraron servidores",
+        refresh_permissions_hint: "Intenta cerrar sesion y entrar de nuevo para actualizar los permisos del servidor en Discord.",
+        setup_unsaved_hint: "Tienes cambios sin guardar en esta configuracion.",
+        setup_saved_hint: "Todo guardado para este servidor.",
+        save_bot_setup: "Guardar Configuracion del Bot",
+        saved: "Guardado",
+        no_staging_found: "No se encontro configuracion de staging",
+        alerts_refresh_success: "Alertas inteligentes actualizadas",
+        alerts_refresh_error: "Error al actualizar alertas",
+        loading_guild_status: "Cargando estado del servidor...",
+    },
+};
+
+const STATIC_TRANSLATIONS = {
+    "Choose a Server": { pt: "Escolha um Servidor", en: "Choose a Server", es: "Elige un Servidor" },
+    "Your Servers": { pt: "Seus Servidores", en: "Your Servers", es: "Tus Servidores" },
+    "Guild Home": { pt: "Painel da Guild", en: "Guild Home", es: "Inicio del Servidor" },
+    "Focus Mode": { pt: "Modo Foco", en: "Focus Mode", es: "Modo Enfoque" },
+    "Server Health": { pt: "Saude do Servidor", en: "Server Health", es: "Salud del Servidor" },
+    "Live Activity Feed": { pt: "Feed de Atividade ao Vivo", en: "Live Activity Feed", es: "Feed de Actividad en Vivo" },
+    "Risk Heatmap": { pt: "Mapa de Calor de Risco", en: "Risk Heatmap", es: "Mapa de Calor de Riesgo" },
+    "Refresh Heatmap": { pt: "Atualizar Mapa", en: "Refresh Heatmap", es: "Actualizar Mapa" },
+    "Smart Alerts": { pt: "Alertas Inteligentes", en: "Smart Alerts", es: "Alertas Inteligentes" },
+    "Refresh Alerts": { pt: "Atualizar Alertas", en: "Refresh Alerts", es: "Actualizar Alertas" },
+    "Moderation Configuration": { pt: "Configuracao de Moderacao", en: "Moderation Configuration", es: "Configuracion de Moderacion" },
+    "Save Moderation": { pt: "Salvar Moderacao", en: "Save Moderation", es: "Guardar Moderacion" },
+    "AutoMod Simulator": { pt: "Simulador de AutoMod", en: "AutoMod Simulator", es: "Simulador de AutoMod" },
+    "Run Simulation": { pt: "Executar Simulacao", en: "Run Simulation", es: "Ejecutar Simulacion" },
+    "Cog Manager": { pt: "Gerenciador de Cogs", en: "Cog Manager", es: "Gestor de Cogs" },
+    "Save Cogs": { pt: "Salvar Cogs", en: "Save Cogs", es: "Guardar Cogs" },
+    "Audit Center": { pt: "Central de Auditoria", en: "Audit Center", es: "Centro de Auditoria" },
+    "Mark As Read": { pt: "Marcar como Lido", en: "Mark As Read", es: "Marcar como Leido" },
+    "Apply Filters": { pt: "Aplicar Filtros", en: "Apply Filters", es: "Aplicar Filtros" },
+    "Export CSV": { pt: "Exportar CSV", en: "Export CSV", es: "Exportar CSV" },
+    "Export JSON": { pt: "Exportar JSON", en: "Export JSON", es: "Exportar JSON" },
+    "Save Role": { pt: "Salvar Perfil", en: "Save Role", es: "Guardar Rol" },
+    "Refresh": { pt: "Atualizar", en: "Refresh", es: "Actualizar" },
+    "Logout": { pt: "Sair", en: "Logout", es: "Salir" },
+    "Last 24h": { pt: "Ultimas 24h", en: "Last 24h", es: "Ultimas 24h" },
+    "Last 7d": { pt: "Ultimos 7d", en: "Last 7d", es: "Ultimos 7d" },
+    "Last 30d": { pt: "Ultimos 30d", en: "Last 30d", es: "Ultimos 30d" },
+};
+
+function translateStaticText(text) {
+    if (!text) return text;
+    const value = STATIC_TRANSLATIONS[text.trim()];
+    return value?.[dashboardLang] || text;
+}
+
+const FLASH_TRANSLATION_KEYS = {
+    "Guild switched": "guild_switched",
+    "Failed to switch guild": "guild_switch_error",
+    "Failed to select guild": "guild_select_error",
+    "Moderation updated": "moderation_updated",
+    "Failed to update moderation": "moderation_update_error",
+    "Write a message to simulate": "simulator_missing_message",
+    "Failed to run AutoMod simulation": "simulator_error",
+    "Health metrics refreshed": "health_refresh_success",
+    "Failed to refresh health metrics": "health_refresh_error",
+    "Risk heatmap refreshed": "heatmap_refresh_success",
+    "Failed to refresh risk heatmap": "heatmap_refresh_error",
+    "Audit filters applied": "audit_filter_success",
+    "Failed to load audit logs": "audit_filter_error",
+    "Guild settings updated": "guild_settings_updated",
+    "Failed to update guild settings": "guild_settings_error",
+    "Bot setup updated": "setup_updated",
+    "Failed to update bot setup": "setup_error",
+    "Saved to staging": "staging_saved",
+    "Failed to save staging config": "staging_save_error",
+    "Staging loaded into form": "staging_loaded",
+    "Failed to load staging config": "staging_load_error",
+    "Staging applied to production": "staging_applied",
+    "Failed to apply staging": "staging_apply_error",
+    "Staging discarded": "staging_discarded",
+    "Failed to discard staging": "staging_discard_error",
+    "Preset applied to staging": "preset_staging_ok",
+    "Failed to apply preset to staging": "preset_staging_error",
+    "Preset applied to production": "preset_prod_ok",
+    "Failed to apply preset to production": "preset_prod_error",
+    "Config logs marked as read": "logs_marked_read",
+    "Failed to update log notification state": "logs_marked_error",
+    "Provide a user ID": "role_missing_user",
+    "Dashboard role saved": "role_saved",
+    "Failed to save dashboard role": "role_save_error",
+    "Roles refreshed": "roles_refreshed",
+    "Failed to load roles": "roles_error",
+    "Snapshots refreshed": "snapshots_refreshed",
+    "Failed to refresh snapshots": "snapshots_refresh_error",
+    "Snapshot rollback applied": "snapshot_rollback_ok",
+    "Failed to rollback snapshot": "snapshot_rollback_error",
+    "Cogs updated": "cogs_updated",
+    "Failed to update cogs": "cogs_update_error",
+    "Guild dashboard reset": "dashboard_reset_ok",
+    "Failed to reset guild dashboard": "dashboard_reset_error",
+    "Focus mode enabled": "focus_on",
+    "Focus mode disabled": "focus_off",
+    "Smart alerts refreshed": "alerts_refresh_success",
+    "Failed to refresh alerts": "alerts_refresh_error",
+    "Failed to load dashboard": "dashboard_load_error",
+};
+
+const FLASH_TRANSLATIONS = {
+    en: {
+        guild_switched: "Guild switched",
+        guild_switch_error: "Failed to switch guild",
+        guild_select_error: "Failed to select guild",
+        moderation_updated: "Moderation updated",
+        moderation_update_error: "Failed to update moderation",
+        simulator_missing_message: "Write a message to simulate",
+        simulator_error: "Failed to run AutoMod simulation",
+        health_refresh_success: "Health metrics refreshed",
+        health_refresh_error: "Failed to refresh health metrics",
+        heatmap_refresh_success: "Risk heatmap refreshed",
+        heatmap_refresh_error: "Failed to refresh risk heatmap",
+        audit_filter_success: "Audit filters applied",
+        audit_filter_error: "Failed to load audit logs",
+        guild_settings_updated: "Guild settings updated",
+        guild_settings_error: "Failed to update guild settings",
+        setup_updated: "Bot setup updated",
+        setup_error: "Failed to update bot setup",
+        staging_saved: "Saved to staging",
+        staging_save_error: "Failed to save staging config",
+        staging_loaded: "Staging loaded into form",
+        staging_load_error: "Failed to load staging config",
+        staging_applied: "Staging applied to production",
+        staging_apply_error: "Failed to apply staging",
+        staging_discarded: "Staging discarded",
+        staging_discard_error: "Failed to discard staging",
+        preset_staging_ok: "Preset applied to staging",
+        preset_staging_error: "Failed to apply preset to staging",
+        preset_prod_ok: "Preset applied to production",
+        preset_prod_error: "Failed to apply preset to production",
+        logs_marked_read: "Config logs marked as read",
+        logs_marked_error: "Failed to update log notification state",
+        role_missing_user: "Provide a user ID",
+        role_saved: "Dashboard role saved",
+        role_save_error: "Failed to save dashboard role",
+        roles_refreshed: "Roles refreshed",
+        roles_error: "Failed to load roles",
+        snapshots_refreshed: "Snapshots refreshed",
+        snapshots_refresh_error: "Failed to refresh snapshots",
+        snapshot_rollback_ok: "Snapshot rollback applied",
+        snapshot_rollback_error: "Failed to rollback snapshot",
+        cogs_updated: "Cogs updated",
+        cogs_update_error: "Failed to update cogs",
+        dashboard_reset_ok: "Guild dashboard reset",
+        dashboard_reset_error: "Failed to reset guild dashboard",
+        focus_on: "Focus mode enabled",
+        focus_off: "Focus mode disabled",
+        alerts_refresh_success: "Smart alerts refreshed",
+        alerts_refresh_error: "Failed to refresh alerts",
+        dashboard_load_error: "Failed to load dashboard",
+    },
+    pt: {
+        guild_switched: "Guild alterada",
+        guild_switch_error: "Falha ao trocar de guild",
+        guild_select_error: "Falha ao selecionar a guild",
+        moderation_updated: "Moderacao atualizada",
+        moderation_update_error: "Falha ao atualizar moderacao",
+        simulator_missing_message: "Escreva uma mensagem para simular",
+        simulator_error: "Falha ao executar simulacao do AutoMod",
+        health_refresh_success: "Saude do servidor atualizada",
+        health_refresh_error: "Falha ao atualizar saude do servidor",
+        heatmap_refresh_success: "Mapa de risco atualizado",
+        heatmap_refresh_error: "Falha ao atualizar mapa de risco",
+        audit_filter_success: "Filtros de auditoria aplicados",
+        audit_filter_error: "Falha ao carregar logs de auditoria",
+        guild_settings_updated: "Configuracoes da guild atualizadas",
+        guild_settings_error: "Falha ao atualizar configuracoes da guild",
+        setup_updated: "Setup do bot atualizado",
+        setup_error: "Falha ao atualizar setup do bot",
+        staging_saved: "Salvo no staging",
+        staging_save_error: "Falha ao salvar configuracao no staging",
+        staging_loaded: "Staging carregado no formulario",
+        staging_load_error: "Falha ao carregar staging",
+        staging_applied: "Staging aplicado em producao",
+        staging_apply_error: "Falha ao aplicar staging",
+        staging_discarded: "Staging descartado",
+        staging_discard_error: "Falha ao descartar staging",
+        preset_staging_ok: "Preset aplicado no staging",
+        preset_staging_error: "Falha ao aplicar preset no staging",
+        preset_prod_ok: "Preset aplicado em producao",
+        preset_prod_error: "Falha ao aplicar preset em producao",
+        logs_marked_read: "Logs marcados como lidos",
+        logs_marked_error: "Falha ao atualizar notificacao dos logs",
+        role_missing_user: "Informe um ID de usuario",
+        role_saved: "Permissao do dashboard salva",
+        role_save_error: "Falha ao salvar permissao do dashboard",
+        roles_refreshed: "Permissoes atualizadas",
+        roles_error: "Falha ao carregar permissoes",
+        snapshots_refreshed: "Snapshots atualizados",
+        snapshots_refresh_error: "Falha ao atualizar snapshots",
+        snapshot_rollback_ok: "Rollback do snapshot aplicado",
+        snapshot_rollback_error: "Falha ao aplicar rollback do snapshot",
+        cogs_updated: "Cogs atualizados",
+        cogs_update_error: "Falha ao atualizar cogs",
+        dashboard_reset_ok: "Dashboard da guild resetado",
+        dashboard_reset_error: "Falha ao resetar dashboard da guild",
+        focus_on: "Modo foco ativado",
+        focus_off: "Modo foco desativado",
+        alerts_refresh_success: "Alertas inteligentes atualizados",
+        alerts_refresh_error: "Falha ao atualizar alertas",
+        dashboard_load_error: "Falha ao carregar dashboard",
+    },
+    es: {
+        guild_switched: "Servidor cambiado",
+        guild_switch_error: "Error al cambiar de servidor",
+        guild_select_error: "Error al seleccionar el servidor",
+        moderation_updated: "Moderacion actualizada",
+        moderation_update_error: "Error al actualizar moderacion",
+        simulator_missing_message: "Escribe un mensaje para simular",
+        simulator_error: "Error al ejecutar la simulacion de AutoMod",
+        health_refresh_success: "Salud del servidor actualizada",
+        health_refresh_error: "Error al actualizar la salud del servidor",
+        heatmap_refresh_success: "Mapa de riesgo actualizado",
+        heatmap_refresh_error: "Error al actualizar mapa de riesgo",
+        audit_filter_success: "Filtros de auditoria aplicados",
+        audit_filter_error: "Error al cargar logs de auditoria",
+        guild_settings_updated: "Configuracion del servidor actualizada",
+        guild_settings_error: "Error al actualizar configuracion del servidor",
+        setup_updated: "Configuracion del bot actualizada",
+        setup_error: "Error al actualizar configuracion del bot",
+        staging_saved: "Guardado en staging",
+        staging_save_error: "Error al guardar configuracion en staging",
+        staging_loaded: "Staging cargado en el formulario",
+        staging_load_error: "Error al cargar staging",
+        staging_applied: "Staging aplicado a produccion",
+        staging_apply_error: "Error al aplicar staging",
+        staging_discarded: "Staging descartado",
+        staging_discard_error: "Error al descartar staging",
+        preset_staging_ok: "Preset aplicado en staging",
+        preset_staging_error: "Error al aplicar preset en staging",
+        preset_prod_ok: "Preset aplicado en produccion",
+        preset_prod_error: "Error al aplicar preset en produccion",
+        logs_marked_read: "Logs marcados como leidos",
+        logs_marked_error: "Error al actualizar notificacion de logs",
+        role_missing_user: "Ingresa un ID de usuario",
+        role_saved: "Permiso del dashboard guardado",
+        role_save_error: "Error al guardar permiso del dashboard",
+        roles_refreshed: "Permisos actualizados",
+        roles_error: "Error al cargar permisos",
+        snapshots_refreshed: "Snapshots actualizados",
+        snapshots_refresh_error: "Error al actualizar snapshots",
+        snapshot_rollback_ok: "Rollback del snapshot aplicado",
+        snapshot_rollback_error: "Error al aplicar rollback del snapshot",
+        cogs_updated: "Cogs actualizados",
+        cogs_update_error: "Error al actualizar cogs",
+        dashboard_reset_ok: "Dashboard del servidor reiniciado",
+        dashboard_reset_error: "Error al reiniciar dashboard del servidor",
+        focus_on: "Modo enfoque activado",
+        focus_off: "Modo enfoque desactivado",
+        alerts_refresh_success: "Alertas inteligentes actualizadas",
+        alerts_refresh_error: "Error al actualizar alertas",
+        dashboard_load_error: "Error al cargar dashboard",
+    },
+};
+
+function t(key, fallback = "") {
+    return I18N[dashboardLang]?.[key] || I18N.en[key] || fallback || key;
+}
+
+function tf(message) {
+    const key = FLASH_TRANSLATION_KEYS[message];
+    if (!key) return message;
+    return FLASH_TRANSLATIONS[dashboardLang]?.[key] || FLASH_TRANSLATIONS.en[key] || message;
+}
+
+function setLang(nextLang) {
+    const safe = ["pt", "en", "es"].includes(nextLang) ? nextLang : "en";
+    dashboardLang = safe;
+    try {
+        localStorage.setItem("dashboardLang", safe);
+    } catch (error) {
+        // Ignore storage issues.
+    }
+    document.documentElement.lang = safe;
+}
+
+function inferLangFromState() {
+    const fromState = dashboardContext?.state?.guild?.language;
+    if (["pt", "en", "es"].includes(fromState)) return fromState;
+    try {
+        const cached = localStorage.getItem("dashboardLang");
+        if (["pt", "en", "es"].includes(cached)) return cached;
+    } catch (error) {
+        // Ignore storage issues.
+    }
+    const nav = (navigator.language || "en").toLowerCase();
+    if (nav.startsWith("pt")) return "pt";
+    if (nav.startsWith("es")) return "es";
+    return "en";
+}
+
+function ensureLanguageSelector() {
+    const actions = document.querySelector(".topbar .actions");
+    if (!actions) return;
+
+    let select = document.getElementById("ui-lang-select");
+    if (!select) {
+        select = document.createElement("select");
+        select.id = "ui-lang-select";
+        select.innerHTML = `
+            <option value="pt">PT</option>
+            <option value="en">EN</option>
+            <option value="es">ES</option>
+        `;
+        const logoutLink = actions.querySelector('a[href="/auth/logout"]');
+        if (logoutLink) actions.insertBefore(select, logoutLink);
+        else actions.appendChild(select);
+
+        select.addEventListener("change", () => {
+            setLang(select.value);
+            if (dashboardContext) {
+                renderPage(dashboardContext);
+                if (page === "config-logs") {
+                    renderDashboardRoles({
+                        current_role: dashboardContext.current_dashboard_role,
+                        entries: dashboardContext.dashboard_roles,
+                    });
+                }
+            }
+            applyStaticTranslations();
+        });
+    }
+    select.value = dashboardLang;
+}
+
+function applyStaticTranslations() {
+    const navLinks = document.querySelectorAll(".sidebar .nav a");
+    if (navLinks.length >= 6) {
+        navLinks[0].childNodes[0].nodeValue = t("nav_servers", "Servers");
+        navLinks[1].childNodes[0].nodeValue = t("nav_overview", "Overview");
+        navLinks[2].childNodes[0].nodeValue = t("nav_moderation", "Moderation");
+        navLinks[3].childNodes[0].nodeValue = t("nav_setup", "Bot Setup");
+        navLinks[4].childNodes[0].nodeValue = t("nav_cogs", "Cogs");
+        navLinks[5].childNodes[0].nodeValue = t("nav_audit", "Audit Center");
+    }
+
+    const logoutLinks = document.querySelectorAll('a[href="/auth/logout"]');
+    logoutLinks.forEach((node) => {
+        node.textContent = t("logout", "Logout");
+    });
+
+    const statusDay = document.getElementById("status-of-day");
+    if (statusDay && /Loading guild status/i.test(statusDay.textContent || "")) {
+        statusDay.textContent = t("loading_guild_status", "Loading guild status...");
+    }
+
+    const textNodes = document.querySelectorAll("h1, h2, h3, h4, p, span, button, label, small, option");
+    textNodes.forEach((node) => {
+        if (node.closest(".sidebar .nav") || node.id === "status-of-day") return;
+        const source = node.dataset.i18nSource || node.textContent.trim();
+        if (!source) return;
+        if (!node.dataset.i18nSource) node.dataset.i18nSource = source;
+        const translated = translateStaticText(source);
+        if (translated !== source) node.textContent = translated;
+    });
+
+    const placeholders = document.querySelectorAll("input[placeholder], textarea[placeholder]");
+    placeholders.forEach((node) => {
+        const source = node.dataset.i18nPlaceholder || node.getAttribute("placeholder") || "";
+        if (!source) return;
+        if (!node.dataset.i18nPlaceholder) node.dataset.i18nPlaceholder = source;
+        const translated = translateStaticText(source);
+        if (translated !== source) node.setAttribute("placeholder", translated);
+    });
+}
 
 const page = document.body.dataset.page || "overview";
 
@@ -30,7 +476,7 @@ function flash(message, type = "info") {
     el.classList.remove("success", "error");
     if (type === "success") el.classList.add("success");
     if (type === "error") el.classList.add("error");
-    el.textContent = message;
+    el.textContent = tf(message);
     el.classList.add("show");
     setTimeout(() => {
         el.classList.remove("show", "success", "error");
@@ -56,12 +502,12 @@ function updateSetupDirtyState(isDirty, message) {
     const hint = document.getElementById("setup-dirty-state");
     const saveButton = document.getElementById("save-setup");
     if (hint) {
-        hint.textContent = message || (isDirty ? "You have unsaved changes in this setup." : "Everything saved for this guild.");
+        hint.textContent = message || (isDirty ? t("setup_unsaved_hint", "You have unsaved changes in this setup.") : t("setup_saved_hint", "Everything saved for this guild."));
         hint.classList.toggle("is-dirty", isDirty);
         hint.classList.toggle("is-clean", !isDirty);
     }
     if (saveButton) {
-        saveButton.textContent = isDirty ? "Save Bot Setup" : "Saved";
+        saveButton.textContent = isDirty ? t("save_bot_setup", "Save Bot Setup") : t("saved", "Saved");
     }
 }
 
@@ -419,7 +865,7 @@ function setUser(session) {
 
     const user = session.user || {};
     const label = user.global_name || user.username || "Unknown";
-    userBox.textContent = `Signed in as ${label}`;
+    userBox.textContent = `${t("signed_in_as", "Signed in as")} ${label}`;
 }
 
 function setGuildSwitcher(guilds, activeGuildId) {
@@ -430,7 +876,7 @@ function setGuildSwitcher(guilds, activeGuildId) {
     if (!guilds.length) {
         const option = document.createElement("option");
         option.value = "";
-        option.textContent = "No servers available";
+        option.textContent = t("no_servers_available", "No servers available");
         select.appendChild(option);
         select.disabled = true;
         return;
@@ -500,8 +946,8 @@ function renderServers(context) {
             <div class="server-meta">
                 <span class="server-fallback">?</span>
                 <div class="server-text">
-                    <div class="server-name">No servers found</div>
-                    <div class="server-role">Try logging out and in again to refresh Discord guild permissions.</div>
+                    <div class="server-name">${t("no_servers_found", "No servers found")}</div>
+                    <div class="server-role">${t("refresh_permissions_hint", "Try logging out and in again to refresh Discord guild permissions.")}</div>
                 </div>
             </div>
         `;
@@ -517,9 +963,9 @@ function renderServers(context) {
             ? `<img class="server-icon" src="https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png?size=128" alt="${guild.name}">`
             : `<span class="server-fallback">${(guild.name || "?").slice(0, 1).toUpperCase()}</span>`;
 
-        const role = guild.owner ? "Owner" : guild.configurable ? "Administrator" : "Member";
+        const role = guild.owner ? t("owner", "Owner") : guild.configurable ? t("administrator", "Administrator") : t("member", "Member");
         const disabledAttr = guild.configurable ? "" : "disabled";
-        const buttonLabel = guild.configurable ? "Configure" : "No Access";
+        const buttonLabel = guild.configurable ? t("configure", "Configure") : t("no_access", "No Access");
         card.innerHTML = `
             <div class="server-meta">
                 ${iconMarkup}
@@ -1348,9 +1794,12 @@ function renderPage(context) {
 async function loadState() {
     const payload = await api("/api/dashboard/state");
     dashboardContext = payload;
+    setLang(inferLangFromState());
+    ensureLanguageSelector();
     updateConfigLogBadge(payload.config_logs_unread || 0);
     renderPage(payload);
     setGuildSwitcher(payload.guilds || [], payload.active_guild_id);
+    applyStaticTranslations();
     if (page === "overview") {
         showSkeleton("live-activity-feed", 4);
         showSkeleton("smart-alerts-feed", 3);
@@ -1610,7 +2059,7 @@ function bindPageActions() {
             try {
                 const response = await api("/api/dashboard/staging");
                 if (!response.state) {
-                    flash("No staging configuration found");
+                    flash(t("no_staging_found", "No staging configuration found"));
                     return;
                 }
                 dashboardContext.state = response.state;
@@ -1873,6 +2322,9 @@ function bindPageActions() {
 
         setUser(session);
         setGuildSwitcher(session.guilds || [], session.active_guild_id || "");
+        setLang(inferLangFromState());
+        ensureLanguageSelector();
+        applyStaticTranslations();
 
         if (page === "servers") {
             dashboardContext = session;
