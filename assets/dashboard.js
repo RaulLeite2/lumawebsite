@@ -126,6 +126,303 @@ const STATIC_TRANSLATIONS = {
     "Last 24h": { pt: "Ultimas 24h", en: "Last 24h", es: "Ultimas 24h" },
     "Last 7d": { pt: "Ultimos 7d", en: "Last 7d", es: "Ultimos 7d" },
     "Last 30d": { pt: "Ultimos 30d", en: "Last 30d", es: "Ultimos 30d" },
+    "Signed in...": { pt: "Conectando...", en: "Signed in...", es: "Conectando..." },
+    "Config Logs": { pt: "Logs de Config", en: "Config Logs", es: "Logs de Config" },
+    "Audit Feed": { pt: "Feed de Auditoria", en: "Audit Feed", es: "Feed de Auditoria" },
+    "Dashboard Roles": { pt: "Perfis do Dashboard", en: "Dashboard Roles", es: "Roles del Dashboard" },
+    "Configuration Snapshots": { pt: "Snapshots de Configuracao", en: "Configuration Snapshots", es: "Snapshots de Configuracion" },
+    "Refresh Snapshots": { pt: "Atualizar Snapshots", en: "Refresh Snapshots", es: "Actualizar Snapshots" },
+    "Filter moderation and configuration events with export support.": { pt: "Filtre eventos de moderacao e configuracao com suporte a exportacao.", en: "Filter moderation and configuration events with export support.", es: "Filtra eventos de moderacion y configuracion con soporte de exportacion." },
+    "Filters": { pt: "Filtros", en: "Filters", es: "Filtros" },
+    "Filter by period, action, moderator, target user and channel.": { pt: "Filtre por periodo, acao, moderador, usuario alvo e canal.", en: "Filter by period, action, moderator, target user and channel.", es: "Filtra por periodo, accion, moderador, usuario objetivo y canal." },
+    "Period": { pt: "Periodo", en: "Period", es: "Periodo" },
+    "Action": { pt: "Acao", en: "Action", es: "Accion" },
+    "Moderator ID": { pt: "ID do Moderador", en: "Moderator ID", es: "ID del Moderador" },
+    "User ID": { pt: "ID do Usuario", en: "User ID", es: "ID de Usuario" },
+    "Channel ID": { pt: "ID do Canal", en: "Channel ID", es: "ID del Canal" },
+    "warn, ban, config_update...": { pt: "warn, ban, config_update...", en: "warn, ban, config_update...", es: "warn, ban, config_update..." },
+    "Optional moderator ID": { pt: "ID do moderador (opcional)", en: "Optional moderator ID", es: "ID de moderador opcional" },
+    "Optional target user ID": { pt: "ID do usuario alvo (opcional)", en: "Optional target user ID", es: "ID de usuario objetivo opcional" },
+    "Optional channel ID": { pt: "ID do canal (opcional)", en: "Optional channel ID", es: "ID de canal opcional" },
+    "Live, filterable timeline of moderation and setup events.": { pt: "Linha do tempo ao vivo e filtravel de eventos de moderacao e setup.", en: "Live, filterable timeline of moderation and setup events.", es: "Linea de tiempo en vivo y filtrable de eventos de moderacion y configuracion." },
+    "Owner/admin can manage panel roles: admin, moderator and viewer.": { pt: "Owner/admin pode gerenciar perfis do painel: admin, moderator e viewer.", en: "Owner/admin can manage panel roles: admin, moderator and viewer.", es: "Owner/admin puede gestionar roles del panel: admin, moderator y viewer." },
+    "Discord user ID": { pt: "ID de usuario do Discord", en: "Discord user ID", es: "ID de usuario de Discord" },
+    "Role": { pt: "Perfil", en: "Role", es: "Rol" },
+    "Admin": { pt: "Admin", en: "Admin", es: "Admin" },
+    "Moderator": { pt: "Moderador", en: "Moderator", es: "Moderador" },
+    "Viewer": { pt: "Visualizador", en: "Viewer", es: "Visualizador" },
+    "Version history with rollback support.": { pt: "Historico de versoes com suporte a rollback.", en: "Version history with rollback support.", es: "Historial de versiones con soporte de rollback." },
+    "Servers": { pt: "Servidores", en: "Servers", es: "Servidores" },
+    "Overview": { pt: "Visao Geral", en: "Overview", es: "Resumen" },
+    "Moderation": { pt: "Moderacao", en: "Moderation", es: "Moderacion" },
+    "Bot Setup": { pt: "Configuracao do Bot", en: "Bot Setup", es: "Configuracion del Bot" },
+    "Select the server you want to configure.": { pt: "Selecione o servidor que deseja configurar.", en: "Select the server you want to configure.", es: "Selecciona el servidor que deseas configurar." },
+    "<manageable> configurable servers, <total> servers total.": { pt: "<manageable> servidores configuraveis, <total> servidores no total.", en: "<manageable> configurable servers, <total> servers total.", es: "<manageable> servidores configurables, <total> servidores en total." },
+    "Narrative overview with risk, incidents and operational status.": { pt: "Visao narrativa com risco, incidentes e status operacional.", en: "Narrative overview with risk, incidents and operational status.", es: "Resumen narrativo con riesgo, incidentes y estado operativo." },
+    "Status of the Day": { pt: "Status do Dia", en: "Status of the Day", es: "Estado del Dia" },
+    "Operational Pulse": { pt: "Pulso Operacional", en: "Operational Pulse", es: "Pulso Operativo" },
+    "Guild": { pt: "Guild", en: "Guild", es: "Servidor" },
+    "Warnings (24h)": { pt: "Advertencias (24h)", en: "Warnings (24h)", es: "Advertencias (24h)" },
+    "Open Tickets": { pt: "Tickets Abertos", en: "Open Tickets", es: "Tickets Abiertos" },
+    "Cogs Enabled": { pt: "Cogs Ativos", en: "Cogs Enabled", es: "Cogs Activos" },
+    "Moderation Rhythm": { pt: "Ritmo de Moderacao", en: "Moderation Rhythm", es: "Ritmo de Moderacion" },
+    "Smooth trend based on recent moderation volume.": { pt: "Tendencia suave baseada no volume recente de moderacao.", en: "Smooth trend based on recent moderation volume.", es: "Tendencia suave basada en el volumen reciente de moderacion." },
+    "Focus Actions": { pt: "Acoes de Foco", en: "Focus Actions", es: "Acciones de Enfoque" },
+    "Rapid actions for active incidents.": { pt: "Acoes rapidas para incidentes ativos.", en: "Rapid actions for active incidents.", es: "Acciones rapidas para incidentes activos." },
+    "Open Moderation": { pt: "Abrir Moderacao", en: "Open Moderation", es: "Abrir Moderacion" },
+    "Open Audit Center": { pt: "Abrir Central de Auditoria", en: "Open Audit Center", es: "Abrir Centro de Auditoria" },
+    "Open Bot Setup": { pt: "Abrir Configuracao do Bot", en: "Open Bot Setup", es: "Abrir Configuracion del Bot" },
+    "Metrics by selected window for moderation performance.": { pt: "Metricas por janela selecionada para performance de moderacao.", en: "Metrics by selected window for moderation performance.", es: "Metricas por ventana seleccionada para el rendimiento de moderacion." },
+    "Warns": { pt: "Advertencias", en: "Warns", es: "Advertencias" },
+    "Ban Rate": { pt: "Taxa de Ban", en: "Ban Rate", es: "Tasa de Ban" },
+    "Spam Blocks": { pt: "Bloqueios de Spam", en: "Spam Blocks", es: "Bloqueos de Spam" },
+    "Real-time stream: warns, deletes, kicks, bans, joins/leaves, tickets and config updates.": { pt: "Fluxo em tempo real: warns, deletes, kicks, bans, entradas/saidas, tickets e atualizacoes de config.", en: "Real-time stream: warns, deletes, kicks, bans, joins/leaves, tickets and config updates.", es: "Flujo en tiempo real: warns, deletes, kicks, bans, entradas/salidas, tickets y actualizaciones de config." },
+    "Color severity by channel and hour for moderation pressure.": { pt: "Severidade por cor por canal e hora para pressao de moderacao.", en: "Color severity by channel and hour for moderation pressure.", es: "Severidad por color por canal y hora para presion de moderacion." },
+    "Automated anomaly detection for raid, spam spikes and warning bursts.": { pt: "Deteccao automatizada de anomalias para raid, picos de spam e surtos de warn.", en: "Automated anomaly detection for raid, spam spikes and warning bursts.", es: "Deteccion automatizada de anomalias para raids, picos de spam y rafagas de advertencias." },
+    "Current Cogs": { pt: "Cogs Atuais", en: "Current Cogs", es: "Cogs Activos" },
+    "Live status for modules in this guild.": { pt: "Status ao vivo dos modulos nesta guild.", en: "Live status for modules in this guild.", es: "Estado en vivo de los modulos en este servidor." },
+    "Enable and disable modules per guild.": { pt: "Ative e desative modulos por guild.", en: "Enable and disable modules per guild.", es: "Activa y desactiva modulos por servidor." },
+    "Module Toggles": { pt: "Alternancia de Modulos", en: "Module Toggles", es: "Interruptores de Modulos" },
+    "Changes are applied to the currently selected guild.": { pt: "As alteracoes sao aplicadas na guild selecionada atualmente.", en: "Changes are applied to the currently selected guild.", es: "Los cambios se aplican al servidor seleccionado actualmente." },
+    "Reset Current Guild": { pt: "Resetar Guild Atual", en: "Reset Current Guild", es: "Reiniciar Servidor Actual" },
+    "Moderation Configuration": { pt: "Configuracao de Moderacao", en: "Moderation Configuration", es: "Configuracion de Moderacion" },
+    "Tune anti-abuse defaults for each guild.": { pt: "Ajuste os padroes anti-abuso para cada guild.", en: "Tune anti-abuse defaults for each guild.", es: "Ajusta los valores anti-abuso para cada servidor." },
+    "Rules": { pt: "Regras", en: "Rules", es: "Reglas" },
+    "Enable modules, tune AutoMod filters and set escalation defaults.": { pt: "Ative modulos, ajuste filtros do AutoMod e defina os padroes de escalonamento.", en: "Enable modules, tune AutoMod filters and set escalation defaults.", es: "Activa modulos, ajusta filtros de AutoMod y define valores de escalamiento." },
+    "Warning limit": { pt: "Limite de advertencias", en: "Warning limit", es: "Limite de advertencias" },
+    "Default action": { pt: "Acao padrao", en: "Default action", es: "Accion predeterminada" },
+    "Moderation Enabled": { pt: "Moderacao Ativada", en: "Moderation Enabled", es: "Moderacion Activada" },
+    "Smart Anti-flood": { pt: "Anti-flood Inteligente", en: "Smart Anti-flood", es: "Anti-flood Inteligente" },
+    "Modmail Enabled": { pt: "Modmail Ativado", en: "Modmail Enabled", es: "Modmail Activado" },
+    "Tickets Enabled": { pt: "Tickets Ativados", en: "Tickets Enabled", es: "Tickets Activados" },
+    "AutoMod Filters": { pt: "Filtros do AutoMod", en: "AutoMod Filters", es: "Filtros de AutoMod" },
+    "Define what AutoMod blocks automatically. Immune roles bypass invite/link/caps/spam enforcement.": { pt: "Defina o que o AutoMod bloqueia automaticamente. Cargos imunes ignoram regras de convite/link/caps/spam.", en: "Define what AutoMod blocks automatically. Immune roles bypass invite/link/caps/spam enforcement.", es: "Define lo que AutoMod bloquea automaticamente. Los roles inmunes omiten reglas de invitacion/link/caps/spam." },
+    "Block invite links": { pt: "Bloquear links de convite", en: "Block invite links", es: "Bloquear enlaces de invitacion" },
+    "Block external links": { pt: "Bloquear links externos", en: "Block external links", es: "Bloquear enlaces externos" },
+    "Detect excessive caps": { pt: "Detectar uso excessivo de caps", en: "Detect excessive caps", es: "Detectar uso excesivo de mayusculas" },
+    "Spam threshold": { pt: "Limiar de spam", en: "Spam threshold", es: "Umbral de spam" },
+    "Quarantine role": { pt: "Cargo de quarentena", en: "Quarantine role", es: "Rol de cuarentena" },
+    "Add immune role": { pt: "Adicionar cargo imune", en: "Add immune role", es: "Agregar rol inmune" },
+    "AutoMod immunity": { pt: "Imunidade do AutoMod", en: "AutoMod immunity", es: "Inmunidad de AutoMod" },
+    "Admins and selected roles are ignored by AutoMod checks.": { pt: "Admins e cargos selecionados sao ignorados pelas verificacoes do AutoMod.", en: "Admins and selected roles are ignored by AutoMod checks.", es: "Admins y roles seleccionados son ignorados por las verificaciones de AutoMod." },
+    "Add Immune Role": { pt: "Adicionar Cargo Imune", en: "Add Immune Role", es: "Agregar Rol Inmune" },
+    "Remove Selected": { pt: "Remover Selecionados", en: "Remove Selected", es: "Quitar Seleccionados" },
+    "AutoMod Simulator": { pt: "Simulador de AutoMod", en: "AutoMod Simulator", es: "Simulador de AutoMod" },
+    "Paste a message to preview which rule would trigger and what action is suggested.": { pt: "Cole uma mensagem para prever qual regra acionaria e qual acao sera sugerida.", en: "Paste a message to preview which rule would trigger and what action is suggested.", es: "Pega un mensaje para ver que regla se activaria y que accion se sugiere." },
+    "Message for simulation": { pt: "Mensagem para simulacao", en: "Message for simulation", es: "Mensaje para simulacion" },
+    "Ex: entre no meu servidor discord.gg/abc123": { pt: "Ex: entre no meu servidor discord.gg/abc123", en: "Ex: join my server discord.gg/abc123", es: "Ej: entra a mi servidor discord.gg/abc123" },
+    "Run Simulation": { pt: "Executar Simulacao", en: "Run Simulation", es: "Ejecutar Simulacion" },
+    "Bot Setup": { pt: "Configuracao do Bot", en: "Bot Setup", es: "Configuracion del Bot" },
+    "Configure moderation flows, logs, modmail and the core modules for the selected guild.": { pt: "Configure fluxos de moderacao, logs, modmail e modulos centrais para a guild selecionada.", en: "Configure moderation flows, logs, modmail and the core modules for the selected guild.", es: "Configura flujos de moderacion, logs, modmail y modulos principales para el servidor seleccionado." },
+    "Luma control room": { pt: "Sala de controle da Luma", en: "Luma control room", es: "Sala de control de Luma" },
+    "Everything the staff team needs, in one screen": { pt: "Tudo que a staff precisa, em uma tela", en: "Everything the staff team needs, in one screen", es: "Todo lo que el staff necesita, en una sola pantalla" },
+    "Turn modules on and off, choose where events are logged, and define how AutoMod and warns should react before the first incident happens. For settings backed by the bot database, use a Discord mention or numeric ID.": { pt: "Ative e desative modulos, escolha onde eventos sao registrados e defina como AutoMod e warns devem reagir antes do primeiro incidente. Para ajustes salvos no banco do bot, use mencao do Discord ou ID numerico.", en: "Turn modules on and off, choose where events are logged, and define how AutoMod and warns should react before the first incident happens. For settings backed by the bot database, use a Discord mention or numeric ID.", es: "Activa y desactiva modulos, elige donde se registran eventos y define como deben reaccionar AutoMod y warns antes del primer incidente. Para ajustes guardados en la base del bot, usa mencion de Discord o ID numerico." },
+    "Protections": { pt: "Protecoes", en: "Protections", es: "Protecciones" },
+    "Active filters": { pt: "Filtros ativos", en: "Active filters", es: "Filtros activos" },
+    "Logs": { pt: "Logs", en: "Logs", es: "Logs" },
+    "Streams enabled": { pt: "Fluxos ativos", en: "Streams enabled", es: "Flujos activos" },
+    "Warn action": { pt: "Acao de warn", en: "Warn action", es: "Accion de warn" },
+    "Escalation default": { pt: "Padrao de escalonamento", en: "Escalation default", es: "Predeterminado de escalamiento" },
+    "Foundation": { pt: "Fundacao", en: "Foundation", es: "Fundacion" },
+    "Safety": { pt: "Seguranca", en: "Safety", es: "Seguridad" },
+    "Communications": { pt: "Comunicacoes", en: "Communications", es: "Comunicaciones" },
+    "Modules": { pt: "Modulos", en: "Modules", es: "Modulos" },
+    "Configuration updated": { pt: "Configuracao atualizada", en: "Configuration updated", es: "Configuracion actualizada" },
+    "Your guild setup is in sync with the bot.": { pt: "Seu setup da guild esta em sincronia com o bot.", en: "Your guild setup is in sync with the bot.", es: "La configuracion del servidor esta sincronizada con el bot." },
+    "Waiting for the next update.": { pt: "Aguardando a proxima atualizacao.", en: "Waiting for the next update.", es: "Esperando la proxima actualizacion." },
+    "Guild defaults and routing": { pt: "Padroes e roteamento da guild", en: "Guild defaults and routing", es: "Valores y enrutamiento del servidor" },
+    "Set the identity, language and primary audit destination before the staff-specific flows.": { pt: "Defina identidade, idioma e destino principal de auditoria antes dos fluxos da staff.", en: "Set the identity, language and primary audit destination before the staff-specific flows.", es: "Define identidad, idioma y destino principal de auditoria antes de los flujos del staff." },
+    "Guild Identity": { pt: "Identidade da Guild", en: "Guild Identity", es: "Identidad del Servidor" },
+    "Base labels and default routing for the panel.": { pt: "Rotulos base e roteamento padrao para o painel.", en: "Base labels and default routing for the panel.", es: "Etiquetas base y enrutamiento predeterminado para el panel." },
+    "Core": { pt: "Nucleo", en: "Core", es: "Nucleo" },
+    "Guild name": { pt: "Nome da guild", en: "Guild name", es: "Nombre del servidor" },
+    "Language": { pt: "Idioma", en: "Language", es: "Idioma" },
+    "Portuguese": { pt: "Portugues", en: "Portuguese", es: "Portugues" },
+    "English": { pt: "Ingles", en: "English", es: "Ingles" },
+    "Spanish": { pt: "Espanhol", en: "Spanish", es: "Espanol" },
+    "Default log channel": { pt: "Canal de log padrao", en: "Default log channel", es: "Canal de log predeterminado" },
+    "Community Presets": { pt: "Presets da Comunidade", en: "Community Presets", es: "Presets de la Comunidad" },
+    "Preset template": { pt: "Template de preset", en: "Preset template", es: "Plantilla de preset" },
+    "Gamer": { pt: "Gamer", en: "Gamer", es: "Gamer" },
+    "Study": { pt: "Estudo", en: "Study", es: "Estudio" },
+    "Creator": { pt: "Criador", en: "Creator", es: "Creador" },
+    "Support": { pt: "Suporte", en: "Support", es: "Soporte" },
+    "Large Community": { pt: "Comunidade Grande", en: "Large Community", es: "Comunidad Grande" },
+    "Apply target": { pt: "Destino da aplicacao", en: "Apply target", es: "Destino de aplicacion" },
+    "Apply to Staging": { pt: "Aplicar em Staging", en: "Apply to Staging", es: "Aplicar a Staging" },
+    "Apply to Production": { pt: "Aplicar em Producao", en: "Apply to Production", es: "Aplicar a Produccion" },
+    "Staging Environment": { pt: "Ambiente de Staging", en: "Staging Environment", es: "Entorno de Staging" },
+    "No staging config loaded.": { pt: "Nenhuma configuracao de staging carregada.", en: "No staging config loaded.", es: "No hay configuracion de staging cargada." },
+    "Save Current Form to Staging": { pt: "Salvar Formulario Atual em Staging", en: "Save Current Form to Staging", es: "Guardar Formulario Actual en Staging" },
+    "Load Staging Into Form": { pt: "Carregar Staging no Formulario", en: "Load Staging Into Form", es: "Cargar Staging en el Formulario" },
+    "Apply Staging to Production": { pt: "Aplicar Staging em Producao", en: "Apply Staging to Production", es: "Aplicar Staging a Produccion" },
+    "Discard Staging": { pt: "Descartar Staging", en: "Discard Staging", es: "Descartar Staging" },
+    "Automated protection and escalation": { pt: "Protecao automatizada e escalonamento", en: "Automated protection and escalation", es: "Proteccion automatizada y escalamiento" },
+    "Configure the filters and the warning ladder that should react before moderators need to step in.": { pt: "Configure os filtros e a escada de advertencias que devem reagir antes da intervencao humana.", en: "Configure the filters and the warning ladder that should react before moderators need to step in.", es: "Configura filtros y escalera de advertencias que deben reaccionar antes de que el staff intervenga." },
+    "AutoMod": { pt: "AutoMod", en: "AutoMod", es: "AutoMod" },
+    "Protect the server against spam, invite drops and noisy raids.": { pt: "Proteja o servidor contra spam, convites em massa e raids barulhentas.", en: "Protect the server against spam, invite drops and noisy raids.", es: "Protege el servidor contra spam, invitaciones masivas y raids ruidosas." },
+    "Auto": { pt: "Auto", en: "Auto", es: "Auto" },
+    "Enable warn automation": { pt: "Ativar automacao de warns", en: "Enable warn automation", es: "Activar automatizacion de warns" },
+    "Enable anti-flood engine": { pt: "Ativar motor anti-flood", en: "Enable anti-flood engine", es: "Activar motor anti-flood" },
+    "Users with admin powers are always immune.": { pt: "Usuarios com poder de admin sao sempre imunes.", en: "Users with admin powers are always immune.", es: "Usuarios con poderes de admin siempre son inmunes." },
+    "Warn System": { pt: "Sistema de Warn", en: "Warn System", es: "Sistema de Warn" },
+    "Define how warnings escalate before they turn into bans or timeouts.": { pt: "Defina como advertencias escalam antes de virar ban ou timeout.", en: "Define how warnings escalate before they turn into bans or timeouts.", es: "Define como escalan las advertencias antes de convertirse en ban o timeout." },
+    "Warns": { pt: "Warns", en: "Warns", es: "Warns" },
+    "Enable warns (core module)": { pt: "Ativar warns (modulo core)", en: "Enable warns (core module)", es: "Activar warns (modulo core)" },
+    "Prompt staff for a public reason": { pt: "Solicitar motivo publico para a staff", en: "Prompt staff for a public reason", es: "Solicitar motivo publico al staff" },
+    "Send DM to warned user": { pt: "Enviar DM ao usuario advertido", en: "Send DM to warned user", es: "Enviar DM al usuario advertido" },
+    "Warn escalation ladder": { pt: "Escada de escalonamento de warns", en: "Warn escalation ladder", es: "Escalera de escalamiento de warns" },
+    "Configure multiple actions based on warning count.": { pt: "Configure varias acoes com base na quantidade de warns.", en: "Configure multiple actions based on warning count.", es: "Configura multiples acciones segun el conteo de advertencias." },
+    "Add Step": { pt: "Adicionar Etapa", en: "Add Step", es: "Agregar Paso" },
+    "Drag cards to reorder the ladder. Top item is the first escalation.": { pt: "Arraste os cards para reordenar a escada. O item do topo e o primeiro escalonamento.", en: "Drag cards to reorder the ladder. Top item is the first escalation.", es: "Arrastra las tarjetas para reordenar la escalera. El item superior es el primer escalamiento." },
+    "At": { pt: "Em", en: "At", es: "En" },
+    "warns apply": { pt: "warns aplicam", en: "warns apply", es: "aplican warns" },
+    "Timeout": { pt: "Timeout", en: "Timeout", es: "Timeout" },
+    "Kick": { pt: "Kick", en: "Kick", es: "Kick" },
+    "Ban": { pt: "Ban", en: "Ban", es: "Ban" },
+    "Mute": { pt: "Mute", en: "Mute", es: "Mute" },
+    "Remove": { pt: "Remover", en: "Remove", es: "Quitar" },
+    "Audit history and staff inbox": { pt: "Historico de auditoria e inbox da staff", en: "Audit history and staff inbox", es: "Historial de auditoria e inbox del staff" },
+    "Define what the team records, how modmail behaves and which channels receive alerts.": { pt: "Defina o que a equipe registra, como o modmail se comporta e quais canais recebem alertas.", en: "Define what the team records, how modmail behaves and which channels receive alerts.", es: "Define que registra el equipo, como funciona modmail y que canales reciben alertas." },
+    "Logs & Audit": { pt: "Logs e Auditoria", en: "Logs & Audit", es: "Logs y Auditoria" },
+    "Choose which staff events are recorded and where they should go.": { pt: "Escolha quais eventos da staff sao registrados e para onde devem ir.", en: "Choose which staff events are recorded and where they should go.", es: "Elige que eventos del staff se registran y a donde deben ir." },
+    "Enable all logs": { pt: "Ativar todos os logs", en: "Enable all logs", es: "Activar todos los logs" },
+    "Moderation actions": { pt: "Acoes de moderacao", en: "Moderation actions", es: "Acciones de moderacion" },
+    "Ban and unban logs": { pt: "Logs de ban e unban", en: "Ban and unban logs", es: "Logs de ban y unban" },
+    "Join and leave events": { pt: "Eventos de entrada e saida", en: "Join and leave events", es: "Eventos de entrada y salida" },
+    "Deleted messages": { pt: "Mensagens deletadas", en: "Deleted messages", es: "Mensajes eliminados" },
+    "Modmail transcripts": { pt: "Transcricoes de modmail", en: "Modmail transcripts", es: "Transcripciones de modmail" },
+    "Audit channel": { pt: "Canal de auditoria", en: "Audit channel", es: "Canal de auditoria" },
+    "Ban log channel": { pt: "Canal de logs de ban", en: "Ban log channel", es: "Canal de logs de ban" },
+    "Modmail": { pt: "Modmail", en: "Modmail", es: "Modmail" },
+    "Keep staff contact organized and predictable for the community.": { pt: "Mantenha o contato da staff organizado e previsivel para a comunidade.", en: "Keep staff contact organized and predictable for the community.", es: "Mantiene el contacto del staff organizado y predecible para la comunidad." },
+    "Inbox": { pt: "Inbox", en: "Inbox", es: "Inbox" },
+    "Enable modmail": { pt: "Ativar modmail", en: "Enable modmail", es: "Activar modmail" },
+    "Allow anonymous staff replies": { pt: "Permitir respostas anonimas da staff", en: "Allow anonymous staff replies", es: "Permitir respuestas anonimas del staff" },
+    "Auto-close on idle": { pt: "Auto-fechar por inatividade", en: "Auto-close on idle", es: "Auto-cerrar por inactividad" },
+    "Modmail category": { pt: "Categoria do modmail", en: "Modmail category", es: "Categoria de modmail" },
+    "Add alert role": { pt: "Adicionar cargo de alerta", en: "Add alert role", es: "Agregar rol de alerta" },
+    "Add Role": { pt: "Adicionar Cargo", en: "Add Role", es: "Agregar Rol" },
+    "Auto-close after (hours)": { pt: "Auto-fechar apos (horas)", en: "Auto-close after (hours)", es: "Auto-cerrar despues de (horas)" },
+    "Entry / Exit Embeds": { pt: "Embeds de Entrada / Saida", en: "Entry / Exit Embeds", es: "Embeds de Entrada / Salida" },
+    "Customize welcome and leave embeds and choose exactly where they are posted.": { pt: "Personalize embeds de boas-vindas e saida e escolha exatamente onde serao enviados.", en: "Customize welcome and leave embeds and choose exactly where they are posted.", es: "Personaliza embeds de bienvenida y salida y elige exactamente donde se envian." },
+    "Embeds": { pt: "Embeds", en: "Embeds", es: "Embeds" },
+    "Welcome Embed": { pt: "Embed de Boas-vindas", en: "Welcome Embed", es: "Embed de Bienvenida" },
+    "Enable welcome embed": { pt: "Ativar embed de boas-vindas", en: "Enable welcome embed", es: "Activar embed de bienvenida" },
+    "Welcome channel": { pt: "Canal de boas-vindas", en: "Welcome channel", es: "Canal de bienvenida" },
+    "Embed color (hex)": { pt: "Cor da embed (hex)", en: "Embed color (hex)", es: "Color del embed (hex)" },
+    "Title": { pt: "Titulo", en: "Title", es: "Titulo" },
+    "Description": { pt: "Descricao", en: "Description", es: "Descripcion" },
+    "Preview Welcome Embed": { pt: "Preview da Embed de Boas-vindas", en: "Preview Welcome Embed", es: "Preview de Embed de Bienvenida" },
+    "Leave Embed": { pt: "Embed de Saida", en: "Leave Embed", es: "Embed de Salida" },
+    "Enable leave embed": { pt: "Ativar embed de saida", en: "Enable leave embed", es: "Activar embed de salida" },
+    "Leave channel": { pt: "Canal de saida", en: "Leave channel", es: "Canal de salida" },
+    "Preview Leave Embed": { pt: "Preview da Embed de Saida", en: "Preview Leave Embed", es: "Preview de Embed de Salida" },
+    "Variaveis disponiveis:": { pt: "Variaveis disponiveis:", en: "Available variables:", es: "Variables disponibles:" },
+    "Available variables sentence": {
+        pt: "Variaveis disponiveis: <strong>{member}</strong> e <strong>{guild}</strong>.",
+        en: "Available variables: <strong>{member}</strong> and <strong>{guild}</strong>.",
+        es: "Variables disponibles: <strong>{member}</strong> y <strong>{guild}</strong>.",
+    },
+    "Guild modules and final actions": { pt: "Modulos da guild e acoes finais", en: "Guild modules and final actions", es: "Modulos del servidor y acciones finales" },
+    "Enable only the cogs this server should use, then save or reset the entire setup from one place.": { pt: "Ative apenas os cogs que este servidor deve usar e depois salve ou resete o setup inteiro em um lugar.", en: "Enable only the cogs this server should use, then save or reset the entire setup from one place.", es: "Activa solo los cogs que este servidor debe usar, luego guarda o reinicia toda la configuracion desde un solo lugar." },
+    "Core Modules": { pt: "Modulos Core", en: "Core Modules", es: "Modulos Core" },
+    "Turn cogs on and off for this guild before saving the setup.": { pt: "Ative ou desative cogs para esta guild antes de salvar o setup.", en: "Turn cogs on and off for this guild before saving the setup.", es: "Activa o desactiva cogs para este servidor antes de guardar la configuracion." },
+    "No pending changes.": { pt: "Sem alteracoes pendentes.", en: "No pending changes.", es: "Sin cambios pendientes." },
+    "Pending Changes Preview": { pt: "Preview de Alteracoes Pendentes", en: "Pending Changes Preview", es: "Preview de Cambios Pendientes" },
+    "Review key deltas before applying to production.": { pt: "Revise diferencas principais antes de aplicar em producao.", en: "Review key deltas before applying to production.", es: "Revisa diferencias clave antes de aplicar a produccion." },
+    "Staging config available for this guild.": { pt: "Configuracao de staging disponivel para esta guild.", en: "Staging config available for this guild.", es: "Configuracion de staging disponible para este servidor." },
+    "Staging config saved from current form.": { pt: "Configuracao de staging salva a partir do formulario atual.", en: "Staging config saved from current form.", es: "Configuracion de staging guardada desde el formulario actual." },
+    "Preset '{preset}' applied to staging.": { pt: "Preset '{preset}' aplicado ao staging.", en: "Preset '{preset}' applied to staging.", es: "Preset '{preset}' aplicado a staging." },
+    "No config changes yet": { pt: "Ainda nao ha mudancas de configuracao", en: "No config changes yet", es: "Todavia no hay cambios de configuracion" },
+    "When setup changes are applied, they will appear here.": { pt: "Quando mudancas de setup forem aplicadas, elas aparecerao aqui.", en: "When setup changes are applied, they will appear here.", es: "Cuando se apliquen cambios de configuracion, apareceran aqui." },
+    "Unknown time": { pt: "Horario desconhecido", en: "Unknown time", es: "Hora desconocida" },
+    "Configuration update": { pt: "Atualizacao de configuracao", en: "Configuration update", es: "Actualizacion de configuracion" },
+    "By": { pt: "Por", en: "By", es: "Por" },
+    "Target": { pt: "Alvo", en: "Target", es: "Objetivo" },
+    "Channel": { pt: "Canal", en: "Channel", es: "Canal" },
+    "unknown": { pt: "desconhecido", en: "unknown", es: "desconocido" },
+    "No recent activity": { pt: "Sem atividade recente", en: "No recent activity", es: "Sin actividad reciente" },
+    "New moderation and setup events will appear here in real time.": { pt: "Novos eventos de moderacao e setup aparecerao aqui em tempo real.", en: "New moderation and setup events will appear here in real time.", es: "Nuevos eventos de moderacion y configuracion apareceran aqui en tiempo real." },
+    "event": { pt: "evento", en: "event", es: "evento" },
+    "No details": { pt: "Sem detalhes", en: "No details", es: "Sin detalles" },
+    "Stable": { pt: "Estavel", en: "Stable", es: "Estable" },
+    "Moderation load is calm and under control.": { pt: "A carga de moderacao esta calma e sob controle.", en: "Moderation load is calm and under control.", es: "La carga de moderacion esta tranquila y bajo control." },
+    "High Pressure": { pt: "Alta Pressao", en: "High Pressure", es: "Alta Presion" },
+    "Staff attention recommended: elevated moderation pressure detected.": { pt: "Atencao da equipe recomendada: pressao elevada de moderacao detectada.", en: "Staff attention recommended: elevated moderation pressure detected.", es: "Se recomienda atencion del staff: presion elevada de moderacion detectada." },
+    "Watch": { pt: "Atencao", en: "Watch", es: "Vigilancia" },
+    "Traffic is active with moderate moderation risk.": { pt: "O trafego esta ativo com risco moderado de moderacao.", en: "Traffic is active with moderate moderation risk.", es: "El trafico esta activo con riesgo moderado de moderacion." },
+    "No risk data": { pt: "Sem dados de risco", en: "No risk data", es: "Sin datos de riesgo" },
+    "No channel-hour risk signals in this period.": { pt: "Sem sinais de risco por canal-hora neste periodo.", en: "No channel-hour risk signals in this period.", es: "Sin senales de riesgo por canal-hora en este periodo." },
+    "Unknown channel": { pt: "Canal desconhecido", en: "Unknown channel", es: "Canal desconocido" },
+    "Hour": { pt: "Hora", en: "Hour", es: "Hora" },
+    "Score": { pt: "Pontuacao", en: "Score", es: "Puntuacion" },
+    "Current": { pt: "Atual", en: "Current", es: "Actual" },
+    "New": { pt: "Novo", en: "New", es: "Nuevo" },
+    "Alert": { pt: "Alerta", en: "Alert", es: "Alerta" },
+    "Severity": { pt: "Severidade", en: "Severity", es: "Severidad" },
+    "Your role": { pt: "Seu perfil", en: "Your role", es: "Tu rol" },
+    "Use admin/owner role to manage dashboard permissions.": { pt: "Use perfil admin/owner para gerenciar permissoes do dashboard.", en: "Use admin/owner role to manage dashboard permissions.", es: "Usa rol admin/owner para gestionar permisos del dashboard." },
+    "No custom role entries": { pt: "Nenhuma permissao personalizada", en: "No custom role entries", es: "No hay entradas de rol personalizadas" },
+    "Default Discord-derived permissions are active.": { pt: "As permissoes padrao derivadas do Discord estao ativas.", en: "Default Discord-derived permissions are active.", es: "Los permisos predeterminados derivados de Discord estan activos." },
+    "No snapshots yet": { pt: "Ainda nao ha snapshots", en: "No snapshots yet", es: "Todavia no hay snapshots" },
+    "Snapshots are created after setup updates and rollbacks.": { pt: "Snapshots sao criados apos atualizacoes de setup e rollbacks.", en: "Snapshots are created after setup updates and rollbacks.", es: "Los snapshots se crean despues de actualizaciones y rollbacks." },
+    "No diff summary": { pt: "Sem resumo de diferencas", en: "No diff summary", es: "Sin resumen de diferencias" },
+    "Rollback": { pt: "Rollback", en: "Rollback", es: "Rollback" },
+    "Rule Triggered": { pt: "Regra Acionada", en: "Rule Triggered", es: "Regla Activada" },
+    "No Rule Triggered": { pt: "Nenhuma Regra Acionada", en: "No Rule Triggered", es: "Ninguna Regla Activada" },
+    "Suggested action": { pt: "Acao sugerida", en: "Suggested action", es: "Accion sugerida" },
+    "Message length": { pt: "Tamanho da mensagem", en: "Message length", es: "Longitud del mensaje" },
+    "Your Guild": { pt: "Sua Guild", en: "Your Guild", es: "Tu Servidor" },
+    "Welcome, @ExampleMember!": { pt: "Bem-vindo(a), @ExampleMember!", en: "Welcome, @ExampleMember!", es: "Bienvenido(a), @ExampleMember!" },
+    "See you, @ExampleMember.": { pt: "Ate logo, @ExampleMember.", en: "See you, @ExampleMember.", es: "Hasta luego, @ExampleMember." },
+    "Enjoy your stay in **Your Guild**.": { pt: "Aproveite sua estadia em **Sua Guild**.", en: "Enjoy your stay in **Your Guild**.", es: "Disfruta tu estancia en **Tu Servidor**." },
+    "@ExampleMember left **Your Guild**.": { pt: "@ExampleMember saiu de **Sua Guild**.", en: "@ExampleMember left **Your Guild**.", es: "@ExampleMember salio de **Tu Servidor**." },
+    "Welcome, {member}!": { pt: "Bem-vindo(a), {member}!", en: "Welcome, {member}!", es: "Bienvenido(a), {member}!" },
+    "See you, {member}.": { pt: "Ate logo, {member}.", en: "See you, {member}.", es: "Hasta luego, {member}." },
+    "Enjoy your stay in **{guild}**.": { pt: "Aproveite sua estadia em **{guild}**.", en: "Enjoy your stay in **{guild}**.", es: "Disfruta tu estancia en **{guild}**." },
+    "{member} left **{guild}**.": { pt: "{member} saiu de **{guild}**.", en: "{member} left **{guild}**.", es: "{member} salio de **{guild}**." },
+    "this guild": { pt: "esta guild", en: "this guild", es: "este servidor" },
+    "Saved": { pt: "Salvo", en: "Saved", es: "Guardado" },
+    "Configuration updated successfully": { pt: "Configuracao atualizada com sucesso", en: "Configuration updated successfully", es: "Configuracion actualizada correctamente" },
+    "{guild} now has {modules} enabled modules and {logs} active log streams.": { pt: "{guild} agora possui {modules} modulos ativos e {logs} fluxos de logs ativos.", en: "{guild} now has {modules} enabled modules and {logs} active log streams.", es: "{guild} ahora tiene {modules} modulos habilitados y {logs} flujos de logs activos." },
+    "Last sync at {time}.": { pt: "Ultima sincronizacao as {time}.", en: "Last sync at {time}.", es: "Ultima sincronizacion a las {time}." },
+    "No setting changed (values already matched).": { pt: "Nenhuma configuracao alterada (valores ja coincidiam).", en: "No setting changed (values already matched).", es: "Ninguna configuracion cambio (los valores ya coincidian)." },
+    "Select a role": { pt: "Selecione um cargo", en: "Select a role", es: "Selecciona un rol" },
+    "No alert roles selected.": { pt: "Nenhum cargo de alerta selecionado.", en: "No alert roles selected.", es: "No hay roles de alerta seleccionados." },
+    "No custom immune roles selected.": { pt: "Nenhum cargo imune personalizado selecionado.", en: "No custom immune roles selected.", es: "No hay roles inmunes personalizados seleccionados." },
+    "AutoMod immunity list is empty. Admin and moderation permissions remain immune by default.": { pt: "A lista de imunidade do AutoMod esta vazia. Administradores e permissoes de moderacao permanecem imunes por padrao.", en: "AutoMod immunity list is empty. Admin and moderation permissions remain immune by default.", es: "La lista de inmunidad de AutoMod esta vacia. Administradores y permisos de moderacion siguen inmunes por defecto." },
+    "{count} immune role(s): {roles}": { pt: "{count} cargo(s) imune(s): {roles}", en: "{count} immune role(s): {roles}", es: "{count} rol(es) inmune(s): {roles}" },
+    "Choose a default log channel": { pt: "Escolha um canal de log padrao", en: "Choose a default log channel", es: "Elige un canal de log predeterminado" },
+    "Choose an audit channel": { pt: "Escolha um canal de auditoria", en: "Choose an audit channel", es: "Elige un canal de auditoria" },
+    "Choose a ban log channel": { pt: "Escolha um canal de logs de ban", en: "Choose a ban log channel", es: "Elige un canal de logs de ban" },
+    "Choose a modmail category": { pt: "Escolha uma categoria de modmail", en: "Choose a modmail category", es: "Elige una categoria de modmail" },
+    "Choose welcome channel": { pt: "Escolha um canal de boas-vindas", en: "Choose welcome channel", es: "Elige un canal de bienvenida" },
+    "Choose leave channel": { pt: "Escolha um canal de saida", en: "Choose leave channel", es: "Elige un canal de salida" },
+    "Module controls for this guild.": { pt: "Controles do modulo para esta guild.", en: "Module controls for this guild.", es: "Controles del modulo para este servidor." },
+    "Language": { pt: "Idioma", en: "Language", es: "Idioma" },
+    "AutoMod invite filter": { pt: "Filtro de convite do AutoMod", en: "AutoMod invite filter", es: "Filtro de invitacion de AutoMod" },
+    "AutoMod link filter": { pt: "Filtro de link do AutoMod", en: "AutoMod link filter", es: "Filtro de enlaces de AutoMod" },
+    "AutoMod caps filter": { pt: "Filtro de caps do AutoMod", en: "AutoMod caps filter", es: "Filtro de mayusculas de AutoMod" },
+    "Warn ladder": { pt: "Escada de warns", en: "Warn ladder", es: "Escalera de warns" },
+    "Modmail enabled": { pt: "Modmail ativado", en: "Modmail enabled", es: "Modmail activado" },
+    "Welcome embed enabled": { pt: "Embed de boas-vindas ativada", en: "Welcome embed enabled", es: "Embed de bienvenida activada" },
+    "Leave embed enabled": { pt: "Embed de saida ativada", en: "Leave embed enabled", es: "Embed de salida activada" },
+    "Snapshot": { pt: "Snapshot", en: "Snapshot", es: "Snapshot" },
+    "User": { pt: "Usuario", en: "User", es: "Usuario" },
+    "Locked module: only bot developer can disable this cog.": { pt: "Modulo bloqueado: apenas o desenvolvedor do bot pode desativar este cog.", en: "Locked module: only bot developer can disable this cog.", es: "Modulo bloqueado: solo el desarrollador del bot puede desactivar este cog." },
+    "Administrative commands and permission-gated controls.": { pt: "Comandos administrativos e controles com permissao.", en: "Administrative commands and permission-gated controls.", es: "Comandos administrativos y controles con permisos." },
+    "Assistant commands and AI-powered responses.": { pt: "Comandos de assistente e respostas com IA.", en: "Assistant commands and AI-powered responses.", es: "Comandos de asistente y respuestas con IA." },
+    "Server event listeners and automated reactions.": { pt: "Listeners de eventos do servidor e reacoes automaticas.", en: "Server event listeners and automated reactions.", es: "Listeners de eventos del servidor y reacciones automaticas." },
+    "Help menus and usage guidance for members.": { pt: "Menus de ajuda e orientacao de uso para membros.", en: "Help menus and usage guidance for members.", es: "Menus de ayuda y guias de uso para miembros." },
+    "XP, rank progression and engagement rewards.": { pt: "XP, progressao de rank e recompensas de engajamento.", en: "XP, rank progression and engagement rewards.", es: "XP, progresion de rango y recompensas de participacion." },
+    "Modmail conversations and staff inbox workflows.": { pt: "Conversas de modmail e fluxos de inbox da staff.", en: "Modmail conversations and staff inbox workflows.", es: "Conversaciones de modmail y flujos de inbox del staff." },
+    "Fun content commands and entertainment features.": { pt: "Comandos de conteudo divertido e recursos de entretenimento.", en: "Fun content commands and entertainment features.", es: "Comandos de contenido divertido y funciones de entretenimiento." },
+    "Moderation actions, warns, bans and staff tooling.": { pt: "Acoes de moderacao, warns, bans e ferramentas da staff.", en: "Moderation actions, warns, bans and staff tooling.", es: "Acciones de moderacion, warns, bans y herramientas del staff." },
+    "Self-role and reaction-based role assignment panels.": { pt: "Paineis de auto-cargo e atribuicao por reacao.", en: "Self-role and reaction-based role assignment panels.", es: "Paneles de auto-rol y asignacion por reaccion." },
+    "Initial configuration commands and guided setup tools.": { pt: "Comandos de configuracao inicial e ferramentas guiadas de setup.", en: "Initial configuration commands and guided setup tools.", es: "Comandos de configuracion inicial y herramientas guiadas." },
+    "Guild metrics, counters and visibility widgets.": { pt: "Metricas da guild, contadores e widgets de visibilidade.", en: "Guild metrics, counters and visibility widgets.", es: "Metricas del servidor, contadores y widgets de visibilidad." },
+    "Ticket flows, support panels and close actions.": { pt: "Fluxos de ticket, paineis de suporte e acoes de fechamento.", en: "Ticket flows, support panels and close actions.", es: "Flujos de ticket, paneles de soporte y acciones de cierre." },
 };
 
 function translateStaticText(text) {
@@ -352,6 +649,10 @@ function tf(message) {
     return FLASH_TRANSLATIONS[dashboardLang]?.[key] || FLASH_TRANSLATIONS.en[key] || message;
 }
 
+function tx(template, values = {}) {
+    return Object.entries(values).reduce((output, [key, value]) => output.replaceAll(`{${key}}`, String(value)), String(template || ""));
+}
+
 function setLang(nextLang) {
     const safe = ["pt", "en", "es"].includes(nextLang) ? nextLang : "en";
     dashboardLang = safe;
@@ -451,6 +752,23 @@ function applyStaticTranslations() {
         const translated = translateStaticText(source);
         if (translated !== source) node.setAttribute("placeholder", translated);
     });
+
+    const titleByPage = {
+        servers: { pt: "Luma Dashboard - Servidores", en: "Luma Dashboard - Servers", es: "Luma Dashboard - Servidores" },
+        overview: { pt: "Luma Dashboard - Visao Geral", en: "Luma Dashboard - Overview", es: "Luma Dashboard - Resumen" },
+        moderation: { pt: "Luma Dashboard - Moderacao", en: "Luma Dashboard - Moderation", es: "Luma Dashboard - Moderacion" },
+        "guild-settings": { pt: "Luma Dashboard - Configuracao da Guild", en: "Luma Dashboard - Guild Settings", es: "Luma Dashboard - Configuracion del Servidor" },
+        cogs: { pt: "Luma Dashboard - Cogs", en: "Luma Dashboard - Cogs", es: "Luma Dashboard - Cogs" },
+        "config-logs": { pt: "Luma Dashboard - Central de Auditoria", en: "Luma Dashboard - Audit Center", es: "Luma Dashboard - Centro de Auditoria" },
+    };
+    if (titleByPage[page]) {
+        document.title = titleByPage[page][dashboardLang] || titleByPage[page].en;
+    }
+
+    const variablesHelp = Array.from(document.querySelectorAll("p.lead")).find((node) => (node.textContent || "").includes("{member}") && (node.textContent || "").includes("{guild}"));
+    if (variablesHelp) {
+        variablesHelp.innerHTML = translateStaticText("Available variables sentence");
+    }
 }
 
 const page = document.body.dataset.page || "overview";
@@ -469,6 +787,11 @@ const COG_DESCRIPTIONS = {
     stats: "Guild metrics, counters and visibility widgets.",
     ticket: "Ticket flows, support panels and close actions.",
 };
+
+function cogDescription(name) {
+    const text = COG_DESCRIPTIONS[name] || "Module controls for this guild.";
+    return translateStaticText(text);
+}
 
 function flash(message, type = "info") {
     const el = document.getElementById("flash");
@@ -546,18 +869,28 @@ function showSetupSaveBanner(state, changes = []) {
     const meta = document.getElementById("setup-save-meta");
     const status = document.getElementById("setup-save-state");
     const list = document.getElementById("setup-save-list");
-    const guildName = state.guild?.guild_name || "this guild";
+    const guildName = state.guild?.guild_name || translateStaticText("this guild");
     const enabledCogs = Object.values(state.cogs || {}).filter(Boolean).length;
     const logStreams = [state.logs?.moderation, state.logs?.ban_events, state.logs?.join_leave, state.logs?.message_delete, state.logs?.modmail_transcripts].filter(Boolean).length;
 
     banner.hidden = false;
-    if (status) status.textContent = "Saved";
-    if (title) title.textContent = "Configuration updated successfully";
-    if (detail) detail.textContent = `${guildName} now has ${enabledCogs} enabled modules and ${logStreams} active log streams.`;
-    if (meta) meta.textContent = `Last sync at ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.`;
+    if (status) status.textContent = translateStaticText("Saved");
+    if (title) title.textContent = translateStaticText("Configuration updated successfully");
+    if (detail) {
+        detail.textContent = tx(translateStaticText("{guild} now has {modules} enabled modules and {logs} active log streams."), {
+            guild: guildName,
+            modules: enabledCogs,
+            logs: logStreams,
+        });
+    }
+    if (meta) {
+        meta.textContent = tx(translateStaticText("Last sync at {time}."), {
+            time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        });
+    }
     if (list) {
         list.innerHTML = "";
-        const items = changes.length ? changes.slice(0, 8) : ["No setting changed (values already matched)."];
+        const items = changes.length ? changes.slice(0, 8) : [translateStaticText("No setting changed (values already matched).")];
         items.forEach((change) => {
             const li = document.createElement("li");
             li.textContent = change;
@@ -605,7 +938,7 @@ function populateRoleSelect(selectEl, roles) {
     selectEl.innerHTML = "";
     const empty = document.createElement("option");
     empty.value = "";
-    empty.textContent = "Select a role";
+    empty.textContent = translateStaticText("Select a role");
     selectEl.appendChild(empty);
 
     roles.forEach((item) => {
@@ -626,7 +959,7 @@ function renderModmailRoleChips() {
     if (!selectedModmailRoles.length) {
         const hint = document.createElement("span");
         hint.className = "save-hint";
-        hint.textContent = "No alert roles selected.";
+        hint.textContent = translateStaticText("No alert roles selected.");
         list.appendChild(hint);
         return;
     }
@@ -654,10 +987,10 @@ function renderAutoImmuneRoleChips() {
     if (!selectedAutoImmuneRoles.length) {
         const hint = document.createElement("span");
         hint.className = "save-hint";
-        hint.textContent = "No custom immune roles selected.";
+        hint.textContent = translateStaticText("No custom immune roles selected.");
         list.appendChild(hint);
         if (document.getElementById("auto-immune-hint")) {
-            document.getElementById("auto-immune-hint").textContent = "AutoMod immunity list is empty. Admin and moderation permissions remain immune by default.";
+            document.getElementById("auto-immune-hint").textContent = translateStaticText("AutoMod immunity list is empty. Admin and moderation permissions remain immune by default.");
         }
         return;
     }
@@ -674,18 +1007,21 @@ function renderAutoImmuneRoleChips() {
     });
 
     if (hint) {
-        hint.textContent = `${selectedAutoImmuneRoles.length} immune role(s): ${selectedAutoImmuneRoles.join(", ")}`;
+        hint.textContent = tx(translateStaticText("{count} immune role(s): {roles}"), {
+            count: selectedAutoImmuneRoles.length,
+            roles: selectedAutoImmuneRoles.join(", "),
+        });
     }
 }
 
 function applyResourceSelectors(context) {
     setupResources = context.resources || { text_channels: [], categories: [], roles: [] };
-    populateSelect(document.getElementById("guild-log"), setupResources.text_channels || [], "Choose a default log channel");
-    populateSelect(document.getElementById("log-audit-channel"), setupResources.text_channels || [], "Choose an audit channel");
-    populateSelect(document.getElementById("log-ban-channel"), setupResources.text_channels || [], "Choose a ban log channel");
-    populateSelect(document.getElementById("modmail-channel"), setupResources.categories || [], "Choose a modmail category");
-    populateSelect(document.getElementById("welcome-channel"), setupResources.text_channels || [], "Choose welcome channel");
-    populateSelect(document.getElementById("leave-channel"), setupResources.text_channels || [], "Choose leave channel");
+    populateSelect(document.getElementById("guild-log"), setupResources.text_channels || [], translateStaticText("Choose a default log channel"));
+    populateSelect(document.getElementById("log-audit-channel"), setupResources.text_channels || [], translateStaticText("Choose an audit channel"));
+    populateSelect(document.getElementById("log-ban-channel"), setupResources.text_channels || [], translateStaticText("Choose a ban log channel"));
+    populateSelect(document.getElementById("modmail-channel"), setupResources.categories || [], translateStaticText("Choose a modmail category"));
+    populateSelect(document.getElementById("welcome-channel"), setupResources.text_channels || [], translateStaticText("Choose welcome channel"));
+    populateSelect(document.getElementById("leave-channel"), setupResources.text_channels || [], translateStaticText("Choose leave channel"));
     populateRoleSelect(document.getElementById("auto-role"), setupResources.roles || []);
     populateRoleSelect(document.getElementById("auto-immune-role-picker"), setupResources.roles || []);
     populateRoleSelect(document.getElementById("modmail-role-picker"), setupResources.roles || []);
@@ -749,16 +1085,16 @@ function renderWarnFlowEditor(steps) {
         row.dataset.index = String(index);
         row.innerHTML = `
             <span class="drag-handle" title="Drag to reorder">::</span>
-            <label>At</label>
+            <label>${translateStaticText("At")}</label>
             <input type="number" min="1" max="100" value="${step.threshold}">
-            <span>warns apply</span>
+            <span>${translateStaticText("warns apply")}</span>
             <select>
-                <option value="timeout" ${step.action === "timeout" ? "selected" : ""}>Timeout</option>
-                <option value="kick" ${step.action === "kick" ? "selected" : ""}>Kick</option>
-                <option value="ban" ${step.action === "ban" ? "selected" : ""}>Ban</option>
-                <option value="mute" ${step.action === "mute" ? "selected" : ""}>Mute</option>
+                <option value="timeout" ${step.action === "timeout" ? "selected" : ""}>${translateStaticText("Timeout")}</option>
+                <option value="kick" ${step.action === "kick" ? "selected" : ""}>${translateStaticText("Kick")}</option>
+                <option value="ban" ${step.action === "ban" ? "selected" : ""}>${translateStaticText("Ban")}</option>
+                <option value="mute" ${step.action === "mute" ? "selected" : ""}>${translateStaticText("Mute")}</option>
             </select>
-            <button type="button" class="btn danger warn-flow-remove">Remove</button>
+            <button type="button" class="btn danger warn-flow-remove">${translateStaticText("Remove")}</button>
         `;
 
         const thresholdInput = row.querySelector("input");
@@ -918,7 +1254,7 @@ function renderOverview(context) {
     Object.entries(context.state.cogs).forEach(([name, enabled]) => {
         const row = document.createElement("div");
         row.className = "switch-row";
-        row.innerHTML = `<span>${name}</span><span>${enabled ? "Enabled" : "Disabled"}</span>`;
+        row.innerHTML = `<span>${name}</span><span>${enabled ? t("enabled", "Enabled") : t("disabled", "Disabled")}</span>`;
         target.appendChild(row);
     });
 }
@@ -936,6 +1272,13 @@ function renderServers(context) {
     const manageableEl = document.getElementById("servers-manageable");
     if (totalEl) totalEl.textContent = String(totalCount);
     if (manageableEl) manageableEl.textContent = String(manageableCount);
+    const summary = document.querySelector("body[data-page='servers'] .section .lead");
+    if (summary) {
+        summary.innerHTML = tx(translateStaticText("<manageable> configurable servers, <total> servers total."), {
+            manageable: `<span id=\"servers-manageable\">${manageableCount}</span>`,
+            total: `<span id=\"servers-total\">${totalCount}</span>`,
+        });
+    }
 
     grid.innerHTML = "";
 
@@ -1157,8 +1500,8 @@ function renderGuildSettings(context) {
         ensureOption(refs.welcomeChannel, entryExit.welcome_channel, entryExit.welcome_channel);
         refs.welcomeChannel.value = entryExit.welcome_channel || "";
     }
-    if (refs.welcomeTitle) refs.welcomeTitle.value = entryExit.welcome_title || "Bem-vindo(a), {member}!";
-    if (refs.welcomeDescription) refs.welcomeDescription.value = entryExit.welcome_description || "Aproveite sua estadia em **{guild}**.";
+    if (refs.welcomeTitle) refs.welcomeTitle.value = entryExit.welcome_title || translateStaticText("Welcome, {member}!");
+    if (refs.welcomeDescription) refs.welcomeDescription.value = entryExit.welcome_description || translateStaticText("Enjoy your stay in **{guild}**.");
     if (refs.welcomeColor) refs.welcomeColor.value = entryExit.welcome_color || "#57cc99";
 
     if (refs.leaveEnabled) refs.leaveEnabled.checked = Boolean(entryExit.leave_enabled);
@@ -1166,8 +1509,8 @@ function renderGuildSettings(context) {
         ensureOption(refs.leaveChannel, entryExit.leave_channel, entryExit.leave_channel);
         refs.leaveChannel.value = entryExit.leave_channel || "";
     }
-    if (refs.leaveTitle) refs.leaveTitle.value = entryExit.leave_title || "Ate logo, {member}.";
-    if (refs.leaveDescription) refs.leaveDescription.value = entryExit.leave_description || "{member} saiu de **{guild}**.";
+    if (refs.leaveTitle) refs.leaveTitle.value = entryExit.leave_title || translateStaticText("See you, {member}.");
+    if (refs.leaveDescription) refs.leaveDescription.value = entryExit.leave_description || translateStaticText("{member} left **{guild}**.");
     if (refs.leaveColor) refs.leaveColor.value = entryExit.leave_color || "#ef476f";
 
     refs.protectionCount.textContent = String(metrics.protection_layers ?? 0);
@@ -1175,8 +1518,8 @@ function renderGuildSettings(context) {
     refs.warnActionSummary.textContent = String(safe[0].action || moderation.default_action).toUpperCase();
     if (refs.stagingStatus) {
         refs.stagingStatus.textContent = context.has_staging
-            ? "Staging config available for this guild."
-            : "No staging config loaded.";
+            ? translateStaticText("Staging config available for this guild.")
+            : translateStaticText("No staging config loaded.");
     }
 
     updateSetupDirtyState(false);
@@ -1227,13 +1570,13 @@ function renderSetupCogs(context) {
                 <strong>${name}</strong>
                 <input type="checkbox" class="switch" data-setup-cog="${name}" ${enabled ? "checked" : ""}>
             </header>
-            <p>${COG_DESCRIPTIONS[name] || "Module controls for this guild."}</p>
+            <p>${cogDescription(name)}</p>
         `;
 
         const toggle = tile.querySelector("input[data-setup-cog]");
         if (toggle && locked.has(name) && !isDev) {
             toggle.disabled = true;
-            tile.querySelector("p").textContent = "Locked module: only bot developer can disable this cog.";
+            tile.querySelector("p").textContent = translateStaticText("Locked module: only bot developer can disable this cog.");
         }
 
         list.appendChild(tile);
@@ -1248,7 +1591,7 @@ function renderConfigLogs(logs) {
     if (!logs.length) {
         const empty = document.createElement("article");
         empty.className = "log-item";
-        empty.innerHTML = "<h3>No config changes yet</h3><p>When setup changes are applied, they will appear here.</p>";
+        empty.innerHTML = `<h3>${translateStaticText("No config changes yet")}</h3><p>${translateStaticText("When setup changes are applied, they will appear here.")}</p>`;
         feed.appendChild(empty);
         return;
     }
@@ -1256,13 +1599,13 @@ function renderConfigLogs(logs) {
     logs.forEach((item) => {
         const row = document.createElement("article");
         row.className = "log-item";
-        const when = item.created_at ? new Date(item.created_at).toLocaleString() : "Unknown time";
+        const when = item.created_at ? new Date(item.created_at).toLocaleString() : translateStaticText("Unknown time");
         const action = item.action || "config_update";
-        const target = item.user_id ? `Target: ${item.user_id}` : "";
-        const channel = item.channel_id ? `Channel: ${item.channel_id}` : "";
+        const target = item.user_id ? `${translateStaticText("Target")}: ${item.user_id}` : "";
+        const channel = item.channel_id ? `${translateStaticText("Channel")}: ${item.channel_id}` : "";
         row.innerHTML = `
-            <h3>[${action}] ${item.reason || "Configuration update"}</h3>
-            <p>By: ${item.moderator_id || "unknown"}</p>
+            <h3>[${action}] ${item.reason || translateStaticText("Configuration update")}</h3>
+            <p>${translateStaticText("By")}: ${item.moderator_id || translateStaticText("unknown")}</p>
             <p>${target} ${channel}</p>
             <p>${when}</p>
         `;
@@ -1279,7 +1622,7 @@ function renderLiveActivity(logs) {
     if (!items.length) {
         const empty = document.createElement("article");
         empty.className = "log-item";
-        empty.innerHTML = "<h3>No recent activity</h3><p>New moderation and setup events will appear here in real time.</p>";
+        empty.innerHTML = `<h3>${translateStaticText("No recent activity")}</h3><p>${translateStaticText("New moderation and setup events will appear here in real time.")}</p>`;
         feed.appendChild(empty);
         return;
     }
@@ -1289,8 +1632,8 @@ function renderLiveActivity(logs) {
         row.className = "log-item";
         const when = item.created_at ? new Date(item.created_at).toLocaleTimeString() : "-";
         row.innerHTML = `
-            <h3>${item.action || "event"}</h3>
-            <p>${item.reason || "No details"}</p>
+            <h3>${item.action || translateStaticText("event")}</h3>
+            <p>${item.reason || translateStaticText("No details")}</p>
             <p>${when}</p>
         `;
         feed.appendChild(row);
@@ -1318,14 +1661,14 @@ function renderStatusOfDay(health) {
     const spam = Number(health?.spam_blocks || 0);
     const banRate = Number(health?.ban_rate || 0);
 
-    let tone = "Stable";
-    let detail = "Moderation load is calm and under control.";
+    let tone = translateStaticText("Stable");
+    let detail = translateStaticText("Moderation load is calm and under control.");
     if (warns >= 10 || spam >= 12 || banRate >= 30) {
-        tone = "High Pressure";
-        detail = "Staff attention recommended: elevated moderation pressure detected.";
+        tone = translateStaticText("High Pressure");
+        detail = translateStaticText("Staff attention recommended: elevated moderation pressure detected.");
     } else if (warns >= 5 || spam >= 6 || banRate >= 15) {
-        tone = "Watch";
-        detail = "Traffic is active with moderate moderation risk.";
+        tone = translateStaticText("Watch");
+        detail = translateStaticText("Traffic is active with moderate moderation risk.");
     }
 
     target.textContent = `${tone}: ${detail}`;
@@ -1362,7 +1705,7 @@ function renderRiskHeatmap(heatmap) {
     if (!rows.length) {
         const empty = document.createElement("article");
         empty.className = "log-item";
-        empty.innerHTML = "<h3>No risk data</h3><p>No channel-hour risk signals in this period.</p>";
+        empty.innerHTML = `<h3>${translateStaticText("No risk data")}</h3><p>${translateStaticText("No channel-hour risk signals in this period.")}</p>`;
         container.appendChild(empty);
         return;
     }
@@ -1374,7 +1717,7 @@ function renderRiskHeatmap(heatmap) {
 
         const label = document.createElement("div");
         label.className = "risk-label";
-        label.textContent = row.channel_id === "unknown" ? "Unknown channel" : `#${row.channel_id}`;
+        label.textContent = row.channel_id === "unknown" ? translateStaticText("Unknown channel") : `#${row.channel_id}`;
         wrapper.appendChild(label);
 
         const scores = Array.isArray(row.scores) ? row.scores : [];
@@ -1385,7 +1728,7 @@ function renderRiskHeatmap(heatmap) {
             const pct = max > 0 ? score / max : 0;
             const level = score <= 0 ? 0 : Math.min(5, Math.max(1, Math.ceil(pct * 5)));
             if (level > 0) cell.classList.add(`level-${level}`);
-            cell.title = `Hour ${String(hour).padStart(2, "0")}:00 | Score ${score}`;
+            cell.title = `${translateStaticText("Hour")} ${String(hour).padStart(2, "0")}:00 | ${translateStaticText("Score")} ${score}`;
             wrapper.appendChild(cell);
         }
 
@@ -1443,7 +1786,7 @@ function refreshSetupChangePreview() {
     changed.slice(0, 10).forEach((item) => {
         const row = document.createElement("article");
         row.className = "log-item";
-        row.innerHTML = `<h3>${item[0]}</h3><p>Current: ${String(item[1])}</p><p>New: ${String(item[2])}</p>`;
+        row.innerHTML = `<h3>${translateStaticText(item[0])}</h3><p>${translateStaticText("Current")}: ${String(item[1])}</p><p>${translateStaticText("New")}: ${String(item[2])}</p>`;
         list.appendChild(row);
     });
 }
@@ -1458,8 +1801,8 @@ function renderSmartAlerts(alerts) {
         const row = document.createElement("article");
         row.className = "log-item";
         row.innerHTML = `
-            <h3>${item.title || "Alert"}</h3>
-            <p>Severity: ${(item.severity || "low").toUpperCase()}</p>
+            <h3>${item.title || translateStaticText("Alert")}</h3>
+            <p>${translateStaticText("Severity")}: ${(item.severity || "low").toUpperCase()}</p>
             <p>${item.detail || ""}</p>
         `;
         feed.appendChild(row);
@@ -1474,14 +1817,14 @@ function renderDashboardRoles(data) {
     const currentRole = data?.current_role || "viewer";
     const header = document.createElement("article");
     header.className = "log-item";
-    header.innerHTML = `<h3>Your role: ${currentRole}</h3><p>Use admin/owner role to manage dashboard permissions.</p>`;
+    header.innerHTML = `<h3>${translateStaticText("Your role")}: ${currentRole}</h3><p>${translateStaticText("Use admin/owner role to manage dashboard permissions.")}</p>`;
     list.appendChild(header);
 
     const entries = Array.isArray(data?.entries) ? data.entries : [];
     if (!entries.length) {
         const empty = document.createElement("article");
         empty.className = "log-item";
-        empty.innerHTML = "<h3>No custom role entries</h3><p>Default Discord-derived permissions are active.</p>";
+        empty.innerHTML = `<h3>${translateStaticText("No custom role entries")}</h3><p>${translateStaticText("Default Discord-derived permissions are active.")}</p>`;
         list.appendChild(empty);
         return;
     }
@@ -1489,7 +1832,7 @@ function renderDashboardRoles(data) {
     entries.forEach((entry) => {
         const row = document.createElement("article");
         row.className = "log-item";
-        row.innerHTML = `<h3>User ${entry.user_id}</h3><p>Role: ${String(entry.role || "viewer").toUpperCase()}</p>`;
+        row.innerHTML = `<h3>${translateStaticText("User")} ${entry.user_id}</h3><p>${translateStaticText("Role")}: ${String(entry.role || "viewer").toUpperCase()}</p>`;
         list.appendChild(row);
     });
 }
@@ -1503,7 +1846,7 @@ function renderSnapshots(items) {
     if (!snapshots.length) {
         const empty = document.createElement("article");
         empty.className = "log-item";
-        empty.innerHTML = "<h3>No snapshots yet</h3><p>Snapshots are created after setup updates and rollbacks.</p>";
+        empty.innerHTML = `<h3>${translateStaticText("No snapshots yet")}</h3><p>${translateStaticText("Snapshots are created after setup updates and rollbacks.")}</p>`;
         feed.appendChild(empty);
         return;
     }
@@ -1511,14 +1854,14 @@ function renderSnapshots(items) {
     snapshots.forEach((snapshot) => {
         const row = document.createElement("article");
         row.className = "log-item";
-        const when = snapshot.created_at ? new Date(snapshot.created_at).toLocaleString() : "Unknown time";
-        const changes = Array.isArray(snapshot.changes) ? snapshot.changes.slice(0, 4).join(" | ") : "No diff summary";
+        const when = snapshot.created_at ? new Date(snapshot.created_at).toLocaleString() : translateStaticText("Unknown time");
+        const changes = Array.isArray(snapshot.changes) ? snapshot.changes.slice(0, 4).join(" | ") : translateStaticText("No diff summary");
         row.innerHTML = `
-            <h3>Snapshot #${snapshot.id} (${snapshot.source || "setup"})</h3>
-            <p>By: ${snapshot.created_by || "unknown"}</p>
+            <h3>${translateStaticText("Snapshot")} #${snapshot.id} (${snapshot.source || "setup"})</h3>
+            <p>${translateStaticText("By")}: ${snapshot.created_by || translateStaticText("unknown")}</p>
             <p>${when}</p>
             <p>${changes}</p>
-            <div class="actions"><button class="btn danger" data-rollback-snapshot="${snapshot.id}" type="button">Rollback</button></div>
+            <div class="actions"><button class="btn danger" data-rollback-snapshot="${snapshot.id}" type="button">${translateStaticText("Rollback")}</button></div>
         `;
         feed.appendChild(row);
     });
@@ -1699,9 +2042,9 @@ async function runAutoModSimulation() {
         const item = document.createElement("article");
         item.className = "log-item";
         item.innerHTML = `
-            <h3>${simulation.triggered ? "Rule Triggered" : "No Rule Triggered"}</h3>
-            <p>Suggested action: ${simulation.suggested_action || "timeout"}</p>
-            <p>Message length: ${simulation.message_length || 0}</p>
+            <h3>${simulation.triggered ? translateStaticText("Rule Triggered") : translateStaticText("No Rule Triggered")}</h3>
+            <p>${translateStaticText("Suggested action")}: ${simulation.suggested_action || "timeout"}</p>
+            <p>${translateStaticText("Message length")}: ${simulation.message_length || 0}</p>
         `;
         result.appendChild(item);
 
@@ -1721,7 +2064,7 @@ async function runAutoModSimulation() {
 function applyPreviewTokens(template, guildName) {
     return String(template || "")
         .replace(/\{member\}/g, "@ExampleMember")
-        .replace(/\{guild\}/g, guildName || "Your Guild");
+    .replace(/\{guild\}/g, guildName || translateStaticText("Your Guild"));
 }
 
 function renderEntryExitPreview(kind) {
@@ -1735,14 +2078,14 @@ function renderEntryExitPreview(kind) {
 
     if (!titleInput || !descInput || !colorInput || !card || !titleEl || !descEl) return;
 
-    const guildName = dashboardContext?.state?.guild?.guild_name || "Your Guild";
+    const guildName = dashboardContext?.state?.guild?.guild_name || translateStaticText("Your Guild");
     const title = applyPreviewTokens(titleInput.value.trim(), guildName);
     const description = applyPreviewTokens(descInput.value.trim(), guildName);
     const rawColor = colorInput.value.trim() || (isWelcome ? "#57cc99" : "#ef476f");
     const safeColor = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(rawColor) ? rawColor : (isWelcome ? "#57cc99" : "#ef476f");
 
-    titleEl.textContent = title || (isWelcome ? "Bem-vindo(a), @ExampleMember!" : "Ate logo, @ExampleMember.");
-    descEl.textContent = description || (isWelcome ? "Aproveite sua estadia em **Your Guild**." : "@ExampleMember saiu de **Your Guild**.");
+    titleEl.textContent = title || (isWelcome ? translateStaticText("Welcome, @ExampleMember!") : translateStaticText("See you, @ExampleMember."));
+    descEl.textContent = description || (isWelcome ? translateStaticText("Enjoy your stay in **Your Guild**.") : translateStaticText("@ExampleMember left **Your Guild**."));
     card.style.borderLeft = `5px solid ${safeColor}`;
     card.hidden = false;
 }
@@ -2021,7 +2364,7 @@ function bindPageActions() {
                 renderPage(dashboardContext);
                 showSetupSaveBanner(res.state, res.applied_changes || []);
                 playApplySound();
-                updateSetupDirtyState(false, "Everything saved for this guild.");
+                updateSetupDirtyState(false, translateStaticText("Everything saved for this guild."));
                 refreshSetupChangePreview();
                 try {
                     const logSync = await api("/api/dashboard/config-logs");
@@ -2045,7 +2388,7 @@ function bindPageActions() {
                     body: JSON.stringify(buildSetupPayloadFromForm()),
                 });
                 const status = document.getElementById("staging-status");
-                if (status) status.textContent = "Staging config saved from current form.";
+                if (status) status.textContent = translateStaticText("Staging config saved from current form.");
                 flash("Saved to staging", "success");
             } catch (error) {
                 flash("Failed to save staging config", "error");
@@ -2094,7 +2437,7 @@ function bindPageActions() {
                 await api("/api/dashboard/staging", { method: "DELETE", body: "{}" });
                 dashboardContext.has_staging = false;
                 const status = document.getElementById("staging-status");
-                if (status) status.textContent = "No staging config loaded.";
+                if (status) status.textContent = translateStaticText("No staging config loaded.");
                 flash("Staging discarded", "success");
             } catch (error) {
                 flash("Failed to discard staging", "error");
@@ -2113,7 +2456,7 @@ function bindPageActions() {
                 });
                 dashboardContext.has_staging = true;
                 const status = document.getElementById("staging-status");
-                if (status) status.textContent = `Preset '${presetName}' applied to staging.`;
+                if (status) status.textContent = tx(translateStaticText("Preset '{preset}' applied to staging."), { preset: presetName });
                 flash("Preset applied to staging", "success");
             } catch (error) {
                 flash("Failed to apply preset to staging", "error");
