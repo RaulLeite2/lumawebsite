@@ -42,6 +42,7 @@ DEFAULT_COGS = [
     "mail",
     "meme",
     "mod",
+    "nongroups",
     "rolepanel",
     "setup",
     "stats",
