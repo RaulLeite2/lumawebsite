@@ -15,6 +15,7 @@ const I18N = {
         nav_moderation: "Moderation",
         nav_setup: "Bot Setup",
         nav_cogs: "Cogs",
+        nav_levels: "Levels",
         nav_audit: "Audit Center",
         logout: "Logout",
         signed_in_as: "Signed in as",
@@ -44,6 +45,7 @@ const I18N = {
         nav_moderation: "Moderacao",
         nav_setup: "Configuracao do Bot",
         nav_cogs: "Cogs",
+        nav_levels: "Levels",
         nav_audit: "Central de Auditoria",
         logout: "Sair",
         signed_in_as: "Conectado como",
@@ -73,6 +75,7 @@ const I18N = {
         nav_moderation: "Moderacion",
         nav_setup: "Configuracion del Bot",
         nav_cogs: "Cogs",
+        nav_levels: "Niveles",
         nav_audit: "Centro de Auditoria",
         logout: "Salir",
         signed_in_as: "Conectado como",
@@ -424,6 +427,17 @@ const STATIC_TRANSLATIONS = {
     "Initial configuration commands and guided setup tools.": { pt: "Comandos de configuracao inicial e ferramentas guiadas de setup.", en: "Initial configuration commands and guided setup tools.", es: "Comandos de configuracion inicial y herramientas guiadas." },
     "Guild metrics, counters and visibility widgets.": { pt: "Metricas da guild, contadores e widgets de visibilidade.", en: "Guild metrics, counters and visibility widgets.", es: "Metricas del servidor, contadores y widgets de visibilidad." },
     "Ticket flows, support panels and close actions.": { pt: "Fluxos de ticket, paineis de suporte e acoes de fechamento.", en: "Ticket flows, support panels and close actions.", es: "Flujos de ticket, paneles de soporte y acciones de cierre." },
+    "Leveling System": { pt: "Sistema de Levels", en: "Leveling System", es: "Sistema de Niveles" },
+    "Configure XP gains and view the server leaderboard.": { pt: "Configure o ganho de XP e veja o leaderboard do servidor.", en: "Configure XP gains and view the server leaderboard.", es: "Configura las ganancias de XP y ve el leaderboard del servidor." },
+    "Control leveling behaviour for this server.": { pt: "Controle o comportamento de nivelamento neste servidor.", en: "Control leveling behaviour for this server.", es: "Controla el comportamiento del sistema de niveles en este servidor." },
+    "Leveling Enabled": { pt: "Levels Ativado", en: "Leveling Enabled", es: "Nivelacion Activada" },
+    "XP Multiplier": { pt: "Multiplicador de XP", en: "XP Multiplier", es: "Multiplicador de XP" },
+    "XP Cooldown (seconds)": { pt: "Cooldown de XP (segundos)", en: "XP Cooldown (seconds)", es: "Cooldown de XP (segundos)" },
+    "Level-up message": { pt: "Mensagem de level up", en: "Level-up message", es: "Mensaje de subida de nivel" },
+    "Save Leveling": { pt: "Salvar Levels", en: "Save Leveling", es: "Guardar Nivelacion" },
+    "Leaderboard": { pt: "Leaderboard", en: "Leaderboard", es: "Clasificacion" },
+    "Top 15 members by XP in this server.": { pt: "Top 15 membros por XP neste servidor.", en: "Top 15 members by XP in this server.", es: "Top 15 miembros por XP en este servidor." },
+    "No leaderboard data yet.": { pt: "Nenhum dado no leaderboard ainda.", en: "No leaderboard data yet.", es: "Todavia no hay datos en el leaderboard." },
 };
 
 function translateStaticText(text) {
@@ -482,6 +496,10 @@ const FLASH_TRANSLATION_KEYS = {
     "Smart alerts refreshed": "alerts_refresh_success",
     "Failed to refresh alerts": "alerts_refresh_error",
     "Failed to load dashboard": "dashboard_load_error",
+    "Leveling saved": "levels_saved",
+    "Failed to save leveling": "levels_save_error",
+    "Leaderboard refreshed": "leaderboard_refreshed",
+    "Failed to refresh leaderboard": "leaderboard_refresh_error",
 };
 
 const FLASH_TRANSLATIONS = {
@@ -535,6 +553,10 @@ const FLASH_TRANSLATIONS = {
         alerts_refresh_success: "Smart alerts refreshed",
         alerts_refresh_error: "Failed to refresh alerts",
         dashboard_load_error: "Failed to load dashboard",
+        levels_saved: "Leveling saved",
+        levels_save_error: "Failed to save leveling",
+        leaderboard_refreshed: "Leaderboard refreshed",
+        leaderboard_refresh_error: "Failed to refresh leaderboard",
     },
     pt: {
         guild_switched: "Guild alterada",
@@ -586,6 +608,10 @@ const FLASH_TRANSLATIONS = {
         alerts_refresh_success: "Alertas inteligentes atualizados",
         alerts_refresh_error: "Falha ao atualizar alertas",
         dashboard_load_error: "Falha ao carregar dashboard",
+        levels_saved: "Levels salvo",
+        levels_save_error: "Falha ao salvar levels",
+        leaderboard_refreshed: "Leaderboard atualizado",
+        leaderboard_refresh_error: "Falha ao atualizar leaderboard",
     },
     es: {
         guild_switched: "Servidor cambiado",
@@ -637,6 +663,10 @@ const FLASH_TRANSLATIONS = {
         alerts_refresh_success: "Alertas inteligentes actualizadas",
         alerts_refresh_error: "Error al actualizar alertas",
         dashboard_load_error: "Error al cargar dashboard",
+        levels_saved: "Nivelacion guardada",
+        levels_save_error: "Error al guardar nivelacion",
+        leaderboard_refreshed: "Clasificacion actualizada",
+        leaderboard_refresh_error: "Error al actualizar clasificacion",
     },
 };
 
@@ -716,13 +746,14 @@ function ensureLanguageSelector() {
 
 function applyStaticTranslations() {
     const navLinks = document.querySelectorAll(".sidebar .nav a");
-    if (navLinks.length >= 6) {
+    if (navLinks.length >= 7) {
         navLinks[0].childNodes[0].nodeValue = t("nav_servers", "Servers");
         navLinks[1].childNodes[0].nodeValue = t("nav_overview", "Overview");
         navLinks[2].childNodes[0].nodeValue = t("nav_moderation", "Moderation");
         navLinks[3].childNodes[0].nodeValue = t("nav_setup", "Bot Setup");
         navLinks[4].childNodes[0].nodeValue = t("nav_cogs", "Cogs");
-        navLinks[5].childNodes[0].nodeValue = t("nav_audit", "Audit Center");
+        navLinks[5].childNodes[0].nodeValue = t("nav_levels", "Levels");
+        navLinks[6].childNodes[0].nodeValue = t("nav_audit", "Audit Center");
     }
 
     const logoutLinks = document.querySelectorAll('a[href="/auth/logout"]');
@@ -776,6 +807,7 @@ function applyStaticTranslations() {
         moderation: { pt: "Luma Dashboard - Moderacao", en: "Luma Dashboard - Moderation", es: "Luma Dashboard - Moderacion" },
         "guild-settings": { pt: "Luma Dashboard - Configuracao da Guild", en: "Luma Dashboard - Guild Settings", es: "Luma Dashboard - Configuracion del Servidor" },
         cogs: { pt: "Luma Dashboard - Cogs", en: "Luma Dashboard - Cogs", es: "Luma Dashboard - Cogs" },
+        levels: { pt: "Luma Dashboard - Levels", en: "Luma Dashboard - Levels", es: "Luma Dashboard - Niveles" },
         "config-logs": { pt: "Luma Dashboard - Central de Auditoria", en: "Luma Dashboard - Audit Center", es: "Luma Dashboard - Centro de Auditoria" },
     };
     if (titleByPage[page]) {
@@ -2142,6 +2174,59 @@ async function loadSnapshots() {
     renderSnapshots(response.snapshots || []);
 }
 
+function renderLeaderboard(rows) {
+    const tbody = document.getElementById("lb-body");
+    if (!tbody) return;
+    tbody.innerHTML = "";
+
+    const entries = Array.isArray(rows) ? rows : [];
+    if (!entries.length) {
+        const empty = document.createElement("tr");
+        empty.innerHTML = `<td class="lb-empty" colspan="5">${translateStaticText("No leaderboard data yet.")}</td>`;
+        tbody.appendChild(empty);
+        return;
+    }
+
+    entries.forEach((entry, index) => {
+        const rank = index + 1;
+        const rankClass = rank === 1 ? "gold" : rank === 2 ? "silver" : rank === 3 ? "bronze" : "";
+        const xp = Number(entry.xp || 0);
+        const level = Number(entry.level || 1);
+        const nextLevelXp = Math.pow(level, 2) * 100;
+        const prevLevelXp = Math.pow(level - 1, 2) * 100;
+        const progress = nextLevelXp > prevLevelXp ? Math.min(100, Math.round(((xp - prevLevelXp) / (nextLevelXp - prevLevelXp)) * 100)) : 0;
+
+        const row = document.createElement("tr");
+        row.innerHTML = `
+            <td class="lb-rank ${rankClass}">${rank}</td>
+            <td class="lb-user"><code>${entry.user_id || "-"}</code></td>
+            <td><span class="lb-level">${level}</span></td>
+            <td class="lb-xp">${xp.toLocaleString()} <span class="xp-bar-wrap"><span class="xp-bar" style="width:${progress}%"></span></span></td>
+            <td class="lb-msgs">${Number(entry.messages_count || 0).toLocaleString()}</td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+async function loadLevels() {
+    try {
+        const response = await api("/api/dashboard/levels");
+        const enabledEl = document.getElementById("levels-enabled");
+        const multiplierEl = document.getElementById("levels-multiplier");
+        const cooldownEl = document.getElementById("levels-cooldown");
+        const messageEl = document.getElementById("levels-message");
+
+        if (enabledEl) enabledEl.checked = Boolean(response.leveling_enabled);
+        if (multiplierEl) multiplierEl.value = String(response.xp_multiplier ?? 1.0);
+        if (cooldownEl) cooldownEl.value = String(response.cooldown_seconds ?? 45);
+        if (messageEl) messageEl.value = response.level_up_message || "";
+
+        renderLeaderboard(response.leaderboard || []);
+    } catch (error) {
+        flash("Failed to load dashboard", "error");
+    }
+}
+
 function renderPage(context) {
     renderCommon(context);
     if (page === "servers") renderServers(context);
@@ -2175,6 +2260,9 @@ async function loadState() {
         await loadConfigLogs();
         await loadDashboardRoles();
         await loadSnapshots();
+    }
+    if (page === "levels") {
+        await loadLevels();
     }
 }
 
@@ -2662,6 +2750,39 @@ function bindPageActions() {
                 flash("Guild dashboard reset", "success");
             } catch (error) {
                 flash("Failed to reset guild dashboard", "error");
+            }
+        });
+    }
+
+    const saveLevels = document.getElementById("save-levels");
+    if (saveLevels) {
+        saveLevels.addEventListener("click", async () => {
+            const payload = {
+                leveling_enabled: document.getElementById("levels-enabled")?.checked ?? false,
+                xp_multiplier: parseFloat(document.getElementById("levels-multiplier")?.value || "1.0"),
+                cooldown_seconds: parseInt(document.getElementById("levels-cooldown")?.value || "45", 10),
+                level_up_message: document.getElementById("levels-message")?.value?.trim() || "",
+            };
+            try {
+                await api("/api/dashboard/levels", {
+                    method: "PUT",
+                    body: JSON.stringify(payload),
+                });
+                flash("Leveling saved", "success");
+            } catch (error) {
+                flash("Failed to save leveling", "error");
+            }
+        });
+    }
+
+    const refreshLeaderboard = document.getElementById("refresh-leaderboard");
+    if (refreshLeaderboard) {
+        refreshLeaderboard.addEventListener("click", async () => {
+            try {
+                await loadLevels();
+                flash("Leaderboard refreshed", "success");
+            } catch (error) {
+                flash("Failed to refresh leaderboard", "error");
             }
         });
     }

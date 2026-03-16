@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luma Dashboard - Levels</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/assets/dashboard.css">
+    <style>
+        .lb-table { width: 100%; border-collapse: collapse; margin-top: 0.6rem; }
+        .lb-table th {
+            text-align: left;
+            padding: 0.5rem 0.7rem;
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: var(--soft);
+            border-bottom: 1px solid var(--border);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .lb-table td {
+            padding: 0.55rem 0.7rem;
+            font-size: 0.88rem;
+            border-bottom: 1px solid var(--line);
+            vertical-align: middle;
+        }
+        .lb-table tr:last-child td { border-bottom: none; }
+        .lb-table tr:hover td { background: rgba(42,165,255,0.04); }
+        .lb-rank { font-weight: 800; color: var(--soft); width: 2.5rem; }
+        .lb-rank.gold   { color: #f5c842; }
+        .lb-rank.silver { color: #b0bec5; }
+        .lb-rank.bronze { color: #cd7f32; }
+        .lb-user { font-weight: 600; }
+        .lb-user code { font-size: 0.75rem; color: var(--soft); font-weight: 400; margin-left: 0.4rem; }
+        .lb-xp  { color: var(--brand); font-weight: 700; }
+        .lb-level { display: inline-flex; align-items: center; justify-content: center;
+                    min-width: 2rem; height: 1.5rem; border-radius: 8px;
+                    background: rgba(42,165,255,0.15); color: var(--brand);
+                    font-size: 0.78rem; font-weight: 800; padding: 0 0.4rem; }
+        .lb-msgs { color: var(--soft); font-size: 0.82rem; }
+        .lb-empty { text-align: center; padding: 2rem; color: var(--soft); font-size: 0.9rem; }
+        .xp-bar-wrap { background: var(--panel-2); border-radius: 4px; height: 4px; width: 80px; display: inline-block; vertical-align: middle; margin-left: 0.5rem; }
+        .xp-bar { height: 4px; border-radius: 4px; background: var(--brand); }
+    </style>
+</head>
+<body data-page="levels">
+    <div class="app">
+        <aside class="sidebar">
+            <div class="logo">Luma</div>
+            <nav class="nav">
+                <a href="/dashboard/servers">Servers</a>
+                <a href="/dashboard/overview">Overview</a>
+                <a href="/dashboard/moderation">Moderation</a>
+                <a href="/dashboard/guild-settings">Bot Setup</a>
+                <a href="/dashboard/cogs">Cogs</a>
+                <a class="active" href="/dashboard/levels">Levels</a>
+                <a href="/dashboard/config-logs">Config Logs <span class="config-log-dot" id="config-log-dot" hidden>0</span></a>
+            </nav>
+            <div class="user-box" id="session-user">Signed in...</div>
+        </aside>
+
+        <main class="main">
+            <header class="topbar">
+                <div>
+                    <h1 class="title">Leveling System</h1>
+                    <p class="subtitle">Configure XP gains and view the server leaderboard.</p>
+                </div>
+                <div class="actions">
+                    <select id="guild-select"></select>
+                    <a class="btn" href="/auth/logout">Logout</a>
+                </div>
+            </header>
+
+            <!-- Settings -->
+            <section class="section">
+                <h2>Configuration</h2>
+                <p class="lead">Control leveling behaviour for this server.</p>
+
+                <div class="switch-row">
+                    <span>Leveling Enabled</span>
+                    <input id="levels-enabled" class="switch" type="checkbox">
+                </div>
+
+                <div class="grid-2" style="margin-top:1rem;">
+                    <div class="field">
+                        <label for="levels-multiplier">XP Multiplier</label>
+                        <input id="levels-multiplier" type="number" min="0.1" max="10" step="0.1" value="1.0">
+                        <p class="lead" style="margin-top:0.3rem;">
+                            Scales XP earned per message. <strong>1.0</strong> = default, <strong>2.0</strong> = double XP.
+                        </p>
+                    </div>
+                    <div class="field">
+                        <label for="levels-cooldown">XP Cooldown (seconds)</label>
+                        <input id="levels-cooldown" type="number" min="5" max="3600" step="1" value="45">
+                        <p class="lead" style="margin-top:0.3rem;">
+                            Minimum time before a user can earn XP again. Default: <strong>45s</strong>.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="field" style="margin-top:0.8rem;">
+                    <label for="levels-message">Level-up message</label>
+                    <input id="levels-message" type="text" maxlength="500"
+                        placeholder="Congratulations {user}, you have reached level {level}!">
+                    <p class="lead" style="margin-top:0.3rem;">
+                        Use <code>{user}</code> for the mention and <code>{level}</code> for the new level.
+                    </p>
+                </div>
+
+                <div style="margin-top:1.1rem; display:flex; justify-content:flex-end;">
+                    <button class="btn primary" id="save-levels">Save Leveling</button>
+                </div>
+            </section>
+
+            <!-- Leaderboard -->
+            <section class="section">
+                <h2>Leaderboard</h2>
+                <p class="lead">Top 15 members by XP in this server.</p>
+                <div style="display:flex; justify-content:flex-end; margin-bottom:0.6rem;">
+                    <button class="btn" id="refresh-leaderboard" type="button">Refresh</button>
+                </div>
+                <div id="lb-container">
+                    <table class="lb-table" id="lb-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>User ID</th>
+                                <th>Level</th>
+                                <th>XP</th>
+                                <th>Messages</th>
+                            </tr>
+                        </thead>
+                        <tbody id="lb-body">
+                            <tr><td class="lb-empty" colspan="5">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <div class="flash" id="flash"></div>
+    <script src="/assets/dashboard.js"></script>
+</body>
+</html>

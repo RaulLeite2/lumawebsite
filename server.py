@@ -257,6 +257,13 @@ class DashboardRoleUpdatePayload(BaseModel):
     role: str = Field(pattern="^(admin|moderator|viewer)$")
 
 
+class LevelingSettingsPayload(BaseModel):
+    leveling_enabled: bool
+    xp_multiplier: float = Field(default=1.0, ge=0.1, le=10.0)
+    cooldown_seconds: int = Field(default=45, ge=5, le=3600)
+    level_up_message: str = Field(default="Congratulations {user}, you have reached level {level}!", max_length=500)
+
+
 state_lock = threading.Lock()
 
 GUILD_DB_SELECT = """
@@ -2287,6 +2294,132 @@ async def dashboard_config_logs(request: Request) -> Response:
     if not _is_authenticated(request):
         return RedirectResponse(url="/auth/login?next=/dashboard/config-logs", status_code=302)
     return FileResponse(WEB_ROOT / "dashboard" / "config-logs.html")
+
+
+@app.get("/dashboard/levels")
+async def dashboard_levels(request: Request) -> Response:
+    if not _is_authenticated(request):
+        return RedirectResponse(url="/auth/login?next=/dashboard/levels", status_code=302)
+    return FileResponse(WEB_ROOT / "dashboard" / "levels.html")
+
+
+@app.get("/api/dashboard/levels")
+async def get_leveling_settings(request: Request) -> dict[str, Any]:
+    _require_auth(request)
+    active_guild = _require_active_guild(request)
+    guild_id_str = str(active_guild.get("id"))
+
+    try:
+        guild_id_int = int(guild_id_str)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Invalid guild id")
+
+    pool = _db_pool()
+    if pool is None:
+        return {"ok": True, "active_guild_id": guild_id_str, "leveling_enabled": False, "xp_multiplier": 1.0, "cooldown_seconds": 45, "level_up_message": "Congratulations {user}, you have reached level {level}!", "leaderboard": []}
+
+    try:
+        async with pool.acquire() as connection:
+            guild_row = await connection.fetchrow(
+                "SELECT leveling_enabled FROM guilds WHERE guild_id = $1",
+                guild_id_int,
+            )
+            settings_row = await connection.fetchrow(
+                "SELECT xp_multiplier, cooldown_seconds, level_up_message FROM leveling_settings WHERE guild_id = $1",
+                guild_id_int,
+            )
+            lb_rows = await connection.fetch(
+                "SELECT user_id, xp, messages_count FROM user_levels WHERE guild_id = $1 ORDER BY xp DESC LIMIT 15",
+                guild_id_int,
+            )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Database error: {exc}") from exc
+
+    leveling_enabled = bool(guild_row["leveling_enabled"]) if guild_row and guild_row["leveling_enabled"] is not None else False
+    xp_multiplier = float(settings_row["xp_multiplier"]) if settings_row and settings_row["xp_multiplier"] is not None else 1.0
+    cooldown_seconds = int(settings_row["cooldown_seconds"]) if settings_row and settings_row["cooldown_seconds"] is not None else 45
+    level_up_message = str(settings_row["level_up_message"] or "") if settings_row else "Congratulations {user}, you have reached level {level}!"
+
+    def _level_from_xp(xp: int) -> int:
+        if xp <= 0:
+            return 1
+        return int((xp / 100) ** 0.5) + 1
+
+    leaderboard = [
+        {
+            "rank": idx,
+            "user_id": str(row["user_id"]),
+            "xp": int(row["xp"]),
+            "level": _level_from_xp(int(row["xp"])),
+            "messages": int(row["messages_count"] or 0),
+        }
+        for idx, row in enumerate(lb_rows, start=1)
+    ]
+
+    return {
+        "ok": True,
+        "active_guild_id": guild_id_str,
+        "leveling_enabled": leveling_enabled,
+        "xp_multiplier": xp_multiplier,
+        "cooldown_seconds": cooldown_seconds,
+        "level_up_message": level_up_message,
+        "leaderboard": leaderboard,
+    }
+
+
+@app.put("/api/dashboard/levels")
+async def update_leveling_settings(payload: LevelingSettingsPayload, request: Request) -> dict[str, Any]:
+    _require_auth(request)
+    active_guild = await _require_dashboard_role(request, "moderator")
+    guild_id_str = str(active_guild.get("id"))
+
+    try:
+        guild_id_int = int(guild_id_str)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Invalid guild id")
+
+    pool = _db_pool()
+    if pool is None:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
+    try:
+        async with pool.acquire() as connection:
+            await connection.execute(
+                "INSERT INTO guilds (guild_id) VALUES ($1) ON CONFLICT (guild_id) DO NOTHING",
+                guild_id_int,
+            )
+            await connection.execute(
+                "UPDATE guilds SET leveling_enabled = $1 WHERE guild_id = $2",
+                payload.leveling_enabled,
+                guild_id_int,
+            )
+            await connection.execute(
+                """
+                INSERT INTO leveling_settings (guild_id, xp_multiplier, cooldown_seconds, level_up_message)
+                VALUES ($1, $2, $3, $4)
+                ON CONFLICT (guild_id)
+                DO UPDATE SET
+                    xp_multiplier = EXCLUDED.xp_multiplier,
+                    cooldown_seconds = EXCLUDED.cooldown_seconds,
+                    level_up_message = EXCLUDED.level_up_message
+                """,
+                guild_id_int,
+                round(payload.xp_multiplier, 2),
+                payload.cooldown_seconds,
+                payload.level_up_message,
+            )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to save leveling settings: {exc}") from exc
+
+    user = request.session.get("user")
+    moderator_id = _extract_discord_id(user.get("id") if isinstance(user, dict) else None)
+    await _log_dashboard_changes(
+        guild_id_str,
+        moderator_id,
+        [f"Leveling enabled: {_format_diff_value(payload.leveling_enabled)}", f"XP multiplier: {payload.xp_multiplier}"],
+    )
+
+    return {"ok": True, "active_guild_id": guild_id_str}
 
 
 @app.get("/api/dashboard/state")
