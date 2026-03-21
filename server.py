@@ -2303,6 +2303,13 @@ async def dashboard_levels(request: Request) -> Response:
     return FileResponse(WEB_ROOT / "dashboard" / "levels.html")
 
 
+@app.get("/dashboard/entry-exit")
+async def dashboard_entry_exit(request: Request) -> Response:
+    if not _is_authenticated(request):
+        return RedirectResponse(url="/auth/login?next=/dashboard/entry-exit", status_code=302)
+    return FileResponse(WEB_ROOT / "dashboard" / "entry-exit.html")
+
+
 @app.get("/api/dashboard/levels")
 async def get_leveling_settings(request: Request) -> dict[str, Any]:
     _require_auth(request)
@@ -2933,6 +2940,32 @@ async def update_setup(payload: SetupUpdatePayload, request: Request) -> dict[st
         "state": _state_with_metrics(state),
         "applied_changes": changes,
         "applied_changes_count": len(changes),
+    }
+
+
+@app.put("/api/dashboard/entry-exit")
+async def update_entry_exit_settings(payload: EntryExitEmbedSettings, request: Request) -> dict[str, Any]:
+    _require_auth(request)
+    active_guild = await _require_dashboard_role(request, "admin")
+    guild_id = str(active_guild.get("id"))
+    guild_name = str(active_guild.get("name", f"Guild {guild_id}"))
+
+    state = await _get_effective_state_for_guild(guild_id, guild_name)
+    previous_state = json.loads(json.dumps(state))
+    state["entry_exit"].update(payload.model_dump())
+    state = await _persist_state_for_guild(guild_id, guild_name, state)
+
+    changes = _collect_setup_changes(previous_state, state)
+    user = request.session.get("user")
+    moderator_id = _extract_discord_id(user.get("id") if isinstance(user, dict) else None)
+    await _create_snapshot(guild_id, state, created_by=moderator_id, source="entry_exit", changes=changes)
+    await _log_dashboard_changes(guild_id, moderator_id, changes)
+
+    return {
+        "ok": True,
+        "active_guild_id": guild_id,
+        "state": _state_with_metrics(state),
+        "applied_changes": changes,
     }
 
 

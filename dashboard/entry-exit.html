@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luma Dashboard - Entry & Exit</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/assets/dashboard.css">
+</head>
+<body data-page="entry-exit">
+    <div class="app">
+        <aside class="sidebar">
+            <div class="logo">Luma</div>
+            <nav class="nav">
+                <a href="/dashboard/servers">Servers</a>
+                <a href="/dashboard/overview">Overview</a>
+                <a href="/dashboard/moderation">Moderation</a>
+                <a href="/dashboard/guild-settings">Bot Setup</a>
+                <a href="/dashboard/cogs">Cogs</a>
+                <a href="/dashboard/levels">Levels</a>
+                <a class="active" href="/dashboard/entry-exit">Entry / Exit</a>
+                <a href="/dashboard/config-logs">Config Logs <span class="config-log-dot" id="config-log-dot" hidden>0</span></a>
+            </nav>
+            <div class="user-box" id="session-user">Signed in...</div>
+        </aside>
+
+        <main class="main">
+            <header class="topbar">
+                <div>
+                    <h1 class="title">Entry / Exit Messages</h1>
+                    <p class="subtitle">Configure dedicated welcome and leave embeds, with channel routing and live preview.</p>
+                </div>
+                <div class="actions">
+                    <select id="guild-select"></select>
+                    <button class="btn primary" id="save-entry-exit" type="button">Save Entry / Exit</button>
+                    <a class="btn" href="/auth/logout">Logout</a>
+                </div>
+            </header>
+
+            <section class="section setup-card">
+                <div class="card-head">
+                    <div>
+                        <h2>Welcome Embed</h2>
+                        <p class="lead">Shown when new members join the guild.</p>
+                    </div>
+                    <span class="pill accent-green">Welcome</span>
+                </div>
+
+                <div class="switch-row feature-row"><span>Enable welcome embed</span><input id="welcome-enabled" class="switch" type="checkbox"></div>
+                <div class="grid-2 compact-grid">
+                    <div class="field">
+                        <label for="welcome-channel">Welcome channel</label>
+                        <select id="welcome-channel"></select>
+                    </div>
+                    <div class="field">
+                        <label for="welcome-color">Embed color (hex)</label>
+                        <input id="welcome-color" type="text" placeholder="#57cc99">
+                    </div>
+                </div>
+                <div class="field">
+                    <label for="welcome-title">Title</label>
+                    <input id="welcome-title" type="text" placeholder="Bem-vindo(a), {member}!">
+                </div>
+                <div class="field">
+                    <label for="welcome-description">Description</label>
+                    <textarea id="welcome-description" rows="3" placeholder="Aproveite sua estadia em **{guild}**."></textarea>
+                </div>
+                <div class="role-picker-actions">
+                    <button class="btn" id="preview-welcome-embed" type="button">Preview Welcome Embed</button>
+                </div>
+                <article class="section" id="welcome-preview-card" style="padding:0.8rem; border:1px solid var(--border); background:var(--panel-2);" hidden>
+                    <h4 id="welcome-preview-title" style="margin:0 0 0.4rem 0;"></h4>
+                    <p id="welcome-preview-description" style="margin:0; white-space:pre-wrap;"></p>
+                </article>
+            </section>
+
+            <section class="section setup-card">
+                <div class="card-head">
+                    <div>
+                        <h2>Leave Embed</h2>
+                        <p class="lead">Shown when members leave or are removed from the guild.</p>
+                    </div>
+                    <span class="pill accent-orange">Leave</span>
+                </div>
+
+                <div class="switch-row feature-row"><span>Enable leave embed</span><input id="leave-enabled" class="switch" type="checkbox"></div>
+                <div class="grid-2 compact-grid">
+                    <div class="field">
+                        <label for="leave-channel">Leave channel</label>
+                        <select id="leave-channel"></select>
+                    </div>
+                    <div class="field">
+                        <label for="leave-color">Embed color (hex)</label>
+                        <input id="leave-color" type="text" placeholder="#ef476f">
+                    </div>
+                </div>
+                <div class="field">
+                    <label for="leave-title">Title</label>
+                    <input id="leave-title" type="text" placeholder="Ate logo, {member}.">
+                </div>
+                <div class="field">
+                    <label for="leave-description">Description</label>
+                    <textarea id="leave-description" rows="3" placeholder="{member} saiu de **{guild}**."></textarea>
+                </div>
+                <div class="role-picker-actions">
+                    <button class="btn" id="preview-leave-embed" type="button">Preview Leave Embed</button>
+                </div>
+                <article class="section" id="leave-preview-card" style="padding:0.8rem; border:1px solid var(--border); background:var(--panel-2);" hidden>
+                    <h4 id="leave-preview-title" style="margin:0 0 0.4rem 0;"></h4>
+                    <p id="leave-preview-description" style="margin:0; white-space:pre-wrap;"></p>
+                </article>
+
+                <p class="lead" style="margin-top:0.8rem;">Variaveis disponiveis: <strong>{member}</strong> e <strong>{guild}</strong>.</p>
+            </section>
+        </main>
+    </div>
+
+    <div class="flash" id="flash"></div>
+    <script src="/assets/dashboard.js"></script>
+</body>
+</html>

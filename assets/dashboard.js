@@ -806,6 +806,7 @@ function applyStaticTranslations() {
         overview: { pt: "Luma Dashboard - Visao Geral", en: "Luma Dashboard - Overview", es: "Luma Dashboard - Resumen" },
         moderation: { pt: "Luma Dashboard - Moderacao", en: "Luma Dashboard - Moderation", es: "Luma Dashboard - Moderacion" },
         "guild-settings": { pt: "Luma Dashboard - Configuracao da Guild", en: "Luma Dashboard - Guild Settings", es: "Luma Dashboard - Configuracion del Servidor" },
+        "entry-exit": { pt: "Luma Dashboard - Entrada e Saida", en: "Luma Dashboard - Entry & Exit", es: "Luma Dashboard - Entrada y Salida" },
         cogs: { pt: "Luma Dashboard - Cogs", en: "Luma Dashboard - Cogs", es: "Luma Dashboard - Cogs" },
         levels: { pt: "Luma Dashboard - Levels", en: "Luma Dashboard - Levels", es: "Luma Dashboard - Niveles" },
         "config-logs": { pt: "Luma Dashboard - Central de Auditoria", en: "Luma Dashboard - Audit Center", es: "Luma Dashboard - Centro de Auditoria" },
@@ -1182,9 +1183,11 @@ function renderWarnFlowEditor(steps) {
 }
 
 function bindSetupDirtyTracking() {
-    if (page !== "guild-settings" || setupDirtyTrackingBound) return;
+    if (!["guild-settings", "entry-exit"].includes(page) || setupDirtyTrackingBound) return;
 
-    const trackedSelector = "#guild-language, #guild-log, #auto-enabled, #auto-antiflood, #auto-invite, #auto-link, #auto-caps, #auto-threshold, #auto-role, #auto-immune-role-picker, #warn-public-reason, #warn-dm-user, #warn-step-1-threshold, #warn-step-1-action, #warn-step-2-threshold, #warn-step-2-action, #warn-step-3-threshold, #warn-step-3-action, #log-enabled, #log-moderation, #log-ban-events, #log-join-leave, #log-message-delete, #log-modmail, #log-audit-channel, #log-ban-channel, #modmail-enabled, #modmail-anonymous, #modmail-idle, #modmail-channel, #modmail-role-picker, #modmail-hours, #welcome-enabled, #welcome-channel, #welcome-title, #welcome-description, #welcome-color, #leave-enabled, #leave-channel, #leave-title, #leave-description, #leave-color, input[data-setup-cog]";
+    const trackedSelector = page === "entry-exit"
+        ? "#welcome-enabled, #welcome-channel, #welcome-title, #welcome-description, #welcome-color, #leave-enabled, #leave-channel, #leave-title, #leave-description, #leave-color"
+        : "#guild-language, #guild-log, #auto-enabled, #auto-antiflood, #auto-invite, #auto-link, #auto-caps, #auto-threshold, #auto-role, #auto-immune-role-picker, #warn-public-reason, #warn-dm-user, #warn-step-1-threshold, #warn-step-1-action, #warn-step-2-threshold, #warn-step-2-action, #warn-step-3-threshold, #warn-step-3-action, #log-enabled, #log-moderation, #log-ban-events, #log-join-leave, #log-message-delete, #log-modmail, #log-audit-channel, #log-ban-channel, #modmail-enabled, #modmail-anonymous, #modmail-idle, #modmail-channel, #modmail-role-picker, #modmail-hours, input[data-setup-cog]";
 
     const markDirty = (event) => {
         const target = event.target;
@@ -1576,6 +1579,40 @@ function renderGuildSettings(context) {
     refreshSetupChangePreview();
 
     renderSetupCogs(context);
+}
+
+function renderEntryExitPage(context) {
+    const entryExit = context.state.entry_exit || {};
+    const refs = {
+        welcomeEnabled: document.getElementById("welcome-enabled"),
+        welcomeChannel: document.getElementById("welcome-channel"),
+        welcomeTitle: document.getElementById("welcome-title"),
+        welcomeDescription: document.getElementById("welcome-description"),
+        welcomeColor: document.getElementById("welcome-color"),
+        leaveEnabled: document.getElementById("leave-enabled"),
+        leaveChannel: document.getElementById("leave-channel"),
+        leaveTitle: document.getElementById("leave-title"),
+        leaveDescription: document.getElementById("leave-description"),
+        leaveColor: document.getElementById("leave-color"),
+    };
+
+    if (!refs.welcomeEnabled || !refs.leaveEnabled) return;
+
+    applyResourceSelectors(context);
+
+    refs.welcomeEnabled.checked = Boolean(entryExit.welcome_enabled);
+    ensureOption(refs.welcomeChannel, entryExit.welcome_channel, entryExit.welcome_channel);
+    refs.welcomeChannel.value = entryExit.welcome_channel || "";
+    refs.welcomeTitle.value = entryExit.welcome_title || translateStaticText("Welcome, {member}!");
+    refs.welcomeDescription.value = entryExit.welcome_description || translateStaticText("Enjoy your stay in **{guild}**.");
+    refs.welcomeColor.value = entryExit.welcome_color || "#57cc99";
+
+    refs.leaveEnabled.checked = Boolean(entryExit.leave_enabled);
+    ensureOption(refs.leaveChannel, entryExit.leave_channel, entryExit.leave_channel);
+    refs.leaveChannel.value = entryExit.leave_channel || "";
+    refs.leaveTitle.value = entryExit.leave_title || translateStaticText("See you, {member}.");
+    refs.leaveDescription.value = entryExit.leave_description || translateStaticText("{member} left **{guild}**.");
+    refs.leaveColor.value = entryExit.leave_color || "#ef476f";
 }
 
 function renderCogs(context) {
@@ -1984,19 +2021,36 @@ function buildSetupPayloadFromForm() {
             alert_roles: [...selectedModmailRoles],
             auto_close_hours: Number(document.getElementById("modmail-hours")?.value || 48),
         },
-        entry_exit: {
-            welcome_enabled: document.getElementById("welcome-enabled")?.checked ?? false,
-            welcome_channel: document.getElementById("welcome-channel")?.value?.trim() || "",
-            welcome_title: document.getElementById("welcome-title")?.value?.trim() || "",
-            welcome_description: document.getElementById("welcome-description")?.value?.trim() || "",
-            welcome_color: document.getElementById("welcome-color")?.value?.trim() || "#57cc99",
-            leave_enabled: document.getElementById("leave-enabled")?.checked ?? false,
-            leave_channel: document.getElementById("leave-channel")?.value?.trim() || "",
-            leave_title: document.getElementById("leave-title")?.value?.trim() || "",
-            leave_description: document.getElementById("leave-description")?.value?.trim() || "",
-            leave_color: document.getElementById("leave-color")?.value?.trim() || "#ef476f",
-        },
+        entry_exit: buildEntryExitPayloadFromForm(),
         cogs,
+    };
+}
+
+function buildEntryExitPayloadFromForm() {
+    const current = dashboardContext?.state?.entry_exit || {};
+
+    const readChecked = (id, fallback = false) => {
+        const el = document.getElementById(id);
+        return el ? Boolean(el.checked) : Boolean(fallback);
+    };
+
+    const readText = (id, fallback = "") => {
+        const el = document.getElementById(id);
+        if (!el) return String(fallback || "");
+        return String(el.value || "").trim();
+    };
+
+    return {
+        welcome_enabled: readChecked("welcome-enabled", current.welcome_enabled),
+        welcome_channel: readText("welcome-channel", current.welcome_channel),
+        welcome_title: readText("welcome-title", current.welcome_title || "Bem-vindo(a), {member}!"),
+        welcome_description: readText("welcome-description", current.welcome_description || "Aproveite sua estadia em **{guild}**."),
+        welcome_color: readText("welcome-color", current.welcome_color || "#57cc99") || "#57cc99",
+        leave_enabled: readChecked("leave-enabled", current.leave_enabled),
+        leave_channel: readText("leave-channel", current.leave_channel),
+        leave_title: readText("leave-title", current.leave_title || "Ate logo, {member}."),
+        leave_description: readText("leave-description", current.leave_description || "{member} saiu de **{guild}**."),
+        leave_color: readText("leave-color", current.leave_color || "#ef476f") || "#ef476f",
     };
 }
 
@@ -2233,6 +2287,7 @@ function renderPage(context) {
     if (page === "overview") renderOverview(context);
     if (page === "moderation") renderModeration(context);
     if (page === "guild-settings") renderGuildSettings(context);
+    if (page === "entry-exit") renderEntryExitPage(context);
     if (page === "cogs") renderCogs(context);
     if (page === "config-logs") renderConfigLogs(context.logs || []);
 }
@@ -2481,6 +2536,25 @@ function bindPageActions() {
                 flash("Bot setup updated", "success");
             } catch (error) {
                 flash(error instanceof Error && error.message ? error.message : "Failed to update bot setup", "error");
+            }
+        });
+    }
+
+    const saveEntryExit = document.getElementById("save-entry-exit");
+    if (saveEntryExit) {
+        saveEntryExit.addEventListener("click", async () => {
+            const payload = buildEntryExitPayloadFromForm();
+
+            try {
+                const res = await api("/api/dashboard/entry-exit", {
+                    method: "PUT",
+                    body: JSON.stringify(payload),
+                });
+                dashboardContext.state = res.state;
+                renderPage(dashboardContext);
+                flash("Entry / Exit settings updated", "success");
+            } catch (error) {
+                flash(error instanceof Error && error.message ? error.message : "Failed to update Entry / Exit settings", "error");
             }
         });
     }
