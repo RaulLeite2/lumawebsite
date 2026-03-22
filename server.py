@@ -1100,6 +1100,50 @@ def _db_pool() -> Any | None:
     return getattr(app.state, "db_pool", None)
 
 
+async def _fetch_guild_member_display_names(guild_id: str, user_ids: list[Any]) -> dict[str, str]:
+    token = os.getenv("DISCORD_BOT_TOKEN", "").strip()
+    if not token:
+        return {}
+
+    normalized_ids: list[str] = []
+    seen_ids: set[str] = set()
+    for user_id in user_ids:
+        user_id_str = str(user_id or "").strip()
+        if not user_id_str or user_id_str in seen_ids:
+            continue
+        seen_ids.add(user_id_str)
+        normalized_ids.append(user_id_str)
+
+    if not normalized_ids:
+        return {}
+
+    auth_header = {"Authorization": f"Bot {token}"}
+
+    async def _fetch_one(user_id: str) -> tuple[str, str | None]:
+        try:
+            response = await asyncio.to_thread(
+                _discord_request,
+                f"{DISCORD_API_BASE}/guilds/{guild_id}/members/{user_id}",
+                method="GET",
+                headers=auth_header,
+            )
+        except Exception:
+            return user_id, None
+
+        if not isinstance(response, dict):
+            return user_id, None
+
+        user = response.get("user") if isinstance(response.get("user"), dict) else {}
+        nickname = str(response.get("nick") or "").strip()
+        global_name = str(user.get("global_name") or "").strip()
+        username = str(user.get("username") or "").strip()
+        display_name = nickname or global_name or username
+        return user_id, (display_name or None)
+
+    results = await asyncio.gather(*(_fetch_one(user_id) for user_id in normalized_ids))
+    return {user_id: display_name for user_id, display_name in results if display_name}
+
+
 async def _fetch_guild_db_row(guild_id: str) -> dict[str, Any] | None:
     pool = _db_pool()
     if pool is None:
@@ -2665,6 +2709,7 @@ async def get_leveling_settings(request: Request) -> dict[str, Any]:
     xp_multiplier = float(settings_row["xp_multiplier"]) if settings_row and settings_row["xp_multiplier"] is not None else 1.0
     cooldown_seconds = int(settings_row["cooldown_seconds"]) if settings_row and settings_row["cooldown_seconds"] is not None else 45
     level_up_message = str(settings_row["level_up_message"] or "") if settings_row else "Congratulations {user}, you have reached level {level}!"
+    member_names = await _fetch_guild_member_display_names(guild_id_str, [row["user_id"] for row in lb_rows])
 
     def _level_from_xp(xp: int) -> int:
         if xp <= 0:
@@ -2675,6 +2720,7 @@ async def get_leveling_settings(request: Request) -> dict[str, Any]:
         {
             "rank": idx,
             "user_id": str(row["user_id"]),
+            "display_name": member_names.get(str(row["user_id"])) or f"User {row['user_id']}",
             "xp": int(row["xp"]),
             "level": _level_from_xp(int(row["xp"])),
             "messages": int(row["messages_count"] or 0),
@@ -2827,6 +2873,8 @@ async def dashboard_economy_season(request: Request) -> dict[str, Any]:
             ends_at,
         )
 
+    member_names = await _fetch_guild_member_display_names(str(active_guild.get("id") or ""), [item.get("user_id") for item in rows])
+
     return {
         "ok": True,
         "season_key": season_key,
@@ -2836,6 +2884,7 @@ async def dashboard_economy_season(request: Request) -> dict[str, Any]:
             {
                 "rank": idx,
                 "user_id": str(item.get("user_id") or ""),
+                "display_name": member_names.get(str(item.get("user_id") or "")) or f"User {item.get('user_id') or '-'}",
                 "score": int(item.get("score") or 0),
             }
             for idx, item in enumerate(rows, start=1)
@@ -2922,6 +2971,8 @@ async def dashboard_economy_stats(request: Request) -> dict[str, Any]:
             guild_id_int,
         )
 
+    member_names = await _fetch_guild_member_display_names(str(active_guild.get("id") or ""), [item.get("user_id") for item in top_earners])
+
     return {
         "ok": True,
         "stats": {
@@ -2934,6 +2985,7 @@ async def dashboard_economy_stats(request: Request) -> dict[str, Any]:
         "top_earners": [
             {
                 "user_id": str(item.get("user_id") or ""),
+                "display_name": member_names.get(str(item.get("user_id") or "")) or f"User {item.get('user_id') or '-'}",
                 "net": int(item.get("net") or 0),
             }
             for item in top_earners

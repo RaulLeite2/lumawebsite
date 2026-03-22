@@ -2281,6 +2281,7 @@ function renderLeaderboard(rows) {
         const rankClass = rank === 1 ? "gold" : rank === 2 ? "silver" : rank === 3 ? "bronze" : "";
         const xp = Number(entry.xp || 0);
         const level = Number(entry.level || 1);
+        const displayName = entry.display_name || entry.username || entry.user_id || "-";
         const nextLevelXp = Math.pow(level, 2) * 100;
         const prevLevelXp = Math.pow(level - 1, 2) * 100;
         const progress = nextLevelXp > prevLevelXp ? Math.min(100, Math.round(((xp - prevLevelXp) / (nextLevelXp - prevLevelXp)) * 100)) : 0;
@@ -2288,10 +2289,10 @@ function renderLeaderboard(rows) {
         const row = document.createElement("tr");
         row.innerHTML = `
             <td class="lb-rank ${rankClass}">${rank}</td>
-            <td class="lb-user"><code>${entry.user_id || "-"}</code></td>
+            <td class="lb-user"><code>${displayName}</code></td>
             <td><span class="lb-level">${level}</span></td>
             <td class="lb-xp">${xp.toLocaleString()} <span class="xp-bar-wrap"><span class="xp-bar" style="width:${progress}%"></span></span></td>
-            <td class="lb-msgs">${Number(entry.messages_count || 0).toLocaleString()}</td>
+            <td class="lb-msgs">${Number(entry.messages ?? entry.messages_count ?? 0).toLocaleString()}</td>
         `;
         tbody.appendChild(row);
     });
@@ -2409,7 +2410,7 @@ function renderEconomyDashboard(overview, shop, stats, season, transactions) {
             <article class="log-item"><h3>Spent (7d)</h3><p>${Number(s.spent_7d || 0).toLocaleString()}</p></article>
             <article class="log-item"><h3>Daily Claims (7d)</h3><p>${Number(s.daily_claims_7d || 0).toLocaleString()}</p></article>
             <article class="log-item"><h3>Transfers (7d)</h3><p>${Number(s.transfers_7d || 0).toLocaleString()}</p></article>
-            <article class="log-item"><h3>Top Earners</h3><p>${top.map((u) => `${u.user_id}: ${Number(u.net || 0).toLocaleString()}`).join(" | ") || "No data"}</p></article>
+            <article class="log-item"><h3>Top Earners</h3><p>${top.map((u) => `${u.display_name || u.username || u.user_id}: ${Number(u.net || 0).toLocaleString()}`).join(" | ") || "No data"}</p></article>
         `;
     }
 
@@ -2430,7 +2431,8 @@ function renderEconomyDashboard(overview, shop, stats, season, transactions) {
             leaderboard.forEach((entry) => {
                 const row = document.createElement("article");
                 row.className = "log-item";
-                row.innerHTML = `<h3>#${entry.rank} • ${entry.user_id}</h3><p>${Number(entry.score || 0).toLocaleString()} pts</p>`;
+                const displayName = entry.display_name || entry.username || entry.user_id || "-";
+                row.innerHTML = `<h3>#${entry.rank} • ${displayName}</h3><p>${Number(entry.score || 0).toLocaleString()} pts</p>`;
                 seasonList.appendChild(row);
             });
         }
