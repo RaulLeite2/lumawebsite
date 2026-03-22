@@ -1293,6 +1293,56 @@ body.mk-page-entering .main {
     grid-template-columns: 310px minmax(0, 1fr) 340px;
     gap: 0.9rem;
     min-height: calc(100vh - 180px);
+    align-items: stretch;
+}
+
+.mk-builder-panel,
+.mk-right {
+    max-height: calc(100vh - 210px);
+    overflow: auto;
+    scrollbar-width: thin;
+}
+
+.mk-builder-panel {
+    display: grid;
+    align-content: start;
+    gap: 0.25rem;
+}
+
+.mk-right {
+    gap: 0.8rem;
+    padding-right: 0.1rem;
+}
+
+.mk-composer-grid .field {
+    margin-bottom: 0.55rem;
+}
+
+.actions #mk-fullsize-toggle {
+    min-width: 122px;
+}
+
+body.mk-script-fullsize .app {
+    grid-template-columns: 1fr;
+}
+
+body.mk-script-fullsize .sidebar {
+    display: none;
+}
+
+body.mk-script-fullsize .main {
+    max-width: 100%;
+    padding: 1.05rem 1.15rem;
+}
+
+body.mk-script-fullsize .mk-layout {
+    grid-template-columns: 300px minmax(0, 1fr) 330px;
+    min-height: calc(100vh - 150px);
+}
+
+body.mk-script-fullsize .mk-builder-panel,
+body.mk-script-fullsize .mk-right {
+    max-height: calc(100vh - 170px);
 }
 
 .mk-panel,
@@ -1776,6 +1826,16 @@ body.mk-page-entering .main {
     }
 
     .mk-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .mk-builder-panel,
+    .mk-right {
+        max-height: none;
+        overflow: visible;
+    }
+
+    body.mk-script-fullsize .mk-layout {
         grid-template-columns: 1fr;
     }
 

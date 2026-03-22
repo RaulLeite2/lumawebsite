@@ -13,6 +13,7 @@
     const debugOutput = document.getElementById("mk-debug-output");
     const debugToggle = document.getElementById("mk-debug-enabled");
     const debugLevel = document.getElementById("mk-debug-level");
+    const fullSizeBtn = document.getElementById("mk-fullsize-toggle");
     const debugToggleBtn = document.getElementById("mk-debug-toggle");
     const clearLogBtn = document.getElementById("mk-clear-log");
     const triggerSelect = document.getElementById("mk-trigger-select");
@@ -67,6 +68,7 @@
         ghostPath: null,
         nodeCounter: 0,
         debugEnabled: false,
+        fullSizeEnabled: false,
     };
 
     const canvasRect = () => mkCanvas.getBoundingClientRect();
@@ -121,6 +123,28 @@
         if (!state.debugEnabled && debugOutput) {
             debugOutput.textContent = "Debug disabled.";
         }
+    }
+
+    function syncFullSizeUi() {
+        if (!fullSizeBtn) return;
+        fullSizeBtn.textContent = state.fullSizeEnabled ? "Full Size On" : "Full Size Off";
+        fullSizeBtn.classList.toggle("primary", state.fullSizeEnabled);
+    }
+
+    function applyFullSizeMode(enabled) {
+        state.fullSizeEnabled = !!enabled;
+        document.body.classList.toggle("mk-script-fullsize", state.fullSizeEnabled);
+        syncFullSizeUi();
+        try {
+            localStorage.setItem("luma_mk_fullsize", state.fullSizeEnabled ? "1" : "0");
+        } catch (error) {
+            // Ignore storage issues.
+        }
+        window.setTimeout(() => {
+            redrawLinks();
+            updateMinimap();
+            updateSelectionInfo();
+        }, 260);
     }
 
     function updateSelectionInfo() {
@@ -592,6 +616,23 @@
         pushDebug("Draft saved", snapshot, true);
         window.showFlash?.("Draft saved locally", "success");
     });
+
+    fullSizeBtn?.addEventListener("click", () => {
+        applyFullSizeMode(!state.fullSizeEnabled);
+    });
+
+    window.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && state.fullSizeEnabled) {
+            applyFullSizeMode(false);
+        }
+    });
+
+    try {
+        const saved = localStorage.getItem("luma_mk_fullsize") === "1";
+        applyFullSizeMode(saved);
+    } catch (error) {
+        syncFullSizeUi();
+    }
 
     syncDebugUi();
     restoreDraft();
