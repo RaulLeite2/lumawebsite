@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luma Dashboard - Economy</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/assets/dashboard.css">
+</head>
+<body data-page="economy">
+    <div class="app">
+        <aside class="sidebar">
+            <div class="logo">Luma</div>
+            <nav class="nav">
+                <a href="/dashboard/servers">Servers</a>
+                <a href="/dashboard/overview">Overview</a>
+                <a href="/dashboard/moderation">Moderation</a>
+                <a href="/dashboard/guild-settings">Bot Setup</a>
+                <a href="/dashboard/cogs">Cogs</a>
+                <a href="/dashboard/levels">Levels</a>
+                <a class="active" href="/dashboard/economy">Economy</a>
+                <a href="/dashboard/blog">Blog</a>
+                <a href="/dashboard/entry-exit">Entry / Exit</a>
+                <a href="/dashboard/config-logs">Config Logs <span class="config-log-dot" id="config-log-dot" hidden>0</span></a>
+            </nav>
+            <div class="user-box" id="session-user">Signed in...</div>
+        </aside>
+
+        <main class="main">
+            <header class="topbar">
+                <div>
+                    <h1 class="title">Economy Control</h1>
+                    <p class="subtitle">Claim daily rewards, buy items from the shop and use real item effects.</p>
+                </div>
+                <div class="actions">
+                    <select id="guild-select"></select>
+                    <button class="btn" id="refresh-economy" type="button">Refresh</button>
+                    <a class="btn" href="/auth/logout">Logout</a>
+                </div>
+            </header>
+
+            <section class="section">
+                <h2>Wallet</h2>
+                <p class="lead">Your current economy status for this account.</p>
+                <div class="metrics">
+                    <div class="metric"><span>Balance</span><strong id="econ-balance">-</strong></div>
+                    <div class="metric"><span>Daily cooldown</span><strong id="econ-daily-timer">-</strong></div>
+                </div>
+                <div class="actions" style="margin-top:0.9rem;">
+                    <button class="btn primary" id="claim-daily" type="button">Claim Daily</button>
+                </div>
+            </section>
+
+            <section class="section">
+                <h2>Shop</h2>
+                <p class="lead">Buy economy items and consumables.</p>
+                <div id="econ-shop-list" class="log-feed"></div>
+            </section>
+
+            <section class="section">
+                <h2>Inventory</h2>
+                <p class="lead">Use your items directly from the dashboard.</p>
+                <div id="econ-inventory-list" class="log-feed"></div>
+            </section>
+
+            <section class="section">
+                <h2>Badges & Effects</h2>
+                <p class="lead">Unlocked profile badges and active temporary effects.</p>
+                <div id="econ-badges-list" class="log-feed"></div>
+            </section>
+
+            <section class="section">
+                <h2>Economy Analytics</h2>
+                <p class="lead">Weekly economy stats and top earning accounts.</p>
+                <div id="econ-stats-list" class="log-feed"></div>
+            </section>
+
+            <section class="section">
+                <h2>Season Ranking</h2>
+                <p class="lead">Monthly season scoreboard based on transaction performance.</p>
+                <div id="econ-season-list" class="log-feed"></div>
+            </section>
+
+            <section class="section">
+                <h2>Recent Transactions</h2>
+                <p class="lead">Important economy movements in this guild.</p>
+                <div id="econ-transactions-list" class="log-feed"></div>
+            </section>
+        </main>
+    </div>
+
+    <div class="flash" id="flash"></div>
+    <script src="/assets/dashboard.js"></script>
+</body>
+</html>

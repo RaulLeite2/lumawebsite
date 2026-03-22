@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 import importlib
 import json
 import os
+import random
 import re
 import secrets
 import threading
@@ -262,6 +263,21 @@ class LevelingSettingsPayload(BaseModel):
     xp_multiplier: float = Field(default=1.0, ge=0.1, le=10.0)
     cooldown_seconds: int = Field(default=45, ge=5, le=3600)
     level_up_message: str = Field(default="Congratulations {user}, you have reached level {level}!", max_length=500)
+
+
+class EconomyBuyPayload(BaseModel):
+    item_key: str = Field(min_length=1, max_length=64)
+    quantity: int = Field(default=1, ge=1, le=50)
+
+
+class EconomyUsePayload(BaseModel):
+    item_key: str = Field(min_length=1, max_length=64)
+
+
+class BlogPostCreatePayload(BaseModel):
+    title: str = Field(min_length=3, max_length=160)
+    content: str = Field(min_length=10, max_length=12000)
+    is_published: bool = True
 
 
 state_lock = threading.Lock()
@@ -852,6 +868,121 @@ async def _ensure_dashboard_tables(pool: Any) -> None:
                 )
                 """
             )
+            await connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS economy (
+                    user_id BIGINT PRIMARY KEY,
+                    balance INT NOT NULL DEFAULT 0,
+                    last_daily TIMESTAMPTZ,
+                    last_weekly TIMESTAMPTZ,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+            await connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS shop_items (
+                    item_key VARCHAR(64) PRIMARY KEY,
+                    item_name VARCHAR(120) NOT NULL,
+                    item_description TEXT NOT NULL,
+                    price INT NOT NULL,
+                    category VARCHAR(32) NOT NULL DEFAULT 'utility',
+                    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+            await connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS user_inventory (
+                    user_id BIGINT NOT NULL,
+                    item_key VARCHAR(64) NOT NULL REFERENCES shop_items(item_key) ON DELETE CASCADE,
+                    quantity INT NOT NULL DEFAULT 0,
+                    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (user_id, item_key)
+                )
+                """
+            )
+            await connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS user_item_effects (
+                    user_id BIGINT NOT NULL,
+                    effect_key VARCHAR(64) NOT NULL,
+                    expires_at TIMESTAMP NOT NULL,
+                    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (user_id, effect_key)
+                )
+                """
+            )
+            await connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS user_profile_badges (
+                    user_id BIGINT NOT NULL,
+                    badge_key VARCHAR(64) NOT NULL,
+                    unlocked_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (user_id, badge_key)
+                )
+                """
+            )
+            await connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS economy_seasons (
+                    season_key VARCHAR(16) PRIMARY KEY,
+                    starts_at TIMESTAMP NOT NULL,
+                    ends_at TIMESTAMP NOT NULL,
+                    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+            await connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS economy_transactions (
+                    id BIGSERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL,
+                    guild_id BIGINT,
+                    delta INT NOT NULL,
+                    balance_after INT,
+                    tx_type VARCHAR(32) NOT NULL,
+                    metadata JSONB,
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+            await connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS blog_posts (
+                    id BIGSERIAL PRIMARY KEY,
+                    author_user_id BIGINT NOT NULL,
+                    author_name VARCHAR(120),
+                    title VARCHAR(160) NOT NULL,
+                    slug VARCHAR(180) NOT NULL UNIQUE,
+                    content TEXT NOT NULL,
+                    is_published BOOLEAN NOT NULL DEFAULT TRUE,
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    published_at TIMESTAMP
+                )
+                """
+            )
+            await connection.execute("CREATE INDEX IF NOT EXISTS idx_blog_posts_published ON blog_posts(is_published, published_at DESC)")
+            await connection.execute("CREATE INDEX IF NOT EXISTS idx_economy_transactions_user_time ON economy_transactions(user_id, created_at)")
+            await connection.execute("CREATE INDEX IF NOT EXISTS idx_economy_transactions_type_time ON economy_transactions(tx_type, created_at)")
+            await connection.execute("CREATE INDEX IF NOT EXISTS idx_economy_transactions_guild_time ON economy_transactions(guild_id, created_at)")
+            await connection.execute("ALTER TABLE guild_raid_settings ADD COLUMN IF NOT EXISTS mode VARCHAR(16) NOT NULL DEFAULT 'lockdown'")
+            await connection.execute("ALTER TABLE guild_raid_settings ADD COLUMN IF NOT EXISTS recovery_cooldown_minutes INT NOT NULL DEFAULT 10")
+            await connection.execute(
+                """
+                INSERT INTO shop_items (item_key, item_name, item_description, price, category, is_active)
+                VALUES
+                    ('xp_boost_1h', 'XP Boost 1h', 'Active your leveling journey: grants a personal XP bonus token for 1 hour.', 350, 'boost', TRUE),
+                    ('lucky_crate', 'Lucky Crate', 'A crate with random economy surprises (future expansion item).', 500, 'crate', TRUE),
+                    ('profile_badge', 'Profile Badge', 'Collectible profile badge to show your support in profile cards.', 750, 'cosmetic', TRUE)
+                ON CONFLICT (item_key) DO NOTHING
+                """
+            )
     except Exception as exc:
         print(f"[Dashboard] Failed to ensure dashboard tables: {exc}")
 
@@ -1423,6 +1554,14 @@ def _require_auth(request: Request) -> None:
         raise HTTPException(status_code=401, detail="Authentication required")
 
 
+def _require_session_user_id(request: Request) -> int:
+    user = request.session.get("user")
+    user_id = _extract_discord_id(user.get("id") if isinstance(user, dict) else None)
+    if user_id is None:
+        raise HTTPException(status_code=401, detail="Authenticated user id missing")
+    return user_id
+
+
 def _session_guilds(request: Request) -> list[dict[str, Any]]:
     guilds = request.session.get("guilds")
     if isinstance(guilds, list):
@@ -1700,10 +1839,123 @@ async def _load_snapshot_state(guild_id: str, snapshot_id: int) -> dict[str, Any
     return parsed if isinstance(parsed, dict) else None
 
 
+def _season_bounds() -> tuple[str, datetime, datetime]:
+    now = datetime.utcnow()
+    season_key = now.strftime("%Y-%m")
+    starts_at = datetime(now.year, now.month, 1)
+    if now.month == 12:
+        ends_at = datetime(now.year + 1, 1, 1)
+    else:
+        ends_at = datetime(now.year, now.month + 1, 1)
+    return season_key, starts_at, ends_at
+
+
+def _slugify_blog_title(title: str) -> str:
+    cleaned = re.sub(r"[^a-z0-9]+", "-", str(title).lower()).strip("-")
+    if not cleaned:
+        cleaned = "post"
+    return cleaned[:120]
+
+
+async def _fetch_important_events(guild_id: str, limit: int = 30) -> list[dict[str, Any]]:
+    logs = await _fetch_audit_logs(guild_id, period="30d", limit=max(10, min(limit, 200)))
+    merged: list[dict[str, Any]] = []
+
+    for item in logs:
+        merged.append(
+            {
+                "source": "audit",
+                "kind": str(item.get("action") or "unknown"),
+                "severity": "medium" if str(item.get("action") or "").startswith("automod") else "low",
+                "created_at": str(item.get("created_at") or ""),
+                "detail": str(item.get("reason") or item.get("action") or "Audit event"),
+                "data": item,
+            }
+        )
+
+    pool = _db_pool()
+    guild_id_int = _extract_discord_id(guild_id)
+    if pool is None or guild_id_int is None:
+        merged.sort(key=lambda e: str(e.get("created_at") or ""), reverse=True)
+        return merged[:limit]
+
+    try:
+        async with pool.acquire() as connection:
+            raid_rows = await connection.fetch(
+                """
+                SELECT id, join_count, window_seconds, action, lock_until, happened_at, notes
+                FROM raid_incidents
+                WHERE guild_id = $1
+                ORDER BY happened_at DESC
+                LIMIT $2
+                """,
+                guild_id_int,
+                max(10, min(limit, 200)),
+            )
+            econ_rows = await connection.fetch(
+                """
+                SELECT id, user_id, delta, tx_type, metadata, created_at
+                FROM economy_transactions
+                WHERE guild_id = $1
+                ORDER BY created_at DESC
+                LIMIT $2
+                """,
+                guild_id_int,
+                max(10, min(limit, 200)),
+            )
+    except Exception:
+        raid_rows = []
+        econ_rows = []
+
+    for row in raid_rows:
+        happened_at = row.get("happened_at")
+        severity = "critical" if int(row.get("join_count") or 0) >= 12 else "high"
+        merged.append(
+            {
+                "source": "raid",
+                "kind": "raid_incident",
+                "severity": severity,
+                "created_at": happened_at.isoformat() if happened_at and hasattr(happened_at, "isoformat") else "",
+                "detail": f"Raid guard triggered: {int(row.get('join_count') or 0)} joins/{int(row.get('window_seconds') or 0)}s",
+                "data": {
+                    "id": int(row.get("id") or 0),
+                    "action": str(row.get("action") or "kick"),
+                    "lock_until": row.get("lock_until").isoformat() if row.get("lock_until") and hasattr(row.get("lock_until"), "isoformat") else None,
+                    "notes": str(row.get("notes") or ""),
+                },
+            }
+        )
+
+    for row in econ_rows:
+        created_at = row.get("created_at")
+        delta = int(row.get("delta") or 0)
+        tx_type = str(row.get("tx_type") or "unknown")
+        severity = "medium" if abs(delta) >= 1000 or tx_type.startswith("transfer") else "low"
+        merged.append(
+            {
+                "source": "economy",
+                "kind": tx_type,
+                "severity": severity,
+                "created_at": created_at.isoformat() if created_at and hasattr(created_at, "isoformat") else "",
+                "detail": f"{tx_type}: {delta:+d} Lumicoins",
+                "data": {
+                    "id": int(row.get("id") or 0),
+                    "user_id": str(row.get("user_id") or ""),
+                    "delta": delta,
+                    "metadata": row.get("metadata") if isinstance(row.get("metadata"), dict) else {},
+                },
+            }
+        )
+
+    merged.sort(key=lambda e: str(e.get("created_at") or ""), reverse=True)
+    return merged[:limit]
+
+
 async def _detect_smart_alerts(guild_id: str, state: dict[str, Any]) -> list[dict[str, Any]]:
     logs = await _fetch_audit_logs(guild_id, period="24h", limit=500)
     now = datetime.utcnow()
     alert_items: list[dict[str, Any]] = []
+    guild_id_int = _extract_discord_id(guild_id)
 
     def _within_minutes(item: dict[str, Any], minutes: int) -> bool:
         raw = item.get("created_at")
@@ -1759,6 +2011,59 @@ async def _detect_smart_alerts(guild_id: str, state: dict[str, Any]) -> list[dic
                 "detail": f"{joins_10m} joins in the last 10 minutes.",
             }
         )
+
+    pool = _db_pool()
+    if pool is not None and guild_id_int is not None:
+        try:
+            async with pool.acquire() as connection:
+                raid_count = await connection.fetchval(
+                    """
+                    SELECT COUNT(*)
+                    FROM raid_incidents
+                    WHERE guild_id = $1
+                      AND happened_at >= CURRENT_TIMESTAMP - INTERVAL '30 minutes'
+                    """,
+                    guild_id_int,
+                )
+                transfer_spike = await connection.fetchrow(
+                    """
+                    SELECT COALESCE(MAX(cnt), 0) AS max_cnt, COALESCE(MAX(volume), 0) AS max_volume
+                    FROM (
+                        SELECT user_id, COUNT(*) AS cnt, SUM(ABS(delta)) AS volume
+                        FROM economy_transactions
+                        WHERE guild_id = $1
+                          AND tx_type IN ('transfer_out', 'transfer_in')
+                          AND created_at >= CURRENT_TIMESTAMP - INTERVAL '15 minutes'
+                        GROUP BY user_id
+                    ) t
+                    """,
+                    guild_id_int,
+                )
+        except Exception:
+            raid_count = 0
+            transfer_spike = None
+
+        if int(raid_count or 0) >= 1:
+            alert_items.append(
+                {
+                    "type": "raid_incident",
+                    "severity": "critical",
+                    "title": "Raid incident registered",
+                    "detail": f"{int(raid_count or 0)} raid incident(s) in the last 30 minutes.",
+                }
+            )
+
+        max_cnt = int(transfer_spike.get("max_cnt") or 0) if transfer_spike else 0
+        max_volume = int(transfer_spike.get("max_volume") or 0) if transfer_spike else 0
+        if max_cnt >= 6 or max_volume >= 5000:
+            alert_items.append(
+                {
+                    "type": "economy_transfer_spike",
+                    "severity": "high",
+                    "title": "Suspicious economy movement",
+                    "detail": f"A user made {max_cnt} transfer operations (volume {max_volume}) in 15 minutes.",
+                }
+            )
 
     if not alert_items:
         alert_items.append(
@@ -2303,6 +2608,20 @@ async def dashboard_levels(request: Request) -> Response:
     return FileResponse(WEB_ROOT / "dashboard" / "levels.html")
 
 
+@app.get("/dashboard/economy")
+async def dashboard_economy(request: Request) -> Response:
+    if not _is_authenticated(request):
+        return RedirectResponse(url="/auth/login?next=/dashboard/economy", status_code=302)
+    return FileResponse(WEB_ROOT / "dashboard" / "economy.html")
+
+
+@app.get("/dashboard/blog")
+async def dashboard_blog(request: Request) -> Response:
+    if not _is_authenticated(request):
+        return RedirectResponse(url="/auth/login?next=/dashboard/blog", status_code=302)
+    return FileResponse(WEB_ROOT / "dashboard" / "blog.html")
+
+
 @app.get("/dashboard/entry-exit")
 async def dashboard_entry_exit(request: Request) -> Response:
     if not _is_authenticated(request):
@@ -2371,6 +2690,768 @@ async def get_leveling_settings(request: Request) -> dict[str, Any]:
         "cooldown_seconds": cooldown_seconds,
         "level_up_message": level_up_message,
         "leaderboard": leaderboard,
+    }
+
+
+@app.get("/api/dashboard/economy/overview")
+async def dashboard_economy_overview(request: Request) -> dict[str, Any]:
+    _require_auth(request)
+    user_id = _require_session_user_id(request)
+    pool = _db_pool()
+    if pool is None:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
+    async with pool.acquire() as connection:
+        await connection.execute(
+            """
+            INSERT INTO economy (user_id, balance)
+            VALUES ($1, 0)
+            ON CONFLICT (user_id) DO NOTHING
+            """,
+            user_id,
+        )
+        row = await connection.fetchrow(
+            "SELECT balance, last_daily FROM economy WHERE user_id = $1",
+            user_id,
+        )
+        inventory = await connection.fetch(
+            """
+            SELECT i.item_key, s.item_name, i.quantity
+            FROM user_inventory i
+            JOIN shop_items s ON s.item_key = i.item_key
+            WHERE i.user_id = $1 AND i.quantity > 0
+            ORDER BY i.quantity DESC, s.item_name ASC
+            """,
+            user_id,
+        )
+        badges = await connection.fetch(
+            """
+            SELECT badge_key, unlocked_at
+            FROM user_profile_badges
+            WHERE user_id = $1
+            ORDER BY unlocked_at ASC
+            """,
+            user_id,
+        )
+        effects = await connection.fetch(
+            """
+            SELECT effect_key, expires_at
+            FROM user_item_effects
+            WHERE user_id = $1 AND expires_at > CURRENT_TIMESTAMP
+            ORDER BY expires_at ASC
+            """,
+            user_id,
+        )
+
+    balance = int(row.get("balance") or 0) if row else 0
+    last_daily = row.get("last_daily") if row else None
+    now = datetime.utcnow()
+    daily_remaining_seconds = 0
+    if last_daily is not None:
+        last_daily_naive = last_daily.replace(tzinfo=None) if getattr(last_daily, "tzinfo", None) else last_daily
+        remaining = (last_daily_naive + timedelta(hours=24) - now).total_seconds()
+        daily_remaining_seconds = max(0, int(remaining))
+
+    return {
+        "ok": True,
+        "user_id": str(user_id),
+        "balance": balance,
+        "daily_remaining_seconds": daily_remaining_seconds,
+        "inventory": [
+            {
+                "item_key": str(item.get("item_key") or ""),
+                "item_name": str(item.get("item_name") or ""),
+                "quantity": int(item.get("quantity") or 0),
+            }
+            for item in inventory
+        ],
+        "badges": [
+            {
+                "badge_key": str(item.get("badge_key") or ""),
+                "unlocked_at": item.get("unlocked_at").isoformat() if item.get("unlocked_at") else None,
+            }
+            for item in badges
+        ],
+        "active_effects": [
+            {
+                "effect_key": str(item.get("effect_key") or ""),
+                "expires_at": item.get("expires_at").isoformat() if item.get("expires_at") else None,
+            }
+            for item in effects
+        ],
+    }
+
+
+@app.get("/api/dashboard/economy/season")
+async def dashboard_economy_season(request: Request) -> dict[str, Any]:
+    _require_auth(request)
+    active_guild = _require_active_guild(request)
+    guild_id_int = _extract_discord_id(active_guild.get("id"))
+    pool = _db_pool()
+    if pool is None or guild_id_int is None:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
+    season_key, starts_at, ends_at = _season_bounds()
+
+    async with pool.acquire() as connection:
+        await connection.execute(
+            """
+            INSERT INTO economy_seasons (season_key, starts_at, ends_at, is_active)
+            VALUES ($1, $2, $3, TRUE)
+            ON CONFLICT (season_key) DO UPDATE
+            SET starts_at = EXCLUDED.starts_at,
+                ends_at = EXCLUDED.ends_at,
+                is_active = TRUE
+            """,
+            season_key,
+            starts_at,
+            ends_at,
+        )
+        await connection.execute(
+            "UPDATE economy_seasons SET is_active = FALSE WHERE season_key <> $1",
+            season_key,
+        )
+        rows = await connection.fetch(
+            """
+            SELECT user_id, COALESCE(SUM(delta), 0) AS score
+            FROM economy_transactions
+            WHERE guild_id = $1
+              AND created_at >= $2
+              AND created_at < $3
+            GROUP BY user_id
+            ORDER BY score DESC
+            LIMIT 10
+            """,
+            guild_id_int,
+            starts_at,
+            ends_at,
+        )
+
+    return {
+        "ok": True,
+        "season_key": season_key,
+        "starts_at": starts_at.isoformat(),
+        "ends_at": ends_at.isoformat(),
+        "leaderboard": [
+            {
+                "rank": idx,
+                "user_id": str(item.get("user_id") or ""),
+                "score": int(item.get("score") or 0),
+            }
+            for idx, item in enumerate(rows, start=1)
+        ],
+    }
+
+
+@app.get("/api/dashboard/economy/transactions")
+async def dashboard_economy_transactions(
+    request: Request,
+    limit: int = Query(default=40, ge=1, le=200),
+) -> dict[str, Any]:
+    _require_auth(request)
+    active_guild = _require_active_guild(request)
+    guild_id_int = _extract_discord_id(active_guild.get("id"))
+    pool = _db_pool()
+    if pool is None or guild_id_int is None:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
+    async with pool.acquire() as connection:
+        rows = await connection.fetch(
+            """
+            SELECT id, user_id, delta, balance_after, tx_type, metadata, created_at
+            FROM economy_transactions
+            WHERE guild_id = $1
+            ORDER BY created_at DESC
+            LIMIT $2
+            """,
+            guild_id_int,
+            limit,
+        )
+
+    return {
+        "ok": True,
+        "transactions": [
+            {
+                "id": int(item.get("id") or 0),
+                "user_id": str(item.get("user_id") or ""),
+                "delta": int(item.get("delta") or 0),
+                "balance_after": int(item.get("balance_after") or 0),
+                "tx_type": str(item.get("tx_type") or "unknown"),
+                "metadata": item.get("metadata") if isinstance(item.get("metadata"), dict) else {},
+                "created_at": item.get("created_at").isoformat() if item.get("created_at") and hasattr(item.get("created_at"), "isoformat") else None,
+            }
+            for item in rows
+        ],
+    }
+
+
+@app.get("/api/dashboard/economy/stats")
+async def dashboard_economy_stats(request: Request) -> dict[str, Any]:
+    _require_auth(request)
+    active_guild = _require_active_guild(request)
+    guild_id_int = _extract_discord_id(active_guild.get("id"))
+    pool = _db_pool()
+    if pool is None or guild_id_int is None:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
+    async with pool.acquire() as connection:
+        totals = await connection.fetchrow(
+            """
+            SELECT
+                COALESCE(COUNT(*), 0) AS tx_count,
+                COALESCE(SUM(CASE WHEN delta > 0 THEN delta ELSE 0 END), 0) AS minted,
+                COALESCE(SUM(CASE WHEN delta < 0 THEN ABS(delta) ELSE 0 END), 0) AS spent,
+                COALESCE(COUNT(*) FILTER (WHERE tx_type = 'daily'), 0) AS daily_claims,
+                COALESCE(COUNT(*) FILTER (WHERE tx_type LIKE 'transfer%'), 0) AS transfers
+            FROM economy_transactions
+            WHERE guild_id = $1
+              AND created_at >= CURRENT_TIMESTAMP - INTERVAL '7 days'
+            """,
+            guild_id_int,
+        )
+        top_earners = await connection.fetch(
+            """
+            SELECT user_id, COALESCE(SUM(delta), 0) AS net
+            FROM economy_transactions
+            WHERE guild_id = $1
+              AND created_at >= CURRENT_TIMESTAMP - INTERVAL '7 days'
+            GROUP BY user_id
+            ORDER BY net DESC
+            LIMIT 5
+            """,
+            guild_id_int,
+        )
+
+    return {
+        "ok": True,
+        "stats": {
+            "tx_count_7d": int(totals.get("tx_count") or 0),
+            "minted_7d": int(totals.get("minted") or 0),
+            "spent_7d": int(totals.get("spent") or 0),
+            "daily_claims_7d": int(totals.get("daily_claims") or 0),
+            "transfers_7d": int(totals.get("transfers") or 0),
+        },
+        "top_earners": [
+            {
+                "user_id": str(item.get("user_id") or ""),
+                "net": int(item.get("net") or 0),
+            }
+            for item in top_earners
+        ],
+    }
+
+
+@app.get("/api/dashboard/economy/shop")
+async def dashboard_economy_shop(request: Request) -> dict[str, Any]:
+    _require_auth(request)
+    pool = _db_pool()
+    if pool is None:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
+    async with pool.acquire() as connection:
+        rows = await connection.fetch(
+            """
+            SELECT item_key, item_name, item_description, price, category
+            FROM shop_items
+            WHERE is_active = TRUE
+            ORDER BY price ASC
+            """
+        )
+
+    return {
+        "ok": True,
+        "items": [
+            {
+                "item_key": str(item.get("item_key") or ""),
+                "item_name": str(item.get("item_name") or ""),
+                "item_description": str(item.get("item_description") or ""),
+                "price": int(item.get("price") or 0),
+                "category": str(item.get("category") or "utility"),
+            }
+            for item in rows
+        ],
+    }
+
+
+@app.post("/api/dashboard/economy/daily")
+async def dashboard_economy_daily(request: Request) -> dict[str, Any]:
+    _require_auth(request)
+    user_id = _require_session_user_id(request)
+    active_guild = _require_active_guild(request)
+    guild_id_int = _extract_discord_id(active_guild.get("id"))
+    pool = _db_pool()
+    if pool is None or guild_id_int is None:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
+    async with pool.acquire() as connection:
+        async with connection.transaction():
+            await connection.execute(
+                """
+                INSERT INTO economy (user_id, balance)
+                VALUES ($1, 0)
+                ON CONFLICT (user_id) DO NOTHING
+                """,
+                user_id,
+            )
+            row = await connection.fetchrow(
+                "SELECT balance, last_daily FROM economy WHERE user_id = $1 FOR UPDATE",
+                user_id,
+            )
+
+            now = datetime.utcnow()
+            last_daily = row.get("last_daily") if row else None
+            if last_daily is not None:
+                last_daily_naive = last_daily.replace(tzinfo=None) if getattr(last_daily, "tzinfo", None) else last_daily
+                remaining = (last_daily_naive + timedelta(hours=24) - now).total_seconds()
+                if remaining > 0:
+                    return {
+                        "ok": False,
+                        "cooldown": True,
+                        "remaining_seconds": int(remaining),
+                    }
+
+            rarity = random.choices(
+                [
+                    ("common", 100),
+                    ("rare", 200),
+                    ("epic", 500),
+                    ("legendary", 1000),
+                ],
+                weights=[70, 20, 9, 1],
+                k=1,
+            )[0]
+            reward = int(rarity[1])
+
+            new_balance = await connection.fetchval(
+                """
+                UPDATE economy
+                SET balance = balance + $1,
+                    last_daily = CURRENT_TIMESTAMP,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE user_id = $2
+                RETURNING balance
+                """,
+                reward,
+                user_id,
+            )
+            await connection.execute(
+                """
+                INSERT INTO economy_transactions (user_id, guild_id, delta, balance_after, tx_type, metadata)
+                VALUES ($1, $2, $3, $4, 'daily', $5::jsonb)
+                """,
+                user_id,
+                guild_id_int,
+                reward,
+                int(new_balance or 0),
+                json.dumps({"source": "dashboard", "rarity": str(rarity[0])}),
+            )
+
+    return {
+        "ok": True,
+        "reward": reward,
+        "rarity": str(rarity[0]),
+        "balance": int(new_balance or 0),
+    }
+
+
+@app.post("/api/dashboard/economy/buy")
+async def dashboard_economy_buy(payload: EconomyBuyPayload, request: Request) -> dict[str, Any]:
+    _require_auth(request)
+    user_id = _require_session_user_id(request)
+    active_guild = _require_active_guild(request)
+    guild_id_int = _extract_discord_id(active_guild.get("id"))
+    pool = _db_pool()
+    if pool is None or guild_id_int is None:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
+    async with pool.acquire() as connection:
+        async with connection.transaction():
+            await connection.execute(
+                """
+                INSERT INTO economy (user_id, balance)
+                VALUES ($1, 0)
+                ON CONFLICT (user_id) DO NOTHING
+                """,
+                user_id,
+            )
+            item = await connection.fetchrow(
+                """
+                SELECT item_key, item_name, price, is_active
+                FROM shop_items
+                WHERE LOWER(item_key) = LOWER($1)
+                """,
+                payload.item_key,
+            )
+            if item is None or not bool(item.get("is_active")):
+                raise HTTPException(status_code=404, detail="Item unavailable")
+
+            total_cost = int(item.get("price") or 0) * int(payload.quantity)
+            current_balance = await connection.fetchval(
+                "SELECT balance FROM economy WHERE user_id = $1 FOR UPDATE",
+                user_id,
+            )
+            current_balance = int(current_balance or 0)
+            if current_balance < total_cost:
+                raise HTTPException(status_code=400, detail="Insufficient balance")
+
+            new_balance = await connection.fetchval(
+                """
+                UPDATE economy
+                SET balance = balance - $1,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE user_id = $2
+                RETURNING balance
+                """,
+                total_cost,
+                user_id,
+            )
+
+            new_quantity = await connection.fetchval(
+                """
+                INSERT INTO user_inventory (user_id, item_key, quantity, updated_at)
+                VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+                ON CONFLICT (user_id, item_key)
+                DO UPDATE SET
+                    quantity = user_inventory.quantity + EXCLUDED.quantity,
+                    updated_at = CURRENT_TIMESTAMP
+                RETURNING quantity
+                """,
+                user_id,
+                str(item.get("item_key")),
+                int(payload.quantity),
+            )
+            await connection.execute(
+                """
+                INSERT INTO economy_transactions (user_id, guild_id, delta, balance_after, tx_type, metadata)
+                VALUES ($1, $2, $3, $4, 'shop_buy', $5::jsonb)
+                """,
+                user_id,
+                guild_id_int,
+                -int(total_cost),
+                int(new_balance or 0),
+                json.dumps({"source": "dashboard", "item_key": str(item.get("item_key")), "quantity": int(payload.quantity)}),
+            )
+
+    return {
+        "ok": True,
+        "item_key": str(item.get("item_key") or ""),
+        "item_name": str(item.get("item_name") or ""),
+        "quantity": int(payload.quantity),
+        "total_cost": int(total_cost),
+        "inventory_quantity": int(new_quantity or 0),
+        "balance": int(new_balance or 0),
+    }
+
+
+@app.post("/api/dashboard/economy/use")
+async def dashboard_economy_use(payload: EconomyUsePayload, request: Request) -> dict[str, Any]:
+    _require_auth(request)
+    user_id = _require_session_user_id(request)
+    active_guild = _require_active_guild(request)
+    guild_id_int = _extract_discord_id(active_guild.get("id"))
+    pool = _db_pool()
+    if pool is None or guild_id_int is None:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
+    async with pool.acquire() as connection:
+        async with connection.transaction():
+            item = await connection.fetchrow(
+                "SELECT item_key, item_name FROM shop_items WHERE LOWER(item_key) = LOWER($1)",
+                payload.item_key,
+            )
+            if item is None:
+                raise HTTPException(status_code=404, detail="Item not found")
+
+            inventory_qty = await connection.fetchval(
+                """
+                SELECT quantity
+                FROM user_inventory
+                WHERE user_id = $1 AND item_key = $2
+                FOR UPDATE
+                """,
+                user_id,
+                str(item.get("item_key")),
+            )
+            inventory_qty = int(inventory_qty or 0)
+            if inventory_qty <= 0:
+                raise HTTPException(status_code=400, detail="Item not owned")
+
+            normalized = str(item.get("item_key") or "").lower()
+
+            if normalized == "xp_boost_1h":
+                await connection.execute(
+                    """
+                    INSERT INTO user_item_effects (user_id, effect_key, expires_at, updated_at)
+                    VALUES ($1, 'xp_boost', CURRENT_TIMESTAMP + INTERVAL '1 hour', CURRENT_TIMESTAMP)
+                    ON CONFLICT (user_id, effect_key)
+                    DO UPDATE SET
+                        expires_at = CASE
+                            WHEN user_item_effects.expires_at > CURRENT_TIMESTAMP
+                                THEN user_item_effects.expires_at + INTERVAL '1 hour'
+                            ELSE CURRENT_TIMESTAMP + INTERVAL '1 hour'
+                        END,
+                        updated_at = CURRENT_TIMESTAMP
+                    """,
+                    user_id,
+                )
+                await connection.execute(
+                    """
+                    UPDATE user_inventory
+                    SET quantity = quantity - 1,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE user_id = $1 AND item_key = $2
+                    """,
+                    user_id,
+                    str(item.get("item_key")),
+                )
+                return {
+                    "ok": True,
+                    "item_key": normalized,
+                    "effect": "xp_boost",
+                    "message": "XP boost enabled for 1 hour",
+                }
+
+            if normalized == "lucky_crate":
+                reward = int(random.choice([120, 180, 250, 400, 700, 1000]))
+                await connection.execute(
+                    """
+                    UPDATE user_inventory
+                    SET quantity = quantity - 1,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE user_id = $1 AND item_key = $2
+                    """,
+                    user_id,
+                    str(item.get("item_key")),
+                )
+                await connection.execute(
+                    """
+                    INSERT INTO economy (user_id, balance)
+                    VALUES ($1, 0)
+                    ON CONFLICT (user_id) DO NOTHING
+                    """,
+                    user_id,
+                )
+                new_balance = await connection.fetchval(
+                    """
+                    UPDATE economy
+                    SET balance = balance + $1,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE user_id = $2
+                    RETURNING balance
+                    """,
+                    reward,
+                    user_id,
+                )
+                await connection.execute(
+                    """
+                    INSERT INTO economy_transactions (user_id, guild_id, delta, balance_after, tx_type, metadata)
+                    VALUES ($1, $2, $3, $4, 'crate_reward', $5::jsonb)
+                    """,
+                    user_id,
+                    guild_id_int,
+                    int(reward),
+                    int(new_balance or 0),
+                    json.dumps({"source": "dashboard", "item_key": normalized}),
+                )
+                return {
+                    "ok": True,
+                    "item_key": normalized,
+                    "reward": reward,
+                    "balance": int(new_balance or 0),
+                    "message": "Lucky crate opened",
+                }
+
+            if normalized == "profile_badge":
+                await connection.execute(
+                    """
+                    UPDATE user_inventory
+                    SET quantity = quantity - 1,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE user_id = $1 AND item_key = $2
+                    """,
+                    user_id,
+                    str(item.get("item_key")),
+                )
+                await connection.execute(
+                    """
+                    INSERT INTO user_profile_badges (user_id, badge_key)
+                    VALUES ($1, 'supporter_badge')
+                    ON CONFLICT (user_id, badge_key) DO NOTHING
+                    """,
+                    user_id,
+                )
+                return {
+                    "ok": True,
+                    "item_key": normalized,
+                    "badge_key": "supporter_badge",
+                    "message": "Profile badge unlocked",
+                }
+
+            raise HTTPException(status_code=400, detail="Item has no use action")
+
+
+@app.get("/api/dashboard/blog/posts")
+async def dashboard_blog_posts(request: Request, limit: int = Query(default=50, ge=1, le=200)) -> dict[str, Any]:
+    _require_auth(request)
+    user = request.session.get("user")
+    user_id = _require_session_user_id(request)
+
+    pool = _db_pool()
+    if pool is None:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
+    async with pool.acquire() as connection:
+        own_rows = await connection.fetch(
+            """
+            SELECT id, title, slug, content, is_published, created_at, updated_at, published_at
+            FROM blog_posts
+            WHERE author_user_id = $1
+            ORDER BY created_at DESC
+            LIMIT $2
+            """,
+            user_id,
+            limit,
+        )
+        public_rows = await connection.fetch(
+            """
+            SELECT id, author_name, title, slug, content, created_at, published_at
+            FROM blog_posts
+            WHERE is_published = TRUE
+            ORDER BY COALESCE(published_at, created_at) DESC
+            LIMIT $1
+            """,
+            min(25, limit),
+        )
+
+    return {
+        "ok": True,
+        "author": {
+            "user_id": str(user_id),
+            "username": str((user or {}).get("username") or "Dashboard User"),
+        },
+        "my_posts": [
+            {
+                "id": int(row.get("id") or 0),
+                "title": str(row.get("title") or ""),
+                "slug": str(row.get("slug") or ""),
+                "content": str(row.get("content") or ""),
+                "is_published": bool(row.get("is_published")),
+                "created_at": row.get("created_at").isoformat() if row.get("created_at") and hasattr(row.get("created_at"), "isoformat") else None,
+                "updated_at": row.get("updated_at").isoformat() if row.get("updated_at") and hasattr(row.get("updated_at"), "isoformat") else None,
+                "published_at": row.get("published_at").isoformat() if row.get("published_at") and hasattr(row.get("published_at"), "isoformat") else None,
+            }
+            for row in own_rows
+        ],
+        "public_posts": [
+            {
+                "id": int(row.get("id") or 0),
+                "author_name": str(row.get("author_name") or "Luma Team"),
+                "title": str(row.get("title") or ""),
+                "slug": str(row.get("slug") or ""),
+                "content": str(row.get("content") or ""),
+                "created_at": row.get("created_at").isoformat() if row.get("created_at") and hasattr(row.get("created_at"), "isoformat") else None,
+                "published_at": row.get("published_at").isoformat() if row.get("published_at") and hasattr(row.get("published_at"), "isoformat") else None,
+            }
+            for row in public_rows
+        ],
+    }
+
+
+@app.post("/api/dashboard/blog/posts")
+async def dashboard_blog_create_post(payload: BlogPostCreatePayload, request: Request) -> dict[str, Any]:
+    _require_auth(request)
+    user = request.session.get("user")
+    user_id = _require_session_user_id(request)
+    username = str((user or {}).get("username") or "Dashboard User")
+
+    pool = _db_pool()
+    if pool is None:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
+    base_slug = _slugify_blog_title(payload.title)
+    slug = base_slug
+
+    async with pool.acquire() as connection:
+        for idx in range(0, 20):
+            attempt_slug = slug if idx == 0 else f"{base_slug}-{idx + 1}"
+            exists = await connection.fetchval("SELECT 1 FROM blog_posts WHERE slug = $1", attempt_slug)
+            if not exists:
+                slug = attempt_slug
+                break
+
+        row = await connection.fetchrow(
+            """
+            INSERT INTO blog_posts (author_user_id, author_name, title, slug, content, is_published, published_at, updated_at)
+            VALUES (
+                $1,
+                $2,
+                $3,
+                $4,
+                $5,
+                $6,
+                CASE WHEN $6 THEN CURRENT_TIMESTAMP ELSE NULL END,
+                CURRENT_TIMESTAMP
+            )
+            RETURNING id, title, slug, is_published, created_at, published_at
+            """,
+            user_id,
+            username,
+            payload.title.strip(),
+            slug,
+            payload.content.strip(),
+            bool(payload.is_published),
+        )
+
+    return {
+        "ok": True,
+        "post": {
+            "id": int(row.get("id") or 0),
+            "title": str(row.get("title") or ""),
+            "slug": str(row.get("slug") or ""),
+            "is_published": bool(row.get("is_published")),
+            "created_at": row.get("created_at").isoformat() if row.get("created_at") and hasattr(row.get("created_at"), "isoformat") else None,
+            "published_at": row.get("published_at").isoformat() if row.get("published_at") and hasattr(row.get("published_at"), "isoformat") else None,
+        },
+    }
+
+
+@app.get("/api/public/news/latest")
+async def public_news_latest(after_id: int = Query(default=0, ge=0), limit: int = Query(default=5, ge=1, le=20)) -> dict[str, Any]:
+    pool = _db_pool()
+    if pool is None:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
+    async with pool.acquire() as connection:
+        rows = await connection.fetch(
+            """
+            SELECT id, author_name, title, slug, content, created_at, published_at
+            FROM blog_posts
+            WHERE is_published = TRUE
+            ORDER BY COALESCE(published_at, created_at) DESC
+            LIMIT $1
+            """,
+            limit,
+        )
+        newest_id = await connection.fetchval(
+            "SELECT COALESCE(MAX(id), 0) FROM blog_posts WHERE is_published = TRUE"
+        )
+
+    return {
+        "ok": True,
+        "newest_id": int(newest_id or 0),
+        "has_new": int(newest_id or 0) > int(after_id or 0),
+        "posts": [
+            {
+                "id": int(row.get("id") or 0),
+                "author_name": str(row.get("author_name") or "Luma Team"),
+                "title": str(row.get("title") or ""),
+                "slug": str(row.get("slug") or ""),
+                "content": str(row.get("content") or ""),
+                "created_at": row.get("created_at").isoformat() if row.get("created_at") and hasattr(row.get("created_at"), "isoformat") else None,
+                "published_at": row.get("published_at").isoformat() if row.get("published_at") and hasattr(row.get("published_at"), "isoformat") else None,
+            }
+            for row in rows
+        ],
     }
 
 
@@ -2806,8 +3887,8 @@ async def dashboard_activity_recent(
     _require_auth(request)
     active_guild = _require_active_guild(request)
     guild_id = str(active_guild.get("id"))
-    logs = await _fetch_audit_logs(guild_id, period="30d", limit=limit)
-    return {"ok": True, "active_guild_id": guild_id, "logs": logs}
+    events = await _fetch_important_events(guild_id, limit=limit)
+    return {"ok": True, "active_guild_id": guild_id, "events": events, "logs": events}
 
 
 @app.get("/api/dashboard/activity/stream")
@@ -2819,15 +3900,27 @@ async def dashboard_activity_stream(request: Request) -> StreamingResponse:
     async def generator():
         last_seen = ""
         for _ in range(120):
-            logs = await _fetch_audit_logs(guild_id, period="24h", limit=25)
-            if logs:
-                newest = logs[0].get("created_at", "")
+            events = await _fetch_important_events(guild_id, limit=25)
+            if events:
+                newest = events[0].get("created_at", "")
                 if newest and newest != last_seen:
                     last_seen = newest
-                    yield f"data: {json.dumps({'logs': logs[:10]})}\n\n"
+                    yield f"data: {json.dumps({'events': events[:10], 'logs': events[:10]})}\n\n"
             await asyncio.sleep(5)
 
     return StreamingResponse(generator(), media_type="text/event-stream")
+
+
+@app.get("/api/dashboard/events/important")
+async def dashboard_important_events(
+    request: Request,
+    limit: int = Query(default=30, ge=1, le=200),
+) -> dict[str, Any]:
+    _require_auth(request)
+    active_guild = _require_active_guild(request)
+    guild_id = str(active_guild.get("id"))
+    events = await _fetch_important_events(guild_id, limit=limit)
+    return {"ok": True, "active_guild_id": guild_id, "events": events}
 
 
 @app.post("/api/dashboard/config-logs/ack")

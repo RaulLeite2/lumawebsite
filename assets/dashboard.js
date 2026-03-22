@@ -16,6 +16,8 @@ const I18N = {
         nav_setup: "Bot Setup",
         nav_cogs: "Cogs",
         nav_levels: "Levels",
+        nav_economy: "Economy",
+        nav_blog: "Blog",
         nav_audit: "Audit Center",
         logout: "Logout",
         signed_in_as: "Signed in as",
@@ -46,6 +48,8 @@ const I18N = {
         nav_setup: "Configuracao do Bot",
         nav_cogs: "Cogs",
         nav_levels: "Levels",
+        nav_economy: "Economia",
+        nav_blog: "Blog",
         nav_audit: "Central de Auditoria",
         logout: "Sair",
         signed_in_as: "Conectado como",
@@ -76,6 +80,8 @@ const I18N = {
         nav_setup: "Configuracion del Bot",
         nav_cogs: "Cogs",
         nav_levels: "Niveles",
+        nav_economy: "Economia",
+        nav_blog: "Blog",
         nav_audit: "Centro de Auditoria",
         logout: "Salir",
         signed_in_as: "Conectado como",
@@ -745,16 +751,23 @@ function ensureLanguageSelector() {
 }
 
 function applyStaticTranslations() {
-    const navLinks = document.querySelectorAll(".sidebar .nav a");
-    if (navLinks.length >= 7) {
-        navLinks[0].childNodes[0].nodeValue = t("nav_servers", "Servers");
-        navLinks[1].childNodes[0].nodeValue = t("nav_overview", "Overview");
-        navLinks[2].childNodes[0].nodeValue = t("nav_moderation", "Moderation");
-        navLinks[3].childNodes[0].nodeValue = t("nav_setup", "Bot Setup");
-        navLinks[4].childNodes[0].nodeValue = t("nav_cogs", "Cogs");
-        navLinks[5].childNodes[0].nodeValue = t("nav_levels", "Levels");
-        navLinks[6].childNodes[0].nodeValue = t("nav_audit", "Audit Center");
-    }
+    const navMap = {
+        "/dashboard/servers": t("nav_servers", "Servers"),
+        "/dashboard/overview": t("nav_overview", "Overview"),
+        "/dashboard/moderation": t("nav_moderation", "Moderation"),
+        "/dashboard/guild-settings": t("nav_setup", "Bot Setup"),
+        "/dashboard/cogs": t("nav_cogs", "Cogs"),
+        "/dashboard/levels": t("nav_levels", "Levels"),
+        "/dashboard/economy": t("nav_economy", "Economy"),
+        "/dashboard/blog": t("nav_blog", "Blog"),
+        "/dashboard/config-logs": t("nav_audit", "Audit Center"),
+    };
+    document.querySelectorAll(".sidebar .nav a").forEach((link) => {
+        const href = link.getAttribute("href") || "";
+        if (href in navMap && link.childNodes[0]) {
+            link.childNodes[0].nodeValue = navMap[href];
+        }
+    });
 
     const logoutLinks = document.querySelectorAll('a[href="/auth/logout"]');
     logoutLinks.forEach((node) => {
@@ -809,6 +822,8 @@ function applyStaticTranslations() {
         "entry-exit": { pt: "Luma Dashboard - Entrada e Saida", en: "Luma Dashboard - Entry & Exit", es: "Luma Dashboard - Entrada y Salida" },
         cogs: { pt: "Luma Dashboard - Cogs", en: "Luma Dashboard - Cogs", es: "Luma Dashboard - Cogs" },
         levels: { pt: "Luma Dashboard - Levels", en: "Luma Dashboard - Levels", es: "Luma Dashboard - Niveles" },
+        economy: { pt: "Luma Dashboard - Economia", en: "Luma Dashboard - Economy", es: "Luma Dashboard - Economia" },
+        blog: { pt: "Luma Dashboard - Blog", en: "Luma Dashboard - Blog", es: "Luma Dashboard - Blog" },
         "config-logs": { pt: "Luma Dashboard - Central de Auditoria", en: "Luma Dashboard - Audit Center", es: "Luma Dashboard - Centro de Auditoria" },
     };
     if (titleByPage[page]) {
@@ -1718,9 +1733,11 @@ function renderLiveActivity(logs) {
         const row = document.createElement("article");
         row.className = "log-item";
         const when = item.created_at ? new Date(item.created_at).toLocaleTimeString() : "-";
+        const label = item.kind || item.action || translateStaticText("event");
+        const detail = item.detail || item.reason || translateStaticText("No details");
         row.innerHTML = `
-            <h3>${item.action || translateStaticText("event")}</h3>
-            <p>${item.reason || translateStaticText("No details")}</p>
+            <h3>${label}</h3>
+            <p>${detail}</p>
             <p>${when}</p>
         `;
         feed.appendChild(row);
@@ -2068,10 +2085,11 @@ async function loadSmartAlerts() {
 
 async function loadLiveActivity() {
     const response = await api("/api/dashboard/activity/recent?limit=40");
-    renderLiveActivity(response.logs || []);
+    const items = response.events || response.logs || [];
+    renderLiveActivity(items);
 
     const byHour = new Array(24).fill(0);
-    (response.logs || []).forEach((item) => {
+    items.forEach((item) => {
         if (!item.created_at) return;
         const date = new Date(item.created_at);
         if (Number.isNaN(date.getTime())) return;
@@ -2099,8 +2117,8 @@ function startActivityStream() {
     stream.onmessage = (event) => {
         try {
             const data = JSON.parse(event.data || "{}");
-            if (Array.isArray(data.logs)) {
-                renderLiveActivity(data.logs);
+            if (Array.isArray(data.events || data.logs)) {
+                renderLiveActivity(data.events || data.logs);
             }
         } catch (error) {
             // Ignore malformed stream chunks.
@@ -2281,6 +2299,206 @@ async function loadLevels() {
     }
 }
 
+function formatSecondsToHhMm(seconds) {
+    const safe = Math.max(0, Number(seconds || 0));
+    const hours = Math.floor(safe / 3600);
+    const minutes = Math.floor((safe % 3600) / 60);
+    return `${hours}h ${minutes}m`;
+}
+
+function renderEconomyDashboard(overview, shop, stats, season, transactions) {
+    const balanceEl = document.getElementById("econ-balance");
+    const timerEl = document.getElementById("econ-daily-timer");
+    const shopList = document.getElementById("econ-shop-list");
+    const inventoryList = document.getElementById("econ-inventory-list");
+    const badgesList = document.getElementById("econ-badges-list");
+    const statsList = document.getElementById("econ-stats-list");
+    const seasonList = document.getElementById("econ-season-list");
+    const txList = document.getElementById("econ-transactions-list");
+    if (!balanceEl || !timerEl || !shopList || !inventoryList || !badgesList) return;
+
+    balanceEl.textContent = `${Number(overview?.balance || 0).toLocaleString()} Lumicoins`;
+    const remaining = Number(overview?.daily_remaining_seconds || 0);
+    timerEl.textContent = remaining > 0 ? formatSecondsToHhMm(remaining) : "Available now";
+
+    const items = Array.isArray(shop?.items) ? shop.items : [];
+    shopList.innerHTML = "";
+    if (!items.length) {
+        const empty = document.createElement("article");
+        empty.className = "log-item";
+        empty.innerHTML = "<h3>No shop items</h3><p>Shop is empty right now.</p>";
+        shopList.appendChild(empty);
+    } else {
+        items.forEach((item) => {
+            const row = document.createElement("article");
+            row.className = "log-item";
+            row.dataset.shopItemKey = item.item_key;
+            row.innerHTML = `
+                <h3>${item.item_name} <small>(${item.item_key})</small></h3>
+                <p>${item.item_description}</p>
+                <p><strong>${Number(item.price || 0).toLocaleString()} Lumicoins</strong> • ${item.category || "utility"}</p>
+                <div class="actions">
+                    <input type="number" min="1" max="50" value="1" class="shop-qty" style="max-width:90px;">
+                    <button class="btn primary" data-econ-buy="${item.item_key}" type="button">Buy</button>
+                </div>
+            `;
+            shopList.appendChild(row);
+        });
+    }
+
+    const inventory = Array.isArray(overview?.inventory) ? overview.inventory : [];
+    inventoryList.innerHTML = "";
+    if (!inventory.length) {
+        const empty = document.createElement("article");
+        empty.className = "log-item";
+        empty.innerHTML = "<h3>Empty inventory</h3><p>Buy items in the shop to fill your inventory.</p>";
+        inventoryList.appendChild(empty);
+    } else {
+        inventory.forEach((item) => {
+            const row = document.createElement("article");
+            row.className = "log-item";
+            row.innerHTML = `
+                <h3>${item.item_name} <small>(${item.item_key})</small></h3>
+                <p>Quantity: <strong>${Number(item.quantity || 0)}</strong></p>
+                <div class="actions"><button class="btn" data-econ-use="${item.item_key}" type="button">Use item</button></div>
+            `;
+            inventoryList.appendChild(row);
+        });
+    }
+
+    const badges = Array.isArray(overview?.badges) ? overview.badges : [];
+    const effects = Array.isArray(overview?.active_effects) ? overview.active_effects : [];
+    badgesList.innerHTML = "";
+
+    const badgeBlock = document.createElement("article");
+    badgeBlock.className = "log-item";
+    badgeBlock.innerHTML = `<h3>Badges</h3><p>${badges.length ? badges.map((b) => b.badge_key).join(", ") : "No badges unlocked yet."}</p>`;
+    badgesList.appendChild(badgeBlock);
+
+    const effectsText = effects.length
+        ? effects.map((e) => `${e.effect_key} (expires ${new Date(e.expires_at).toLocaleString()})`).join(" | ")
+        : "No active effects.";
+    const effectBlock = document.createElement("article");
+    effectBlock.className = "log-item";
+    effectBlock.innerHTML = `<h3>Active effects</h3><p>${effectsText}</p>`;
+    badgesList.appendChild(effectBlock);
+
+    if (statsList) {
+        const s = stats?.stats || {};
+        const top = Array.isArray(stats?.top_earners) ? stats.top_earners : [];
+        statsList.innerHTML = `
+            <article class="log-item"><h3>7d Transactions</h3><p>${Number(s.tx_count_7d || 0).toLocaleString()}</p></article>
+            <article class="log-item"><h3>Minted (7d)</h3><p>${Number(s.minted_7d || 0).toLocaleString()}</p></article>
+            <article class="log-item"><h3>Spent (7d)</h3><p>${Number(s.spent_7d || 0).toLocaleString()}</p></article>
+            <article class="log-item"><h3>Daily Claims (7d)</h3><p>${Number(s.daily_claims_7d || 0).toLocaleString()}</p></article>
+            <article class="log-item"><h3>Transfers (7d)</h3><p>${Number(s.transfers_7d || 0).toLocaleString()}</p></article>
+            <article class="log-item"><h3>Top Earners</h3><p>${top.map((u) => `${u.user_id}: ${Number(u.net || 0).toLocaleString()}`).join(" | ") || "No data"}</p></article>
+        `;
+    }
+
+    if (seasonList) {
+        const leaderboard = Array.isArray(season?.leaderboard) ? season.leaderboard : [];
+        seasonList.innerHTML = "";
+        const info = document.createElement("article");
+        info.className = "log-item";
+        info.innerHTML = `<h3>Season ${season?.season_key || "-"}</h3><p>${season?.starts_at || "-"} -> ${season?.ends_at || "-"}</p>`;
+        seasonList.appendChild(info);
+
+        if (!leaderboard.length) {
+            const empty = document.createElement("article");
+            empty.className = "log-item";
+            empty.innerHTML = "<h3>No season ranking yet</h3><p>Transactions will appear here once users move the economy.</p>";
+            seasonList.appendChild(empty);
+        } else {
+            leaderboard.forEach((entry) => {
+                const row = document.createElement("article");
+                row.className = "log-item";
+                row.innerHTML = `<h3>#${entry.rank} • ${entry.user_id}</h3><p>${Number(entry.score || 0).toLocaleString()} pts</p>`;
+                seasonList.appendChild(row);
+            });
+        }
+    }
+
+    if (txList) {
+        const txs = Array.isArray(transactions?.transactions) ? transactions.transactions : [];
+        txList.innerHTML = "";
+        if (!txs.length) {
+            const empty = document.createElement("article");
+            empty.className = "log-item";
+            empty.innerHTML = "<h3>No transactions yet</h3><p>Recent economy operations will appear here.</p>";
+            txList.appendChild(empty);
+        } else {
+            txs.slice(0, 30).forEach((tx) => {
+                const row = document.createElement("article");
+                row.className = "log-item";
+                const when = tx.created_at ? new Date(tx.created_at).toLocaleString() : "-";
+                row.innerHTML = `<h3>${tx.tx_type} • ${tx.delta > 0 ? "+" : ""}${Number(tx.delta || 0).toLocaleString()}</h3><p>User ${tx.user_id} • Balance ${Number(tx.balance_after || 0).toLocaleString()}</p><p>${when}</p>`;
+                txList.appendChild(row);
+            });
+        }
+    }
+}
+
+async function loadEconomyDashboard() {
+    const [overview, shop, stats, season, transactions] = await Promise.all([
+        api("/api/dashboard/economy/overview"),
+        api("/api/dashboard/economy/shop"),
+        api("/api/dashboard/economy/stats"),
+        api("/api/dashboard/economy/season"),
+        api("/api/dashboard/economy/transactions?limit=40"),
+    ]);
+    renderEconomyDashboard(overview, shop, stats, season, transactions);
+}
+
+function renderBlogPosts(payload) {
+    const myList = document.getElementById("blog-my-posts");
+    const publicList = document.getElementById("blog-public-posts");
+    if (!myList || !publicList) return;
+
+    const myPosts = Array.isArray(payload?.my_posts) ? payload.my_posts : [];
+    const publicPosts = Array.isArray(payload?.public_posts) ? payload.public_posts : [];
+
+    myList.innerHTML = "";
+    if (!myPosts.length) {
+        myList.innerHTML = '<article class="log-item"><h3>No posts yet</h3><p>Create your first blog post using the form above.</p></article>';
+    } else {
+        myPosts.forEach((post) => {
+            const row = document.createElement("article");
+            row.className = "log-item";
+            const when = post.created_at ? new Date(post.created_at).toLocaleString() : "-";
+            row.innerHTML = `
+                <h3>${post.title} <small>${post.is_published ? "Published" : "Draft"}</small></h3>
+                <p>/${post.slug}</p>
+                <p>${(post.content || "").slice(0, 180)}${(post.content || "").length > 180 ? "..." : ""}</p>
+                <p>${when}</p>
+            `;
+            myList.appendChild(row);
+        });
+    }
+
+    publicList.innerHTML = "";
+    if (!publicPosts.length) {
+        publicList.innerHTML = '<article class="log-item"><h3>No public news yet</h3><p>Published posts will appear here.</p></article>';
+    } else {
+        publicPosts.forEach((post) => {
+            const row = document.createElement("article");
+            row.className = "log-item";
+            const when = post.published_at || post.created_at;
+            row.innerHTML = `
+                <h3>${post.title}</h3>
+                <p>By ${post.author_name || "Luma Team"} • ${when ? new Date(when).toLocaleString() : "-"}</p>
+                <p>${(post.content || "").slice(0, 220)}${(post.content || "").length > 220 ? "..." : ""}</p>
+            `;
+            publicList.appendChild(row);
+        });
+    }
+}
+
+async function loadBlogDashboard() {
+    const payload = await api("/api/dashboard/blog/posts?limit=60");
+    renderBlogPosts(payload);
+}
+
 function renderPage(context) {
     renderCommon(context);
     if (page === "servers") renderServers(context);
@@ -2318,6 +2536,12 @@ async function loadState() {
     }
     if (page === "levels") {
         await loadLevels();
+    }
+    if (page === "economy") {
+        await loadEconomyDashboard();
+    }
+    if (page === "blog") {
+        await loadBlogDashboard();
     }
 }
 
@@ -2857,6 +3081,126 @@ function bindPageActions() {
                 flash("Leaderboard refreshed", "success");
             } catch (error) {
                 flash("Failed to refresh leaderboard", "error");
+            }
+        });
+    }
+
+    const refreshEconomy = document.getElementById("refresh-economy");
+    if (refreshEconomy) {
+        refreshEconomy.addEventListener("click", async () => {
+            try {
+                await loadEconomyDashboard();
+                flash("Economy refreshed", "success");
+            } catch (error) {
+                flash("Failed to refresh economy", "error");
+            }
+        });
+    }
+
+    const claimDaily = document.getElementById("claim-daily");
+    if (claimDaily) {
+        claimDaily.addEventListener("click", async () => {
+            try {
+                const res = await api("/api/dashboard/economy/daily", { method: "POST", body: "{}" });
+                if (res?.ok) {
+                    flash(`Daily claimed: +${res.reward} Lumicoins`, "success");
+                } else if (res?.cooldown) {
+                    flash(`Daily in cooldown: ${formatSecondsToHhMm(res.remaining_seconds || 0)}`);
+                }
+                await loadEconomyDashboard();
+            } catch (error) {
+                flash("Failed to claim daily", "error");
+            }
+        });
+    }
+
+    const economyShopList = document.getElementById("econ-shop-list");
+    if (economyShopList) {
+        economyShopList.addEventListener("click", async (event) => {
+            const target = event.target;
+            if (!(target instanceof HTMLElement)) return;
+            const itemKey = target.dataset.econBuy;
+            if (!itemKey) return;
+
+            const parent = target.closest("article");
+            const qtyInput = parent ? parent.querySelector(".shop-qty") : null;
+            const quantity = Math.max(1, Number(qtyInput?.value || 1));
+
+            try {
+                await api("/api/dashboard/economy/buy", {
+                    method: "POST",
+                    body: JSON.stringify({ item_key: itemKey, quantity }),
+                });
+                flash("Purchase completed", "success");
+                await loadEconomyDashboard();
+            } catch (error) {
+                flash("Failed to buy item", "error");
+            }
+        });
+    }
+
+    const economyInventoryList = document.getElementById("econ-inventory-list");
+    if (economyInventoryList) {
+        economyInventoryList.addEventListener("click", async (event) => {
+            const target = event.target;
+            if (!(target instanceof HTMLElement)) return;
+            const itemKey = target.dataset.econUse;
+            if (!itemKey) return;
+
+            try {
+                const res = await api("/api/dashboard/economy/use", {
+                    method: "POST",
+                    body: JSON.stringify({ item_key: itemKey }),
+                });
+                flash(res?.message || "Item used", "success");
+                await loadEconomyDashboard();
+            } catch (error) {
+                flash("Failed to use item", "error");
+            }
+        });
+    }
+
+    const blogRefresh = document.getElementById("refresh-blog-posts");
+    if (blogRefresh) {
+        blogRefresh.addEventListener("click", async () => {
+            try {
+                await loadBlogDashboard();
+                flash("Blog refreshed", "success");
+            } catch (error) {
+                flash("Failed to refresh blog", "error");
+            }
+        });
+    }
+
+    const blogPublish = document.getElementById("blog-publish-post");
+    if (blogPublish) {
+        blogPublish.addEventListener("click", async () => {
+            const title = document.getElementById("blog-post-title")?.value?.trim() || "";
+            const content = document.getElementById("blog-post-content")?.value?.trim() || "";
+            const isPublished = document.getElementById("blog-post-published")?.checked ?? true;
+
+            if (title.length < 3 || content.length < 10) {
+                flash("Write a title and content before posting", "error");
+                return;
+            }
+
+            try {
+                await api("/api/dashboard/blog/posts", {
+                    method: "POST",
+                    body: JSON.stringify({
+                        title,
+                        content,
+                        is_published: isPublished,
+                    }),
+                });
+                const titleInput = document.getElementById("blog-post-title");
+                const contentInput = document.getElementById("blog-post-content");
+                if (titleInput) titleInput.value = "";
+                if (contentInput) contentInput.value = "";
+                flash("Post published", "success");
+                await loadBlogDashboard();
+            } catch (error) {
+                flash("Failed to publish post", "error");
             }
         });
     }
