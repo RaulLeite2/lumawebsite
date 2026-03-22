@@ -43,7 +43,7 @@
                     <button class="btn" id="mk-debug-toggle" type="button">Debug</button>
                     <button class="btn" id="mk-test-flow" type="button">Test Flow</button>
                     <button class="btn" id="mk-bot-status" type="button">Check MK Active</button>
-                    <button class="btn primary" id="mk-save-flow" type="button">Publish Draft</button>
+                    <button class="btn primary" id="mk-save-flow" type="button">Publish Script</button>
                     <a class="btn" href="/auth/logout">Logout</a>
                 </div>
             </header>
@@ -53,7 +53,7 @@
                     <div class="mk-panel-head mk-library-titlebar">
                         <div>
                             <h3>Block Library</h3>
-                            <p class="lead mk-library-lead">Drag decorated modules directly to the board and open Composer only when you want quick chained presets.</p>
+                            <p class="lead mk-library-lead">Drag decorated modules directly to the board and use Composer when you want a fast trigger/condition/action chain.</p>
                         </div>
                         <span class="pill accent-blue">Primary Dock</span>
                     </div>
@@ -102,37 +102,6 @@
                         </div>
                     </div>
 
-                    <div class="mk-preset-stack">
-                        <div class="mk-panel-head mk-preset-head">
-                            <div>
-                                <h3>Moderation Presets</h3>
-                                <p class="lead mk-preset-lead">Drop a full moderation routine on the board with one click, then tweak any block in the inspector.</p>
-                            </div>
-                            <span class="pill accent-orange">1-Click</span>
-                        </div>
-                        <div class="mk-preset-list">
-                            <button class="mk-preset-card" type="button" data-mk-preset="anti_link">
-                                <span class="mk-preset-kicker">Message Guard</span>
-                                <strong>Anti-Link Shield</strong>
-                                <span>When a message contains links, delete it, timeout the member and send a DM notice.</span>
-                            </button>
-                            <button class="mk-preset-card" type="button" data-mk-preset="mention_raid">
-                                <span class="mk-preset-kicker">Raid Control</span>
-                                <strong>Mention Raid Lock</strong>
-                                <span>Catches mention spam and escalates into delete, timeout and staff review.</span>
-                            </button>
-                            <button class="mk-preset-card" type="button" data-mk-preset="duplicate_flood">
-                                <span class="mk-preset-kicker">Flood Filter</span>
-                                <strong>Duplicate Flood Stop</strong>
-                                <span>Flags repeated messages, removes the content and opens a review route for mods.</span>
-                            </button>
-                            <button class="mk-preset-card" type="button" data-mk-preset="caps_control">
-                                <span class="mk-preset-kicker">Tone Control</span>
-                                <strong>Caps Control</strong>
-                                <span>Checks caps ratio, deletes the message and warns the member by DM.</span>
-                            </button>
-                        </div>
-                    </div>
                 </aside>
 
                 <div class="mk-canvas-wrap" id="mk-canvas-wrap">
@@ -170,35 +139,46 @@
                             <h3>Selected Block</h3>
                             <span class="pill accent-orange" id="mk-selected-kind">Inspector</span>
                         </div>
-                        <p class="lead mk-inspector-lead" id="mk-selected-help">Select a block on the canvas to view details.</p>
-                        <div class="log-item mk-inspector-card">
-                            <h3 id="mk-selected-title">No block selected</h3>
-                            <p id="mk-selected-sub">Drop blocks and connect ports to assemble the rule.</p>
-                            <p class="mk-selected-meta" id="mk-selected-meta">The panel will show position, node type and link counts.</p>
-                            <div class="mk-health-chips" id="mk-health-chips">
-                                <span class="mk-health-chip">No block data yet</span>
-                            </div>
-                        </div>
-                        <div class="mk-inspector-form">
-                            <div class="field">
-                                <label for="mk-selected-subtype">Block Variant</label>
-                                <select id="mk-selected-subtype" disabled></select>
-                            </div>
-                            <div class="field">
-                                <label for="mk-selected-title-input">Display Title</label>
-                                <input id="mk-selected-title-input" type="text" maxlength="48" placeholder="Block title" disabled>
-                            </div>
-                            <div class="field">
-                                <label for="mk-selected-description-input">Description</label>
-                                <textarea id="mk-selected-description-input" rows="4" maxlength="160" placeholder="Explain what this block does" disabled></textarea>
-                            </div>
-                        </div>
-                        <div class="mk-inspector-actions">
-                            <button class="btn" id="mk-apply-node" type="button" disabled>Apply</button>
-                            <button class="btn" id="mk-duplicate-node" type="button" disabled>Duplicate</button>
-                            <button class="btn" id="mk-disconnect-node" type="button" disabled>Detach Links</button>
-                            <button class="btn" id="mk-inspector-debug" type="button">Open Debug</button>
-                            <button class="btn danger" id="mk-delete-node" type="button" disabled>Delete</button>
+                        <div class="mk-inspector-layout">
+                            <section class="mk-inspector-section">
+                                <p class="lead mk-inspector-lead" id="mk-selected-help">Select a block on the canvas to view details.</p>
+                                <div class="log-item mk-inspector-card">
+                                    <h3 id="mk-selected-title">No block selected</h3>
+                                    <p id="mk-selected-sub">Drop blocks and connect ports to assemble the rule.</p>
+                                    <p class="mk-selected-meta" id="mk-selected-meta">The panel will show position, node type and link counts.</p>
+                                    <div class="mk-health-chips" id="mk-health-chips">
+                                        <span class="mk-health-chip">No block data yet</span>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <section class="mk-inspector-section">
+                                <div class="mk-inspector-section-head">
+                                    <h4>Block Editor</h4>
+                                    <span>Edit selected fields</span>
+                                </div>
+                                <div class="mk-inspector-form">
+                                    <div class="field">
+                                        <label for="mk-selected-subtype">Block Variant</label>
+                                        <select id="mk-selected-subtype" disabled></select>
+                                    </div>
+                                    <div class="field">
+                                        <label for="mk-selected-title-input">Display Title</label>
+                                        <input id="mk-selected-title-input" type="text" maxlength="48" placeholder="Block title" disabled>
+                                    </div>
+                                    <div class="field">
+                                        <label for="mk-selected-description-input">Description</label>
+                                        <textarea id="mk-selected-description-input" rows="4" maxlength="160" placeholder="Explain what this block does" disabled></textarea>
+                                    </div>
+                                </div>
+                                <div class="mk-inspector-actions">
+                                    <button class="btn" id="mk-apply-node" type="button" disabled>Apply</button>
+                                    <button class="btn" id="mk-duplicate-node" type="button" disabled>Duplicate</button>
+                                    <button class="btn" id="mk-disconnect-node" type="button" disabled>Detach Links</button>
+                                    <button class="btn" id="mk-inspector-debug" type="button">Open Debug</button>
+                                    <button class="btn danger" id="mk-delete-node" type="button" disabled>Delete</button>
+                                </div>
+                            </section>
                         </div>
                     </section>
 
@@ -308,7 +288,17 @@
                 <button class="btn primary" id="mk-build-chain" type="button">Build If / Then</button>
             </div>
 
-            <p class="mk-composer-note">Use the Moderation Presets dock for full 1-click flows and keep Composer focused on manual block assembly.</p>
+            <p class="mk-composer-note">Use Composer to assemble a clean trigger/condition/action stack, then fine-tune each block in the inspector.</p>
+        </div>
+    </section>
+
+    <section class="mk-publish-transition" id="mk-publish-transition" hidden>
+        <div class="mk-publish-slide">
+            <span class="mk-publish-kicker">Publishing MK Script</span>
+            <strong id="mk-publish-title">Sliding draft to bot runtime...</strong>
+            <div class="mk-publish-track" role="presentation">
+                <span class="mk-publish-progress"></span>
+            </div>
         </div>
     </section>
 

@@ -44,7 +44,6 @@
     const addConditionBtn = document.getElementById("mk-add-condition");
     const addActionBtn = document.getElementById("mk-add-action");
     const buildChainBtn = document.getElementById("mk-build-chain");
-    const presetButtons = document.querySelectorAll("[data-mk-preset]");
     const autoLayoutBtn = document.getElementById("mk-auto-layout");
     const clearCanvasBtn = document.getElementById("mk-clear-canvas");
     const testFlowBtn = document.getElementById("mk-test-flow");
@@ -60,6 +59,8 @@
     const terminalClearBtn = document.getElementById("mk-terminal-clear");
     const terminalCommandInput = document.getElementById("mk-terminal-command");
     const terminalCommandRunBtn = document.getElementById("mk-terminal-command-run");
+    const publishTransition = document.getElementById("mk-publish-transition");
+    const publishTitle = document.getElementById("mk-publish-title");
 
     if (!mkWrap || !mkCanvas || !mkConnections || !mkPalette) {
         return;
@@ -97,75 +98,6 @@
         trigger: "Event Block",
         condition: "Decision Block",
         action: "Command Block",
-    };
-
-    const moderationPresets = {
-        anti_link: {
-            title: "Anti-Link Shield",
-            flash: "Anti-Link preset added",
-            nodes: [
-                { key: "trigger", type: "trigger", sub: "on_message", offsetX: 0, offsetY: 0 },
-                { key: "condition", type: "condition", sub: "contains_link", offsetX: 18, offsetY: 162 },
-                { key: "delete", type: "action", sub: "delete_message", offsetX: 36, offsetY: 360 },
-                { key: "timeout", type: "action", sub: "timeout_10m", offsetX: 54, offsetY: 534 },
-                { key: "dm", type: "action", sub: "send_dm", offsetX: 72, offsetY: 708 },
-            ],
-            links: [
-                ["trigger", "condition"],
-                ["condition", "delete"],
-                ["delete", "timeout"],
-                ["timeout", "dm"],
-            ],
-        },
-        mention_raid: {
-            title: "Mention Raid Lock",
-            flash: "Mention Raid preset added",
-            nodes: [
-                { key: "trigger", type: "trigger", sub: "on_message", offsetX: 0, offsetY: 0 },
-                { key: "condition", type: "condition", sub: "mention_spam", offsetX: 18, offsetY: 162 },
-                { key: "delete", type: "action", sub: "delete_message", offsetX: 36, offsetY: 360 },
-                { key: "timeout", type: "action", sub: "timeout_10m", offsetX: 54, offsetY: 534 },
-                { key: "review", type: "action", sub: "flag_review", offsetX: 72, offsetY: 708 },
-            ],
-            links: [
-                ["trigger", "condition"],
-                ["condition", "delete"],
-                ["delete", "timeout"],
-                ["timeout", "review"],
-            ],
-        },
-        duplicate_flood: {
-            title: "Duplicate Flood Stop",
-            flash: "Duplicate Flood preset added",
-            nodes: [
-                { key: "trigger", type: "trigger", sub: "on_message", offsetX: 0, offsetY: 0 },
-                { key: "condition", type: "condition", sub: "duplicate_message", offsetX: 18, offsetY: 162 },
-                { key: "delete", type: "action", sub: "delete_message", offsetX: 36, offsetY: 360 },
-                { key: "timeout", type: "action", sub: "timeout_10m", offsetX: 54, offsetY: 534 },
-                { key: "review", type: "action", sub: "flag_review", offsetX: 72, offsetY: 708 },
-            ],
-            links: [
-                ["trigger", "condition"],
-                ["condition", "delete"],
-                ["delete", "timeout"],
-                ["timeout", "review"],
-            ],
-        },
-        caps_control: {
-            title: "Caps Control",
-            flash: "Caps Control preset added",
-            nodes: [
-                { key: "trigger", type: "trigger", sub: "on_message", offsetX: 0, offsetY: 0 },
-                { key: "condition", type: "condition", sub: "caps_ratio", offsetX: 18, offsetY: 162 },
-                { key: "delete", type: "action", sub: "delete_message", offsetX: 36, offsetY: 360 },
-                { key: "dm", type: "action", sub: "send_dm", offsetX: 54, offsetY: 534 },
-            ],
-            links: [
-                ["trigger", "condition"],
-                ["condition", "delete"],
-                ["delete", "dm"],
-            ],
-        },
     };
 
     const state = {
@@ -215,6 +147,46 @@
         terminalOutput.textContent = "[boot] MK terminal ready.\n[tip] Type \"mk status\" to verify bot sync.";
     }
 
+    function showPublishSlide(message) {
+        if (!publishTransition) return;
+        if (publishTitle && message) {
+            publishTitle.textContent = message;
+        }
+        publishTransition.hidden = false;
+        window.requestAnimationFrame(() => {
+            publishTransition.classList.add("is-visible");
+        });
+    }
+
+    async function hidePublishSlide() {
+        if (!publishTransition) return;
+        publishTransition.classList.remove("is-visible");
+        await wait(340);
+        publishTransition.hidden = true;
+    }
+
+    async function runPublishTransition(task) {
+        if (saveFlowBtn) {
+            saveFlowBtn.classList.add("is-publishing");
+            saveFlowBtn.textContent = "Publishing...";
+        }
+        showPublishSlide("Sliding draft to bot runtime...");
+        await wait(220);
+        try {
+            await task();
+            if (publishTitle) {
+                publishTitle.textContent = "Publish complete. Syncing visual state...";
+            }
+            await wait(220);
+        } finally {
+            await hidePublishSlide();
+            if (saveFlowBtn) {
+                saveFlowBtn.classList.remove("is-publishing");
+                saveFlowBtn.textContent = "Publish Script";
+            }
+        }
+    }
+
     function formatErrorMessage(error, fallback) {
         if (error instanceof Error && error.message) {
             return error.message;
@@ -248,6 +220,22 @@
             appendTerminalLine(`${taskName} failed: ${formatErrorMessage(error, "Unexpected terminal failure")}`, "warn");
         } finally {
             setTerminalBusy(false);
+        }
+    }
+
+    async function fetchJsonWithTimeout(url, options = {}, timeoutMs = 12000) {
+        const controller = new AbortController();
+        const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+
+        try {
+            return await fetch(url, { ...options, signal: controller.signal });
+        } catch (error) {
+            if (error?.name === "AbortError") {
+                throw new Error("Request timed out. Try again in a few seconds.");
+            }
+            throw error;
+        } finally {
+            window.clearTimeout(timer);
         }
     }
 
@@ -561,7 +549,7 @@
         selectedKind.textContent = node.type.charAt(0).toUpperCase() + node.type.slice(1);
         selectedHealthChips.replaceChildren(
             createHealthChip(node.type.toUpperCase()),
-            createHealthChip(`Preset ${node.sub}`),
+            createHealthChip(`Variant ${node.sub}`),
             createHealthChip(`${counts.incoming} in / ${counts.outgoing} out`),
         );
         syncSelectedEditor(node);
@@ -1039,25 +1027,13 @@
             setSelected(focusNode.id, { silent: true });
         }
 
-        addLog(options.logPrefix || "Preset Added", `${blueprint.title} inserted with ${createdNodes.size} blocks.`);
+        addLog(options.logPrefix || "Flow Added", `${blueprint.title} inserted with ${createdNodes.size} blocks.`);
         finalizeGraphChange(options.label || `${blueprint.title} created`, {
-            preset: blueprint.title,
+            flow: blueprint.title,
             nodes: Array.from(createdNodes.values()),
         });
 
         return createdNodes;
-    }
-
-    function applyPresetFlow(presetId) {
-        const preset = moderationPresets[presetId];
-        if (!preset) return;
-
-        createBlueprintFlow(preset, {
-            label: `${preset.title} preset created`,
-            logPrefix: "Preset Added",
-        });
-        pushDebug("Preset applied", { preset: presetId, title: preset.title }, true);
-        window.showFlash?.(preset.flash, "success");
     }
 
     function autoLayout() {
@@ -1245,7 +1221,7 @@
     }
 
     async function fetchMkBotStatus() {
-        const response = await fetch("/api/dashboard/mk-script/status", {
+        const response = await fetchJsonWithTimeout("/api/dashboard/mk-script/status", {
             headers: {
                 Accept: "application/json",
             },
@@ -1273,7 +1249,7 @@
     }
 
     async function launchMkScript(report) {
-        const response = await fetch("/api/dashboard/mk-script/launch", {
+        const response = await fetchJsonWithTimeout("/api/dashboard/mk-script/launch", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -1550,12 +1526,6 @@
         );
     });
 
-    presetButtons.forEach((button) => {
-        button.addEventListener("click", () => {
-            applyPresetFlow(button.dataset.mkPreset || "");
-        });
-    });
-
     autoLayoutBtn?.addEventListener("click", autoLayout);
     clearCanvasBtn?.addEventListener("click", () => clearCanvas(true));
     undoBtn?.addEventListener("click", undo);
@@ -1653,7 +1623,7 @@
         const snapshot = serializeState();
         addLog("Draft Saved", `Stored ${snapshot.nodes.length} blocks locally.`);
         pushDebug("Draft saved", snapshot, true);
-        await runTerminalTask("mk launch", runLaunchSequence);
+        await runTerminalTask("mk launch", () => runPublishTransition(runLaunchSequence));
     });
 
     botStatusBtn?.addEventListener("click", () => {
