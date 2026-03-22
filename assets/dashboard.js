@@ -927,6 +927,121 @@ function flash(message, type = "info") {
     }, 1900);
 }
 
+window.showFlash = flash;
+
+function applySidebarCollapsedState(collapsed) {
+    document.body.classList.toggle("sidebar-collapsed", collapsed);
+    const toggle = document.getElementById("sidebar-collapse-toggle");
+    if (toggle) {
+        toggle.setAttribute("aria-pressed", collapsed ? "true" : "false");
+        toggle.setAttribute("title", collapsed ? "Expand sidebar" : "Collapse sidebar");
+        toggle.innerHTML = collapsed ? "<span>»</span>" : "<span>«</span>";
+    }
+}
+
+function ensureSidebarChrome() {
+    const sidebar = document.querySelector(".sidebar");
+    const logo = sidebar?.querySelector(".logo");
+    if (!sidebar || !logo) return;
+
+    let head = sidebar.querySelector(".sidebar-head");
+    if (!head) {
+        head = document.createElement("div");
+        head.className = "sidebar-head";
+        sidebar.insertBefore(head, logo);
+        head.appendChild(logo);
+    }
+
+    let toggle = document.getElementById("sidebar-collapse-toggle");
+    if (!toggle) {
+        toggle = document.createElement("button");
+        toggle.type = "button";
+        toggle.id = "sidebar-collapse-toggle";
+        toggle.className = "sidebar-collapse-toggle";
+        head.appendChild(toggle);
+        toggle.addEventListener("click", () => {
+            const next = !document.body.classList.contains("sidebar-collapsed");
+            applySidebarCollapsedState(next);
+            try {
+                localStorage.setItem("luma_sidebar_collapsed", next ? "1" : "0");
+            } catch (error) {
+                // Ignore storage issues.
+            }
+        });
+    }
+
+    let collapsed = false;
+    try {
+        collapsed = localStorage.getItem("luma_sidebar_collapsed") === "1";
+    } catch (error) {
+        collapsed = false;
+    }
+
+    if (window.innerWidth <= 1000) {
+        collapsed = false;
+    }
+
+    applySidebarCollapsedState(collapsed);
+}
+
+function ensureMkRouteTransition() {
+    let overlay = document.getElementById("mk-route-transition");
+    if (!overlay) {
+        overlay = document.createElement("div");
+        overlay.id = "mk-route-transition";
+        overlay.className = "mk-route-transition";
+        overlay.innerHTML = `
+            <div class="mk-route-transition-card">
+                <span class="mk-route-transition-kicker">Luma Dashboard</span>
+                <strong>MK Script</strong>
+                <p>Visual flow logic loading...</p>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+    }
+
+    document.querySelectorAll('.sidebar .nav a[href="/dashboard/mk-script"]').forEach((link) => {
+        if (link.dataset.mkTransitionBound === "1") return;
+        link.dataset.mkTransitionBound = "1";
+        link.addEventListener("click", (event) => {
+            if (page === "mk-script") return;
+            if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+            event.preventDefault();
+            try {
+                sessionStorage.setItem("mk_script_intro", "1");
+            } catch (error) {
+                // Ignore storage issues.
+            }
+            overlay.classList.add("is-active", "is-leaving");
+            window.setTimeout(() => {
+                window.location.href = link.href;
+            }, 520);
+        });
+    });
+
+    if (page === "mk-script") {
+        let shouldIntro = false;
+        try {
+            shouldIntro = sessionStorage.getItem("mk_script_intro") === "1";
+            sessionStorage.removeItem("mk_script_intro");
+        } catch (error) {
+            shouldIntro = false;
+        }
+
+        if (shouldIntro) {
+            overlay.classList.add("is-active", "is-entering");
+            document.body.classList.add("mk-page-entering");
+            window.setTimeout(() => {
+                overlay.classList.add("is-settling");
+                document.body.classList.remove("mk-page-entering");
+            }, 650);
+            window.setTimeout(() => {
+                overlay.classList.remove("is-active", "is-entering", "is-leaving", "is-settling");
+            }, 1350);
+        }
+    }
+}
+
 function updateConfigLogBadge(unreadCount) {
     const badges = document.querySelectorAll(".config-log-dot");
     badges.forEach((badge) => {
@@ -3371,6 +3486,8 @@ function bindPageActions() {
 
 (async function boot() {
     try {
+        ensureSidebarChrome();
+        ensureMkRouteTransition();
         bindGuildSwitcher();
         bindPageActions();
         bindEntryExitPreviewButtons();

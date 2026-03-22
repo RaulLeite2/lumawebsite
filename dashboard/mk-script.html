@@ -32,11 +32,13 @@
         <main class="main">
             <header class="topbar">
                 <div>
+                    <span class="eyebrow mk-eyebrow">Visual Logic Dock</span>
                     <h1 class="title">MK Script Builder</h1>
-                    <p class="subtitle">Drag logic blocks, connect flows, and prototype automation rules visually.</p>
+                    <p class="subtitle">Compose triggers, conditions and actions with a richer flow board, quick chains and live debug feedback.</p>
                 </div>
                 <div class="actions">
                     <select id="guild-select"></select>
+                    <button class="btn" id="mk-debug-toggle" type="button">Debug Off</button>
                     <button class="btn" id="mk-test-flow" type="button">Test Flow</button>
                     <button class="btn primary" id="mk-save-flow" type="button">Publish Draft</button>
                     <a class="btn" href="/auth/logout">Logout</a>
@@ -44,50 +46,150 @@
             </header>
 
             <section class="mk-layout">
-                <aside class="mk-panel">
-                    <h3>Logic Blocks</h3>
-                    <p class="lead">Pick blocks and drop them into the flow space.</p>
+                <aside class="mk-panel mk-builder-panel">
+                    <div class="mk-panel-head">
+                        <h3>Flow Composer</h3>
+                        <span class="pill accent-blue">Scratch-style</span>
+                    </div>
+                    <p class="lead">Choose a trigger, condition and action, then drop them freely or generate a starter chain instantly.</p>
+
+                    <div class="mk-composer-grid">
+                        <div class="field">
+                            <label for="mk-trigger-select">Trigger</label>
+                            <select id="mk-trigger-select">
+                                <option value="on_message">Select a Trigger</option>
+                                <option value="on_message">Message Sent</option>
+                                <option value="member_join">Member Joins</option>
+                                <option value="voice_timer">Voice Session Matured</option>
+                            </select>
+                        </div>
+
+                        <div class="field">
+                            <label for="mk-condition-select">Condition</label>
+                            <select id="mk-condition-select">
+                                <option value="contains_link">Select a Condition</option>
+                                <option value="contains_link">Contains Link</option>
+                                <option value="caps_ratio">Caps Ratio</option>
+                                <option value="mention_spam">Mention Spam</option>
+                                <option value="duplicate_message">Duplicate Message</option>
+                            </select>
+                        </div>
+
+                        <div class="field">
+                            <label for="mk-action-select">Action</label>
+                            <select id="mk-action-select">
+                                <option value="timeout_10m">Select an Action</option>
+                                <option value="timeout_10m">Timeout 10m</option>
+                                <option value="delete_message">Delete Message</option>
+                                <option value="send_dm">Send DM</option>
+                                <option value="flag_review">Flag For Review</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mk-compose-actions">
+                        <button class="btn" id="mk-add-trigger" type="button">Add Trigger</button>
+                        <button class="btn" id="mk-add-condition" type="button">Add Condition</button>
+                        <button class="btn" id="mk-add-action" type="button">Add Action</button>
+                        <button class="btn primary" id="mk-build-chain" type="button">Build Chain</button>
+                    </div>
+
+                    <div class="mk-library-head">
+                        <h3>Block Library</h3>
+                        <p class="lead">Decorated modules you can drag to the board for more freeform layouts.</p>
+                    </div>
+
                     <div class="mk-palette" id="mk-palette">
                         <div class="mk-block-template" draggable="true" data-type="trigger" data-title="Message Sent" data-sub="on_message">
-                            <strong>Trigger: Message Sent</strong>
+                            <span class="mk-template-kicker">Trigger</span>
+                            <strong>Message Sent</strong>
                             <span>Starts rule execution when a user sends a message.</span>
                         </div>
                         <div class="mk-block-template" draggable="true" data-type="condition" data-title="Contains Link" data-sub="contains_link">
-                            <strong>Condition: Contains Link</strong>
+                            <span class="mk-template-kicker">Condition</span>
+                            <strong>Contains Link</strong>
                             <span>Checks if a message has URL or invite pattern.</span>
                         </div>
                         <div class="mk-block-template" draggable="true" data-type="condition" data-title="Caps Ratio" data-sub="caps_ratio">
-                            <strong>Condition: Caps Ratio</strong>
+                            <span class="mk-template-kicker">Condition</span>
+                            <strong>Caps Ratio</strong>
                             <span>Validates if uppercase ratio is above threshold.</span>
                         </div>
                         <div class="mk-block-template" draggable="true" data-type="action" data-title="Timeout 10m" data-sub="timeout_10m">
-                            <strong>Action: Timeout 10m</strong>
+                            <span class="mk-template-kicker">Action</span>
+                            <strong>Timeout 10m</strong>
                             <span>Applies temporary timeout to the member.</span>
                         </div>
                         <div class="mk-block-template" draggable="true" data-type="action" data-title="Send DM" data-sub="send_dm">
-                            <strong>Action: Send DM</strong>
+                            <span class="mk-template-kicker">Action</span>
+                            <strong>Send DM</strong>
                             <span>Sends a direct message using a template.</span>
                         </div>
                         <div class="mk-block-template" draggable="true" data-type="action" data-title="Delete Message" data-sub="delete_message">
-                            <strong>Action: Delete Message</strong>
+                            <span class="mk-template-kicker">Action</span>
+                            <strong>Delete Message</strong>
                             <span>Deletes the triggering message from channel.</span>
                         </div>
                     </div>
                 </aside>
 
                 <div class="mk-canvas-wrap" id="mk-canvas-wrap">
+                    <div class="mk-canvas-toolbar">
+                        <div>
+                            <strong>Project Canvas</strong>
+                            <span>Link blocks, test routes and keep the flow readable.</span>
+                        </div>
+                        <div class="mk-toolbar-actions">
+                            <button class="btn" id="mk-auto-layout" type="button">Auto Layout</button>
+                            <button class="btn" id="mk-clear-canvas" type="button">Clear Canvas</button>
+                        </div>
+                    </div>
+
+                    <div class="mk-canvas-decor mk-canvas-decor-service">Service Dock</div>
+                    <div class="mk-canvas-decor mk-canvas-decor-project">Project Route</div>
+                    <div class="mk-canvas-decor mk-canvas-decor-func">Functions</div>
+                    <div class="mk-canvas-decor mk-canvas-decor-ai">IA</div>
+                    <div class="mk-canvas-decor mk-canvas-decor-proc">Additional Procedural</div>
+                    <div class="mk-canvas-decor mk-canvas-decor-user">User Avatar</div>
+                    <div class="mk-canvas-decor mk-canvas-decor-logs">Logs</div>
+
                     <svg class="mk-connections" id="mk-connections"></svg>
                     <div class="mk-canvas" id="mk-canvas"></div>
                 </div>
 
                 <aside class="mk-right">
                     <section class="mk-panel">
-                        <h3>Selected Block</h3>
+                        <div class="mk-panel-head">
+                            <h3>Selected Block</h3>
+                            <span class="pill accent-orange" id="mk-selected-kind">Inspector</span>
+                        </div>
                         <p class="lead" id="mk-selected-help">Select a block on the canvas to view details.</p>
                         <div class="log-item">
                             <h3 id="mk-selected-title">No block selected</h3>
                             <p id="mk-selected-sub">Drop blocks and connect ports to assemble the rule.</p>
+                            <p class="mk-selected-meta" id="mk-selected-meta">The panel will show position, node type and link counts.</p>
                         </div>
+                    </section>
+
+                    <section class="mk-panel">
+                        <div class="mk-panel-head">
+                            <h3>Debug Console</h3>
+                            <span class="pill accent-green">Live</span>
+                        </div>
+                        <label class="mk-debug-switch" for="mk-debug-enabled">
+                            <input id="mk-debug-enabled" type="checkbox">
+                            <span>Enable detailed debug traces</span>
+                        </label>
+                        <div class="field">
+                            <label for="mk-debug-level">Debug level</label>
+                            <select id="mk-debug-level">
+                                <option value="soft">Soft</option>
+                                <option value="verbose">Verbose</option>
+                                <option value="trace">Trace</option>
+                            </select>
+                        </div>
+                        <button class="btn" id="mk-clear-log" type="button">Clear Debug</button>
+                        <pre class="mk-debug-output" id="mk-debug-output">Debug disabled.</pre>
                     </section>
 
                     <section class="mk-mini">
