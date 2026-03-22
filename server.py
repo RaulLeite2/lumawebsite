@@ -2501,6 +2501,12 @@ async def home() -> FileResponse:
     return FileResponse(WEB_ROOT / "index.html")
 
 
+@app.get("/commands")
+@app.get("/commands.html")
+async def commands_page() -> FileResponse:
+    return FileResponse(WEB_ROOT / "commands.html")
+
+
 @app.get("/auth/login")
 async def auth_login(request: Request, next_path: str = Query(default="/dashboard/servers", alias="next")) -> RedirectResponse:
     config = _oauth_config()

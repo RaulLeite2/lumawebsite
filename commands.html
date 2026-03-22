@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luma Commands</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-main: #090815;
+            --bg-deep: #111028;
+            --panel: rgba(22, 20, 47, 0.88);
+            --panel-strong: rgba(18, 16, 40, 0.95);
+            --line: rgba(199, 210, 255, 0.12);
+            --text-main: #f7f6ff;
+            --text-soft: #b7bce1;
+            --accent-cyan: #88ebff;
+            --accent-blue: #83b9ff;
+            --accent-violet: #a58cff;
+            --accent-pink: #ffb9e2;
+            --accent-gold: #ffd697;
+            --shadow-main: 0 30px 80px rgba(0, 0, 0, 0.38);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            min-height: 100vh;
+            font-family: "Plus Jakarta Sans", sans-serif;
+            color: var(--text-main);
+            background:
+                radial-gradient(circle at 10% 10%, rgba(165, 140, 255, 0.2), transparent 28%),
+                radial-gradient(circle at 88% 12%, rgba(136, 235, 255, 0.18), transparent 24%),
+                radial-gradient(circle at 50% 100%, rgba(255, 185, 226, 0.16), transparent 30%),
+                linear-gradient(180deg, #090815 0%, #0d0c20 45%, #111028 100%);
+            line-height: 1.55;
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 28px 28px;
+            mask-image: radial-gradient(circle at center, black, transparent 78%);
+            pointer-events: none;
+            z-index: -2;
+        }
+
+        .container {
+            width: min(1180px, 92vw);
+            margin: 0 auto;
+        }
+
+        .shell {
+            padding: 1.25rem 0 5rem;
+        }
+
+        nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            padding: 0.9rem 1rem;
+            border-radius: 22px;
+            border: 1px solid var(--line);
+            background: rgba(10, 10, 26, 0.72);
+            backdrop-filter: blur(16px);
+        }
+
+        .brand {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.7rem;
+            font-family: "Space Grotesk", sans-serif;
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        .brand-mark {
+            width: 13px;
+            height: 13px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-violet), var(--accent-pink));
+            box-shadow: 0 0 18px rgba(136, 235, 255, 0.4);
+        }
+
+        .nav-actions {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.65rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-link,
+        .btn {
+            text-decoration: none;
+            border-radius: 999px;
+            padding: 0.72rem 1.08rem;
+            font-size: 0.88rem;
+            font-weight: 700;
+            transition: transform 180ms ease, border-color 180ms ease, background 180ms ease, box-shadow 180ms ease;
+        }
+
+        .nav-link {
+            color: var(--text-main);
+            background: rgba(18, 16, 39, 0.76);
+            border: 1px solid var(--line);
+        }
+
+        .nav-link:hover,
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn-primary {
+            border: 0;
+            color: #0b0b1d;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue), var(--accent-pink));
+            box-shadow: 0 18px 40px rgba(131, 185, 255, 0.24);
+        }
+
+        .hero {
+            display: grid;
+            grid-template-columns: 1.15fr 0.85fr;
+            gap: 1.4rem;
+            align-items: center;
+            padding: 1rem 0 2.4rem;
+        }
+
+        .hero-copy,
+        .hero-visual,
+        .section-panel,
+        .discord-shot,
+        .catalog-card,
+        .help-panel,
+        .cta-card {
+            border: 1px solid var(--line);
+            border-radius: 28px;
+            background: var(--panel);
+            backdrop-filter: blur(18px);
+            box-shadow: var(--shadow-main);
+        }
+
+        .hero-copy {
+            padding: 2rem;
+        }
+
+        .eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            border-radius: 999px;
+            padding: 0.45rem 0.82rem;
+            margin-bottom: 1rem;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: var(--text-soft);
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .eyebrow::before {
+            content: "";
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-cyan);
+            box-shadow: 0 0 12px rgba(136, 235, 255, 0.55);
+        }
+
+        h1,
+        h2,
+        h3 {
+            font-family: "Space Grotesk", sans-serif;
+            line-height: 1.02;
+        }
+
+        h1 {
+            font-size: clamp(2.2rem, 5vw, 4.4rem);
+            letter-spacing: -0.05em;
+            margin-bottom: 1rem;
+            max-width: 10ch;
+        }
+
+        .gradient-text {
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue), var(--accent-violet), var(--accent-pink));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .hero-copy p {
+            color: var(--text-soft);
+            max-width: 60ch;
+            margin-bottom: 1.5rem;
+        }
+
+        .hero-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.8rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .hero-stats {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.9rem;
+        }
+
+        .stat-card {
+            padding: 1rem;
+            border-radius: 18px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(11, 10, 27, 0.78);
+        }
+
+        .stat-card strong {
+            display: block;
+            margin-bottom: 0.25rem;
+            font-size: 1rem;
+        }
+
+        .stat-card span {
+            color: var(--text-soft);
+            font-size: 0.84rem;
+        }
+
+        .hero-visual {
+            position: relative;
+            overflow: hidden;
+            padding: 1.2rem;
+        }
+
+        .hero-visual::before {
+            content: "";
+            position: absolute;
+            inset: auto -4rem -5rem auto;
+            width: 16rem;
+            height: 16rem;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(165, 140, 255, 0.25), transparent 70%);
+            pointer-events: none;
+        }
+
+        .hero-visual img {
+            width: min(100%, 420px);
+            display: block;
+            margin: 0 auto;
+            border-radius: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: rgba(8, 8, 22, 0.7);
+        }
+
+        .visual-chip {
+            position: absolute;
+            right: 1rem;
+            bottom: 1rem;
+            max-width: 13rem;
+            padding: 0.8rem 0.95rem;
+            border-radius: 18px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(12, 10, 28, 0.84);
+            color: var(--text-soft);
+            font-size: 0.84rem;
+        }
+
+        section {
+            margin-top: 1.35rem;
+        }
+
+        .section-head {
+            margin-bottom: 1.1rem;
+        }
+
+        .section-head p {
+            color: var(--text-soft);
+            max-width: 64ch;
+            margin-top: 0.45rem;
+        }
+
+        .catalog-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 1rem;
+        }
+
+        .catalog-card {
+            padding: 1.15rem;
+        }
+
+        .catalog-card p {
+            color: var(--text-soft);
+            font-size: 0.9rem;
+            margin: 0.35rem 0 0.9rem;
+        }
+
+        .pill-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.45rem;
+            margin-bottom: 0.9rem;
+        }
+
+        .pill {
+            border-radius: 999px;
+            padding: 0.3rem 0.62rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #e7e7ff;
+            font-size: 0.74rem;
+            font-weight: 700;
+        }
+
+        .command-list {
+            list-style: none;
+            display: grid;
+            gap: 0.55rem;
+        }
+
+        .command-list li {
+            padding: 0.68rem 0.8rem;
+            border-radius: 14px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(10, 10, 26, 0.82);
+            color: #dfe6ff;
+            font-family: Consolas, monospace;
+            font-size: 0.86rem;
+        }
+
+        .usage-grid {
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr;
+            gap: 1rem;
+        }
+
+        .usage-stack {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .discord-shot {
+            padding: 1rem;
+            background: var(--panel-strong);
+        }
+
+        .discord-head {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.9rem;
+        }
+
+        .avatar {
+            width: 46px;
+            height: 46px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            background: rgba(10, 10, 26, 0.8);
+        }
+
+        .meta strong {
+            display: block;
+            font-size: 0.95rem;
+        }
+
+        .meta span {
+            color: var(--text-soft);
+            font-size: 0.8rem;
+        }
+
+        .user-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.25rem 0.55rem;
+            margin-bottom: 0.7rem;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--accent-gold);
+            font-size: 0.78rem;
+            font-weight: 700;
+        }
+
+        .shot-body p {
+            margin-bottom: 0.8rem;
+        }
+
+        .shot-body code,
+        .embed-box code {
+            font-family: Consolas, monospace;
+            color: #def5ff;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 0.08rem 0.35rem;
+            border-radius: 8px;
+        }
+
+        .code-surface,
+        .embed-box {
+            margin-top: 0.8rem;
+            padding: 0.95rem;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(25, 22, 58, 0.95);
+        }
+
+        .code-surface pre {
+            font-family: Consolas, monospace;
+            font-size: 0.86rem;
+            color: #cfe3ff;
+            white-space: pre-wrap;
+        }
+
+        .embed-box {
+            border-left: 4px solid var(--accent-cyan);
+        }
+
+        .embed-box strong {
+            display: block;
+            margin-bottom: 0.28rem;
+        }
+
+        .leader-list {
+            display: grid;
+            gap: 0.55rem;
+            margin-top: 0.75rem;
+        }
+
+        .leader-item {
+            padding: 0.65rem 0.8rem;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .leader-item span {
+            display: block;
+            color: var(--text-soft);
+            font-size: 0.82rem;
+        }
+
+        .help-grid {
+            display: grid;
+            grid-template-columns: 0.95fr 1.05fr;
+            gap: 1rem;
+        }
+
+        .help-panel {
+            padding: 1.2rem;
+        }
+
+        .help-categories {
+            display: grid;
+            gap: 0.65rem;
+            margin-top: 1rem;
+        }
+
+        .help-categories div {
+            padding: 0.78rem 0.9rem;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(10, 10, 26, 0.8);
+        }
+
+        .help-categories strong {
+            display: block;
+            margin-bottom: 0.18rem;
+        }
+
+        .help-panel p,
+        .help-panel li {
+            color: var(--text-soft);
+        }
+
+        .help-panel ul {
+            list-style: none;
+            display: grid;
+            gap: 0.65rem;
+            margin-top: 1rem;
+        }
+
+        .help-panel li {
+            padding: 0.8rem 0.9rem;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(10, 10, 26, 0.8);
+        }
+
+        .cta-card {
+            position: relative;
+            overflow: hidden;
+            margin-top: 1.35rem;
+            padding: 1.8rem;
+            text-align: center;
+        }
+
+        .cta-card::before {
+            content: "";
+            position: absolute;
+            inset: auto auto -7rem -5rem;
+            width: 16rem;
+            height: 16rem;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(136, 235, 255, 0.18), transparent 70%);
+            pointer-events: none;
+        }
+
+        .cta-card p {
+            color: var(--text-soft);
+            margin: 0.55rem auto 1rem;
+            max-width: 54ch;
+        }
+
+        .cta-actions {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 0.8rem;
+        }
+
+        footer {
+            padding: 2rem 0 0.5rem;
+            text-align: center;
+            color: var(--text-soft);
+            font-size: 0.84rem;
+        }
+
+        @media (max-width: 980px) {
+            .hero,
+            .catalog-grid,
+            .usage-grid,
+            .help-grid,
+            .hero-stats {
+                grid-template-columns: 1fr;
+            }
+
+            nav {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .nav-actions {
+                justify-content: space-between;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="shell">
+        <div class="container">
+            <nav>
+                <div class="brand">
+                    <span class="brand-mark"></span>
+                    Luma Command Hub
+                </div>
+                <div class="nav-actions">
+                    <a class="nav-link" href="/">Home</a>
+                    <a class="nav-link" href="#catalog">Catalogo</a>
+                    <a class="nav-link" href="#examples">Na pratica</a>
+                    <a class="btn btn-primary" href="#" id="navInviteBtn">Adicionar ao Discord</a>
+                </div>
+            </nav>
+
+            <header class="hero">
+                <div class="hero-copy">
+                    <span class="eyebrow">Comandos da Luma</span>
+                    <h1>Uma <span class="gradient-text">aba so de comandos</span> para sua comunidade achar tudo rapido.</h1>
+                    <p>
+                        Aqui voce encontra os comandos principais da Luma, exemplos reais de uso no Discord e um guia rapido do novo <code>/help</code> interativo.
+                    </p>
+                    <div class="hero-actions">
+                        <a class="btn btn-primary" href="#catalog">Ver comandos</a>
+                        <a class="nav-link" href="#examples">Ver a Luma em uso</a>
+                        <a class="nav-link" href="/dashboard">Abrir dashboard</a>
+                    </div>
+                    <div class="hero-stats">
+                        <article class="stat-card">
+                            <strong>7 categorias</strong>
+                            <span>Ajuda, IA, moderacao, suporte, economia, levels e setup.</span>
+                        </article>
+                        <article class="stat-card">
+                            <strong>Fluxo real</strong>
+                            <span>Cards inspirados no Discord com exemplos do bot sendo usado na pratica.</span>
+                        </article>
+                        <article class="stat-card">
+                            <strong>Paleta da Luma</strong>
+                            <span>Azul, lilas, rosa e brilho suave inspirados na personagem.</span>
+                        </article>
+                    </div>
+                </div>
+
+                <div class="hero-visual">
+                    <img src="/assets/mascote-principal.png" alt="Mascote principal da Luma">
+                    <div class="visual-chip">
+                        Novo <strong>/help</strong> com categorias, exemplos e comandos organizados para staff e comunidade.
+                    </div>
+                </div>
+            </header>
+
+            <section id="catalog">
+                <div class="section-head">
+                    <span class="eyebrow">Catalogo</span>
+                    <h2>Comandos organizados por modulo</h2>
+                    <p>Use esta pagina como referencia publica do bot. O objetivo e facilitar onboarding e diminuir a friccao de quem acabou de adicionar a Luma.</p>
+                </div>
+
+                <div class="catalog-grid">
+                    <article class="catalog-card">
+                        <div class="pill-row"><span class="pill">Geral</span><span class="pill">Comunidade</span></div>
+                        <h3>Comandos basicos</h3>
+                        <p>Utilidades rapidas para noticias, status do bot e pequenas interacoes do dia a dia.</p>
+                        <ul class="command-list">
+                            <li>/help</li>
+                            <li>/ping</li>
+                            <li>/about</li>
+                            <li>/news</li>
+                            <li>/dice</li>
+                            <li>/stats</li>
+                        </ul>
+                    </article>
+
+                    <article class="catalog-card">
+                        <div class="pill-row"><span class="pill">IA</span><span class="pill">Automacao</span></div>
+                        <h3>Assistente Luma</h3>
+                        <p>Pergunte, resuma, gere anuncios e acelere respostas da equipe sem sair do Discord.</p>
+                        <ul class="command-list">
+                            <li>/ask</li>
+                        </ul>
+                    </article>
+
+                    <article class="catalog-card">
+                        <div class="pill-row"><span class="pill">Moderacao</span><span class="pill">Staff</span></div>
+                        <h3>Protecao da comunidade</h3>
+                        <p>Acoes diretas para advertencia, timeout, kick e ban com historico e escalonamento.</p>
+                        <ul class="command-list">
+                            <li>/mod warn</li>
+                            <li>/mod timeout</li>
+                            <li>/mod kick</li>
+                            <li>/mod ban</li>
+                            <li>/mod unban</li>
+                        </ul>
+                    </article>
+
+                    <article class="catalog-card">
+                        <div class="pill-row"><span class="pill">Suporte</span><span class="pill">Tickets</span></div>
+                        <h3>Atendimento e cargos</h3>
+                        <p>Abra modmail, publique paineis de ticket e configure autoatribuicao com menos trabalho manual.</p>
+                        <ul class="command-list">
+                            <li>/mail enviar</li>
+                            <li>/mail responder</li>
+                            <li>/mail fechar</li>
+                            <li>/ticket painel</li>
+                            <li>/ticket fechar</li>
+                            <li>/rolepanel criar</li>
+                        </ul>
+                    </article>
+
+                    <article class="catalog-card">
+                        <div class="pill-row"><span class="pill">Economia</span><span class="pill">Perfil</span></div>
+                        <h3>Lumicoins e temporada</h3>
+                        <p>Saldo, loja, itens, transferencia e ranking mensal em um fluxo unico de comunidade.</p>
+                        <ul class="command-list">
+                            <li>/balance</li>
+                            <li>/daily</li>
+                            <li>/shop</li>
+                            <li>/buy</li>
+                            <li>/inventory</li>
+                            <li>/useitem</li>
+                            <li>/transfer</li>
+                            <li>/leaderboard</li>
+                            <li>/season</li>
+                            <li>/profile</li>
+                        </ul>
+                    </article>
+
+                    <article class="catalog-card">
+                        <div class="pill-row"><span class="pill">Levels</span><span class="pill">Setup</span></div>
+                        <h3>Progressao e configuracao</h3>
+                        <p>Veja rank, leaderboard e controle os modulos principais com setup guiado e comandos admin.</p>
+                        <ul class="command-list">
+                            <li>/levels rank</li>
+                            <li>/levels leaderboard</li>
+                            <li>/setup</li>
+                            <li>/language</li>
+                            <li>/admin embed</li>
+                            <li>/admin health</li>
+                            <li>/admin sync</li>
+                        </ul>
+                    </article>
+                </div>
+            </section>
+
+            <section id="examples">
+                <div class="section-head">
+                    <span class="eyebrow">Na pratica</span>
+                    <h2>Como a Luma aparece no uso real</h2>
+                    <p>Esses mockups seguem o estilo das imagens que voce anexou: resposta da IA, anuncio pronto e leaderboard sendo consumido dentro do Discord.</p>
+                </div>
+
+                <div class="usage-grid">
+                    <article class="discord-shot">
+                        <div class="user-chip">Milkk usou /ask</div>
+                        <div class="discord-head">
+                            <img class="avatar" src="/assets/mascote-principal.png" alt="Avatar da Luma">
+                            <div class="meta">
+                                <strong>Luma APP</strong>
+                                <span>Resposta com IA no canal de comunidade</span>
+                            </div>
+                        </div>
+                        <div class="shot-body">
+                            <p>A raiz quadrada de 54 pode ser calculada aproximadamente. Vamos usar uma aproximacao numerica:</p>
+                            <div class="code-surface">
+                                <pre>import math
+
+numero = 54
+raiz = math.sqrt(numero)
+print(raiz)</pre>
+                            </div>
+                            <p style="margin-top: 0.8rem;">Se quiser, tambem posso transformar a resposta em explicacao mais curta para membros novos.</p>
+                        </div>
+                    </article>
+
+                    <div class="usage-stack">
+                        <article class="discord-shot">
+                            <div class="discord-head">
+                                <img class="avatar" src="/assets/mascote-principal.png" alt="Avatar da Luma">
+                                <div class="meta">
+                                    <strong>Luma APP</strong>
+                                    <span>Geracao de anuncio</span>
+                                </div>
+                            </div>
+                            <div class="embed-box">
+                                <strong>Novo anuncio</strong>
+                                <p>Escreva uma mensagem clara e profissional para o seu servidor.</p>
+                                <span style="color: var(--text-soft); font-size: 0.82rem;">Publicado com Luma</span>
+                            </div>
+                        </article>
+
+                        <article class="discord-shot">
+                            <div class="discord-head">
+                                <img class="avatar" src="/assets/mascote-principal.png" alt="Avatar da Luma">
+                                <div class="meta">
+                                    <strong>Luma APP</strong>
+                                    <span>Leaderboard global</span>
+                                </div>
+                            </div>
+                            <div class="embed-box" style="border-left-color: var(--accent-blue);">
+                                <strong>Leaderboard de Lumicoins - Global</strong>
+                                <div class="leader-list">
+                                    <div class="leader-item">1. milkk <span>100 Lumicoins</span></div>
+                                    <div class="leader-item">2. phasmo_muri <span>100 Lumicoins</span></div>
+                                </div>
+                            </div>
+                        </article>
+                    </div>
+                </div>
+            </section>
+
+            <section id="help-preview">
+                <div class="section-head">
+                    <span class="eyebrow">Novo /help</span>
+                    <h2>O que o comando /help entrega agora</h2>
+                    <p>O bot recebeu um help interativo com categorias, descricoes e exemplos prontos para copiar dentro do servidor.</p>
+                </div>
+
+                <div class="help-grid">
+                    <article class="help-panel">
+                        <h3>Painel inicial</h3>
+                        <p>O usuario abre <code>/help</code> e escolhe uma categoria no seletor. Em segundos ele entende onde cada modulo do bot entra.</p>
+                        <div class="help-categories">
+                            <div><strong>Geral</strong><span>Noticias, ping, stats, utilidades e onboarding.</span></div>
+                            <div><strong>IA</strong><span>Perguntas para a Luma e assistencia de texto.</span></div>
+                            <div><strong>Moderacao</strong><span>Warn, timeout, kick, ban e fluxo de staff.</span></div>
+                            <div><strong>Economia</strong><span>Daily, loja, inventario, transferencia e ranking.</span></div>
+                        </div>
+                    </article>
+
+                    <article class="help-panel">
+                        <h3>O que melhora para quem usa o bot</h3>
+                        <ul>
+                            <li><strong>Ajuda contextual:</strong> o membro nao precisa adivinhar os comandos principais.</li>
+                            <li><strong>Exemplo pronto:</strong> cada categoria mostra um comando para copiar e adaptar.</li>
+                            <li><strong>Menos atrito:</strong> staff e comunidade encontram o fluxo certo com menos perguntas repetidas.</li>
+                            <li><strong>Mais coerencia com o site:</strong> a pagina publica e o help do bot agora contam a mesma historia de produto.</li>
+                        </ul>
+                    </article>
+                </div>
+            </section>
+
+            <section>
+                <div class="cta-card">
+                    <h2>Quer colocar a Luma no seu servidor agora?</h2>
+                    <p>Adicione o bot, abra o novo <code>/help</code> e use esta pagina como referencia publica para a sua equipe e para seus membros.</p>
+                    <div class="cta-actions">
+                        <a class="btn btn-primary" href="#" id="ctaInviteBtn">Adicionar ao Discord</a>
+                        <a class="nav-link" href="/">Voltar para a home</a>
+                        <a class="nav-link" href="/dashboard">Abrir dashboard</a>
+                    </div>
+                </div>
+            </section>
+
+            <footer>
+                Luma Command Hub - pagina publica de comandos, exemplos e onboarding visual.
+            </footer>
+        </div>
+    </div>
+
+    <script>
+        const inviteUrl = "https://discord.com/oauth2/authorize?client_id=1476329967674724494&permissions=8&integration_type=0&scope=bot";
+
+        document.querySelectorAll("#navInviteBtn, #ctaInviteBtn").forEach((button) => {
+            button.addEventListener("click", (event) => {
+                event.preventDefault();
+                window.open(inviteUrl, "_blank", "noopener,noreferrer");
+            });
+        });
+    </script>
+</body>
+</html>

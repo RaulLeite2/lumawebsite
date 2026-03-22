@@ -175,6 +175,31 @@
             gap: 0.75rem;
         }
 
+        .nav-links {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.55rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-pill {
+            text-decoration: none;
+            color: var(--text-main);
+            border: 1px solid var(--glass-border);
+            background: rgba(12, 26, 45, 0.76);
+            border-radius: 999px;
+            padding: 0.48rem 0.9rem;
+            font-size: 0.82rem;
+            font-weight: 700;
+            transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+        }
+
+        .nav-pill:hover {
+            transform: translateY(-1px);
+            border-color: rgba(126, 182, 255, 0.32);
+            background: rgba(16, 31, 52, 0.88);
+        }
+
         .lang-switch {
             display: inline-flex;
             gap: 0.35rem;
@@ -932,6 +957,10 @@
                     Luma
                 </div>
                 <div class="nav-right">
+                    <div class="nav-links">
+                        <a class="nav-pill" href="#features" data-i18n="navFeatures">Features</a>
+                        <a class="nav-pill" href="/commands" data-i18n="navCommands">Commands</a>
+                    </div>
                     <div class="lang-switch" aria-label="Language switcher">
                         <button class="lang-btn active" data-lang="en">EN</button>
                         <button class="lang-btn" data-lang="pt">PT</button>
@@ -1180,6 +1209,8 @@
         const i18n = {
             en: {
                 pageTitle: "Luma Discord Bot",
+                navFeatures: "Features",
+                navCommands: "Commands",
                 statusOnline: "Online",
                 heroEyebrow: "Discord operations suite",
                 heroTitle: "Your server, brighter with <span>Luma</span>.",
@@ -1270,6 +1301,8 @@
             },
             pt: {
                 pageTitle: "Luma Bot para Discord",
+                navFeatures: "Recursos",
+                navCommands: "Comandos",
                 statusOnline: "Online",
                 heroEyebrow: "Suite de operacao para Discord",
                 heroTitle: "Seu servidor, mais brilhante com <span>Luma</span>.",
@@ -1360,6 +1393,8 @@
             },
             es: {
                 pageTitle: "Luma Bot para Discord",
+                navFeatures: "Funciones",
+                navCommands: "Comandos",
                 statusOnline: "En linea",
                 heroEyebrow: "Suite operativa para Discord",
                 heroTitle: "Tu servidor, más brillante con <span>Luma</span>.",
@@ -1621,10 +1656,7 @@
 
             if (heroCommandsBtn) {
                 heroCommandsBtn.addEventListener("click", () => {
-                    const commandsSection = document.getElementById("commands");
-                    if (commandsSection) {
-                        commandsSection.scrollIntoView({ behavior: "smooth", block: "start" });
-                    }
+                    window.location.href = "/commands";
                 });
             }
 
