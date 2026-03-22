@@ -572,6 +572,427 @@
             color: var(--text-soft);
         }
 
+        .proof-grid {
+            display: grid;
+            grid-template-columns: 1.15fr 0.85fr;
+            gap: 1rem;
+            align-items: stretch;
+        }
+
+        .proof-panel,
+        .dashboard-shell,
+        .use-case-card,
+        .faq-card,
+        .mini-cta {
+            border-radius: 24px;
+            border: 1px solid var(--glass-border);
+            background: rgba(18, 16, 40, 0.82);
+            backdrop-filter: blur(16px);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+        }
+
+        .proof-panel {
+            padding: 1.25rem;
+        }
+
+        .proof-stats {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.85rem;
+            margin-top: 1.25rem;
+        }
+
+        .proof-stat {
+            padding: 1rem;
+            border-radius: 18px;
+            background: rgba(11, 10, 28, 0.92);
+            border: 1px solid rgba(199, 210, 255, 0.1);
+        }
+
+        .proof-stat strong {
+            display: block;
+            font-size: 1.05rem;
+            font-family: "Space Grotesk", sans-serif;
+            margin-bottom: 0.3rem;
+        }
+
+        .proof-stat span {
+            color: var(--text-soft);
+            font-size: 0.87rem;
+        }
+
+        .founder-quote {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 1.25rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .founder-quote::before {
+            content: "";
+            position: absolute;
+            inset: auto -10% -35% auto;
+            width: 14rem;
+            height: 14rem;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255, 185, 226, 0.2), transparent 68%);
+            pointer-events: none;
+        }
+
+        .quote-mark {
+            font-size: 3rem;
+            line-height: 1;
+            color: var(--accent-hot);
+            font-family: "Space Grotesk", sans-serif;
+        }
+
+        .quote-text {
+            position: relative;
+            z-index: 1;
+            font-size: 1.02rem;
+            color: var(--text-main);
+        }
+
+        .quote-author {
+            position: relative;
+            z-index: 1;
+            color: var(--text-soft);
+            font-size: 0.9rem;
+        }
+
+        .proof-actions,
+        .showcase-actions,
+        .mini-cta-actions {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            margin-top: 1.15rem;
+        }
+
+        .dashboard-showcase-grid {
+            display: grid;
+            grid-template-columns: 1.05fr 0.95fr;
+            gap: 1rem;
+            align-items: stretch;
+        }
+
+        .dashboard-shell {
+            overflow: hidden;
+        }
+
+        .dashboard-shell-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 1rem 1.15rem;
+            border-bottom: 1px solid rgba(199, 210, 255, 0.1);
+            background: rgba(11, 10, 28, 0.9);
+        }
+
+        .dashboard-dots {
+            display: inline-flex;
+            gap: 0.45rem;
+        }
+
+        .dashboard-dots span {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: rgba(199, 210, 255, 0.3);
+        }
+
+        .dashboard-dots span:nth-child(1) {
+            background: #ff8fbf;
+        }
+
+        .dashboard-dots span:nth-child(2) {
+            background: #88ebff;
+        }
+
+        .dashboard-dots span:nth-child(3) {
+            background: #a58cff;
+        }
+
+        .dashboard-shell-title {
+            color: var(--text-soft);
+            font-size: 0.82rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .dashboard-body {
+            display: grid;
+            grid-template-columns: 220px 1fr;
+            min-height: 390px;
+        }
+
+        .dashboard-sidebar {
+            padding: 1rem;
+            border-right: 1px solid rgba(199, 210, 255, 0.08);
+            background: linear-gradient(180deg, rgba(14, 13, 34, 0.95), rgba(10, 10, 27, 0.95));
+        }
+
+        .dashboard-brand {
+            font-family: "Space Grotesk", sans-serif;
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+
+        .dashboard-nav {
+            display: grid;
+            gap: 0.55rem;
+        }
+
+        .dashboard-nav span {
+            display: flex;
+            align-items: center;
+            gap: 0.55rem;
+            padding: 0.72rem 0.8rem;
+            border-radius: 14px;
+            border: 1px solid transparent;
+            color: var(--text-soft);
+            font-size: 0.9rem;
+            font-weight: 700;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .dashboard-nav .active {
+            color: var(--text-main);
+            border-color: rgba(165, 140, 255, 0.28);
+            background: linear-gradient(135deg, rgba(165, 140, 255, 0.18), rgba(136, 235, 255, 0.08));
+        }
+
+        .dashboard-nav strong {
+            width: 1.45rem;
+            height: 1.45rem;
+            display: inline-grid;
+            place-items: center;
+            border-radius: 10px;
+            font-size: 0.68rem;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(199, 210, 255, 0.1);
+        }
+
+        .dashboard-nav em {
+            font-style: normal;
+        }
+
+        .dashboard-content {
+            padding: 1rem;
+            display: grid;
+            gap: 1rem;
+            background:
+                radial-gradient(circle at top right, rgba(165, 140, 255, 0.12), transparent 30%),
+                rgba(15, 14, 36, 0.88);
+        }
+
+        .dashboard-topline {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .dashboard-badges {
+            display: flex;
+            gap: 0.55rem;
+            flex-wrap: wrap;
+        }
+
+        .dashboard-badge {
+            padding: 0.45rem 0.75rem;
+            border-radius: 999px;
+            border: 1px solid rgba(199, 210, 255, 0.12);
+            background: rgba(11, 10, 28, 0.82);
+            color: var(--text-soft);
+            font-size: 0.8rem;
+            font-weight: 700;
+        }
+
+        .dashboard-cards {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.85rem;
+        }
+
+        .dashboard-card {
+            padding: 1rem;
+            border-radius: 18px;
+            border: 1px solid rgba(199, 210, 255, 0.1);
+            background: rgba(11, 10, 28, 0.88);
+        }
+
+        .dashboard-card strong {
+            display: block;
+            margin-bottom: 0.28rem;
+            font-size: 0.98rem;
+            font-family: "Space Grotesk", sans-serif;
+        }
+
+        .dashboard-card span {
+            color: var(--text-soft);
+            font-size: 0.85rem;
+        }
+
+        .dashboard-feed {
+            display: grid;
+            gap: 0.75rem;
+        }
+
+        .dashboard-feed-item {
+            padding: 0.95rem 1rem;
+            border-radius: 16px;
+            border: 1px solid rgba(199, 210, 255, 0.1);
+            background: rgba(19, 18, 43, 0.78);
+        }
+
+        .dashboard-feed-item strong {
+            display: block;
+            margin-bottom: 0.22rem;
+        }
+
+        .dashboard-feed-item span {
+            color: var(--text-soft);
+            font-size: 0.88rem;
+        }
+
+        .showcase-copy {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 1rem;
+        }
+
+        .showcase-points {
+            list-style: none;
+            display: grid;
+            gap: 0.8rem;
+        }
+
+        .showcase-points li {
+            padding: 1rem 1rem 1rem 1.1rem;
+            border-radius: 18px;
+            border: 1px solid rgba(199, 210, 255, 0.1);
+            background: rgba(18, 16, 40, 0.7);
+            color: var(--text-soft);
+        }
+
+        .showcase-points strong {
+            display: block;
+            color: var(--text-main);
+            margin-bottom: 0.25rem;
+            font-family: "Space Grotesk", sans-serif;
+        }
+
+        .use-cases-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 1rem;
+        }
+
+        .use-case-card {
+            padding: 1.2rem;
+        }
+
+        .use-case-card h3 {
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+            font-family: "Space Grotesk", sans-serif;
+        }
+
+        .use-case-card p {
+            color: var(--text-soft);
+            font-size: 0.92rem;
+            margin-bottom: 0.9rem;
+        }
+
+        .use-case-card ul {
+            list-style: none;
+            display: grid;
+            gap: 0.55rem;
+        }
+
+        .use-case-card li {
+            padding: 0.62rem 0.78rem;
+            border-radius: 14px;
+            background: rgba(11, 10, 28, 0.9);
+            border: 1px solid rgba(199, 210, 255, 0.1);
+            color: var(--text-soft);
+            font-size: 0.88rem;
+        }
+
+        .mini-cta {
+            padding: 1.3rem;
+            margin-top: 1.2rem;
+        }
+
+        .mini-cta h3 {
+            font-family: "Space Grotesk", sans-serif;
+            margin-bottom: 0.35rem;
+        }
+
+        .mini-cta p {
+            color: var(--text-soft);
+        }
+
+        .faq-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .faq-card {
+            padding: 0.35rem;
+        }
+
+        .faq-item {
+            border-radius: 18px;
+            background: rgba(11, 10, 28, 0.9);
+            border: 1px solid rgba(199, 210, 255, 0.08);
+            padding: 1rem;
+        }
+
+        .faq-item + .faq-item {
+            margin-top: 0.75rem;
+        }
+
+        .faq-item summary {
+            list-style: none;
+            cursor: pointer;
+            font-weight: 700;
+            font-family: "Space Grotesk", sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .faq-item summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .faq-item summary::after {
+            content: "+";
+            color: var(--accent-hot);
+            font-size: 1.2rem;
+            line-height: 1;
+        }
+
+        .faq-item[open] summary::after {
+            content: "-";
+        }
+
+        .faq-item p {
+            color: var(--text-soft);
+            margin-top: 0.8rem;
+            font-size: 0.92rem;
+        }
+
         .discord-mockup {
             display: grid;
             grid-template-columns: 1fr 1.1fr;
@@ -891,10 +1312,17 @@
             .hero-grid,
             .hero-metrics,
             .features-grid,
+            .proof-grid,
+            .proof-stats,
             .discord-mockup,
             .command-catalog,
+            .dashboard-showcase-grid,
+            .dashboard-cards,
             .ai-showcase,
-            .moderation-wrap {
+            .moderation-wrap,
+            .use-cases-grid,
+            .faq-grid,
+            .dashboard-body {
                 grid-template-columns: 1fr;
             }
 
@@ -939,6 +1367,11 @@
             .hero::before {
                 inset: 0;
                 border-radius: 26px;
+            }
+
+            .dashboard-sidebar {
+                border-right: 0;
+                border-bottom: 1px solid rgba(199, 210, 255, 0.08);
             }
         }
     </style>
@@ -1051,6 +1484,41 @@
             </div>
         </section>
 
+        <section class="container reveal" id="proof">
+            <p class="section-kicker" data-i18n="proofKicker">Why Luma</p>
+            <h2 class="section-title" data-i18n="proofTitle">A bot built to feel complete from day one</h2>
+            <p class="section-sub" data-i18n="proofSub">This page now explains the product better, but the core idea stays simple: one bot, one cleaner workflow for moderation, support and daily server operations.</p>
+            <div class="proof-grid">
+                <article class="proof-panel">
+                    <h3 data-i18n="proofPanelTitle">What stands out in practice</h3>
+                    <p class="section-sub" style="margin-bottom: 0; max-width: none;" data-i18n="proofPanelSub">Luma was shaped around real Discord server friction: too many scattered bots, too many half-finished flows, and too much staff time wasted in repetitive tasks.</p>
+                    <div class="proof-stats">
+                        <div class="proof-stat">
+                            <strong data-i18n="proofStat1Value">All-in-one operation</strong>
+                            <span data-i18n="proofStat1Label">Moderation, tickets, modmail, AI and setup stay in the same product language.</span>
+                        </div>
+                        <div class="proof-stat">
+                            <strong data-i18n="proofStat2Value">Fast onboarding</strong>
+                            <span data-i18n="proofStat2Label">You can go from invite to configured workflows without hunting through confusing menus.</span>
+                        </div>
+                        <div class="proof-stat">
+                            <strong data-i18n="proofStat3Value">Community feedback loop</strong>
+                            <span data-i18n="proofStat3Label">If something is missing, the community becomes part of how Luma evolves next.</span>
+                        </div>
+                    </div>
+                    <div class="proof-actions">
+                        <button class="btn btn-secondary" id="proofCommandsBtn" data-i18n="proofCommandsBtn">See command hub</button>
+                        <button class="btn btn-secondary" id="proofCommunityBtn" data-i18n="proofCommunityBtn">Talk in the community</button>
+                    </div>
+                </article>
+                <aside class="founder-quote">
+                    <span class="quote-mark">“</span>
+                    <p class="quote-text" data-i18n="founderQuote">I built the bot to be extremely functional. I do not think anything is missing, and if it is, tell me in the community ;3</p>
+                    <p class="quote-author" data-i18n="founderQuoteAuthor">Founder note from Raul Leite, the creator behind Luma.</p>
+                </aside>
+            </div>
+        </section>
+
         <section class="container reveal" id="commands">
             <p class="section-kicker" data-i18n="commandsKicker">Discord Experience</p>
             <h2 class="section-title" data-i18n="commandsTitle">Command UI Mockup</h2>
@@ -1137,6 +1605,93 @@
             </div>
         </section>
 
+        <section class="container reveal" id="dashboard-showcase">
+            <p class="section-kicker" data-i18n="showcaseKicker">Dashboard Showcase</p>
+            <h2 class="section-title" data-i18n="showcaseTitle">The web dashboard turns setup into something usable</h2>
+            <p class="section-sub" data-i18n="showcaseSub">Instead of burying configuration inside commands only, Luma also gives your team a visual layer to manage servers, review modules and keep the bot organized.</p>
+            <div class="dashboard-showcase-grid">
+                <div class="dashboard-shell">
+                    <div class="dashboard-shell-header">
+                        <div class="dashboard-dots" aria-hidden="true">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </div>
+                        <span class="dashboard-shell-title" data-i18n="showcaseWindowTitle">Luma dashboard preview</span>
+                    </div>
+                    <div class="dashboard-body">
+                        <aside class="dashboard-sidebar">
+                            <div class="dashboard-brand">Luma</div>
+                            <div class="dashboard-nav">
+                                <span><strong>SV</strong><em data-i18n="showcaseNavServers">Servers</em></span>
+                                <span class="active"><strong>OV</strong><em data-i18n="showcaseNavOverview">Overview</em></span>
+                                <span><strong>MD</strong><em data-i18n="showcaseNavModeration">Moderation</em></span>
+                                <span><strong>LV</strong><em data-i18n="showcaseNavLevels">Levels</em></span>
+                                <span><strong>EX</strong><em data-i18n="showcaseNavEntryExit">Entry and Exit</em></span>
+                            </div>
+                        </aside>
+                        <div class="dashboard-content">
+                            <div class="dashboard-topline">
+                                <div>
+                                    <strong data-i18n="showcaseTopTitle">Server operation at a glance</strong>
+                                    <div class="section-sub" style="margin: 0; max-width: none;" data-i18n="showcaseTopSub">One view for setup, logs, levels and moderation toggles.</div>
+                                </div>
+                                <div class="dashboard-badges">
+                                    <span class="dashboard-badge" data-i18n="showcaseBadge1">Multi-server</span>
+                                    <span class="dashboard-badge" data-i18n="showcaseBadge2">Role aware</span>
+                                    <span class="dashboard-badge" data-i18n="showcaseBadge3">Live config</span>
+                                </div>
+                            </div>
+                            <div class="dashboard-cards">
+                                <div class="dashboard-card">
+                                    <strong data-i18n="showcaseCard1Title">Moderation rules</strong>
+                                    <span data-i18n="showcaseCard1Desc">Warnings, anti-spam and action defaults aligned in one place.</span>
+                                </div>
+                                <div class="dashboard-card">
+                                    <strong data-i18n="showcaseCard2Title">Ticket flows</strong>
+                                    <span data-i18n="showcaseCard2Desc">Panel states, support channels and closure flow made visible.</span>
+                                </div>
+                                <div class="dashboard-card">
+                                    <strong data-i18n="showcaseCard3Title">Growth signals</strong>
+                                    <span data-i18n="showcaseCard3Desc">Levels, economy and activity metrics help staff read the server faster.</span>
+                                </div>
+                            </div>
+                            <div class="dashboard-feed">
+                                <div class="dashboard-feed-item">
+                                    <strong data-i18n="showcaseFeed1Title">Overview updated</strong>
+                                    <span data-i18n="showcaseFeed1Desc">Your moderation logs and welcome system stay visible without switching tools.</span>
+                                </div>
+                                <div class="dashboard-feed-item">
+                                    <strong data-i18n="showcaseFeed2Title">Servers page redesigned</strong>
+                                    <span data-i18n="showcaseFeed2Desc">Grid and list views help staff jump between projects faster.</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="showcase-copy">
+                    <ul class="showcase-points">
+                        <li>
+                            <strong data-i18n="showcasePoint1Title">Clear setup path</strong>
+                            <span data-i18n="showcasePoint1Desc">The dashboard gives structure to modules that usually become messy when everything lives inside raw slash commands only.</span>
+                        </li>
+                        <li>
+                            <strong data-i18n="showcasePoint2Title">Better for staff teams</strong>
+                            <span data-i18n="showcasePoint2Desc">Admins, moderators and support members can understand the current configuration without guessing what was done before.</span>
+                        </li>
+                        <li>
+                            <strong data-i18n="showcasePoint3Title">Made to scale with the bot</strong>
+                            <span data-i18n="showcasePoint3Desc">As Luma grows, the site can explain features, document workflows and reduce setup friction for new communities.</span>
+                        </li>
+                    </ul>
+                    <div class="showcase-actions">
+                        <button class="btn btn-primary" id="showcaseDashboardBtn" data-i18n="showcaseDashboardBtn">Open dashboard</button>
+                        <button class="btn btn-secondary" id="showcaseCommandsBtn" data-i18n="showcaseCommandsBtn">Browse commands</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <section class="ai-section reveal" id="ai">
             <svg class="wave" viewBox="0 0 1440 220" preserveAspectRatio="none" aria-hidden="true">
                 <path fill="rgba(88, 101, 242, 0.24)" d="M0,96L40,106.7C80,117,160,139,240,154.7C320,171,400,181,480,176C560,171,640,149,720,128C800,107,880,85,960,74.7C1040,64,1120,64,1200,74.7C1280,85,1360,107,1400,117.3L1440,128L1440,0L1400,0C1360,0,1280,0,1200,0C1120,0,1040,0,960,0C880,0,800,0,720,0C640,0,560,0,480,0C400,0,320,0,240,0C160,0,80,0,40,0L0,0Z"></path>
@@ -1186,6 +1741,77 @@
                     <img src="assets/mascote-moderacao.png" alt="Luma moderation mascot placeholder" data-i18n-alt="modMascotAlt">
                     <p class="avatar-label" data-i18n="modMascotLabel">Placeholder: Mascote Moderacao</p>
                 </aside>
+            </div>
+        </section>
+
+        <section class="container reveal" id="use-cases">
+            <p class="section-kicker" data-i18n="useCasesKicker">Use Cases</p>
+            <h2 class="section-title" data-i18n="useCasesTitle">Different communities, same cleaner operation</h2>
+            <p class="section-sub" data-i18n="useCasesSub">Luma is easier to understand when people can picture it inside their own server. These are the kinds of communities the bot fits naturally.</p>
+            <div class="use-cases-grid">
+                <article class="use-case-card">
+                    <h3 data-i18n="useCase1Title">Gaming servers</h3>
+                    <p data-i18n="useCase1Desc">Keep public chats cleaner while giving players fast support, self roles and moderation that does not slow the staff down.</p>
+                    <ul>
+                        <li data-i18n="useCase1Item1">Anti-spam, warnings and purge tools for busy channels</li>
+                        <li data-i18n="useCase1Item2">Reaction roles for games, regions or squads</li>
+                        <li data-i18n="useCase1Item3">Tickets and modmail for reports, appeals and support</li>
+                    </ul>
+                </article>
+                <article class="use-case-card">
+                    <h3 data-i18n="useCase2Title">Creator communities</h3>
+                    <p data-i18n="useCase2Desc">Manage announcements, support and audience growth without turning the server into a pile of disconnected bots and messy channels.</p>
+                    <ul>
+                        <li data-i18n="useCase2Item1">Welcome flows and role panels for new members</li>
+                        <li data-i18n="useCase2Item2">AI help for summaries, replies and moderation drafting</li>
+                        <li data-i18n="useCase2Item3">Activity views to spot engaged members faster</li>
+                    </ul>
+                </article>
+                <article class="use-case-card">
+                    <h3 data-i18n="useCase3Title">Support-focused servers</h3>
+                    <p data-i18n="useCase3Desc">If your team handles questions all day, Luma helps create structure around tickets, responses and moderation handoffs.</p>
+                    <ul>
+                        <li data-i18n="useCase3Item1">Ticket panels and closure flow for organized support</li>
+                        <li data-i18n="useCase3Item2">Modmail replies connected to staff workflow</li>
+                        <li data-i18n="useCase3Item3">Clear logs so the next moderator can continue the case</li>
+                    </ul>
+                </article>
+            </div>
+            <div class="mini-cta">
+                <h3 data-i18n="miniCtaTitle">Not sure where to start?</h3>
+                <p data-i18n="miniCtaSub">Use the command hub to see what Luma already does, then join the community if you want to shape the next features directly.</p>
+                <div class="mini-cta-actions">
+                    <button class="btn btn-secondary" id="miniCtaCommandsBtn" data-i18n="miniCtaCommandsBtn">Open command hub</button>
+                    <button class="btn btn-secondary" id="miniCtaCommunityBtn" data-i18n="miniCtaCommunityBtn">Join community</button>
+                </div>
+            </div>
+        </section>
+
+        <section class="container reveal" id="faq">
+            <p class="section-kicker" data-i18n="faqKicker">FAQ</p>
+            <h2 class="section-title" data-i18n="faqTitle">Questions people usually ask before inviting Luma</h2>
+            <p class="section-sub" data-i18n="faqSub">A stronger landing page should answer objections before they become friction. These are the first answers users normally need.</p>
+            <div class="faq-grid">
+                <div class="faq-card">
+                    <details class="faq-item" open>
+                        <summary data-i18n="faq1Question">Does Luma replace multiple bots?</summary>
+                        <p data-i18n="faq1Answer">That is the goal. Luma centralizes moderation, support, tickets, role panels, AI assistance and dashboard setup so your server depends less on scattered tools.</p>
+                    </details>
+                    <details class="faq-item">
+                        <summary data-i18n="faq2Question">Do I need the dashboard to use the bot?</summary>
+                        <p data-i18n="faq2Answer">No. Commands remain important, but the dashboard makes setup, review and multi-server management much easier for staff teams.</p>
+                    </details>
+                </div>
+                <div class="faq-card">
+                    <details class="faq-item">
+                        <summary data-i18n="faq3Question">What if my server needs something specific?</summary>
+                        <p data-i18n="faq3Answer">That is exactly why the community link exists. Luma was built to be very functional already, and feature gaps can be reported directly so the bot keeps evolving with real demand.</p>
+                    </details>
+                    <details class="faq-item">
+                        <summary data-i18n="faq4Question">Is Luma good only for Portuguese communities?</summary>
+                        <p data-i18n="faq4Answer">No. The bot and site already support Portuguese, English and Spanish, which makes it easier to onboard multilingual servers.</p>
+                    </details>
+                </div>
             </div>
         </section>
 
@@ -1243,6 +1869,21 @@
                 featureStatsDesc: "Activity insights that help moderators act with confidence.",
                 featureRolesTitle: "Reaction Roles",
                 featureRolesDesc: "Role panels with emoji mapping and quick setup commands.",
+                proofKicker: "Why Luma",
+                proofTitle: "A bot built to feel complete from day one",
+                proofSub: "This page now explains the product better, but the core idea stays simple: one bot, one cleaner workflow for moderation, support and daily server operations.",
+                proofPanelTitle: "What stands out in practice",
+                proofPanelSub: "Luma was shaped around real Discord server friction: too many scattered bots, too many half-finished flows, and too much staff time wasted in repetitive tasks.",
+                proofStat1Value: "All-in-one operation",
+                proofStat1Label: "Moderation, tickets, modmail, AI and setup stay in the same product language.",
+                proofStat2Value: "Fast onboarding",
+                proofStat2Label: "You can go from invite to configured workflows without hunting through confusing menus.",
+                proofStat3Value: "Community feedback loop",
+                proofStat3Label: "If something is missing, the community becomes part of how Luma evolves next.",
+                proofCommandsBtn: "See command hub",
+                proofCommunityBtn: "Talk in the community",
+                founderQuote: "I built the bot to be extremely functional. I do not think anything is missing, and if it is, tell me in the community ;3",
+                founderQuoteAuthor: "Founder note from Raul Leite, the creator behind Luma.",
                 commandsKicker: "Command Surface",
                 commandsTitle: "Real commands, organized for your team",
                 commandsSub: "From setup to moderation actions, Luma keeps the workflow predictable and easy to adopt.",
@@ -1258,6 +1899,38 @@
                 commandsSetupDesc: "Server defaults, language selection, and guided configuration.",
                 commandsRolesTitle: "Role Panels",
                 commandsRolesDesc: "Self-assign role menus backed by persistent role panels.",
+                showcaseKicker: "Dashboard Showcase",
+                showcaseTitle: "The web dashboard turns setup into something usable",
+                showcaseSub: "Instead of burying configuration inside commands only, Luma also gives your team a visual layer to manage servers, review modules and keep the bot organized.",
+                showcaseWindowTitle: "Luma dashboard preview",
+                showcaseNavServers: "Servers",
+                showcaseNavOverview: "Overview",
+                showcaseNavModeration: "Moderation",
+                showcaseNavLevels: "Levels",
+                showcaseNavEntryExit: "Entry and Exit",
+                showcaseTopTitle: "Server operation at a glance",
+                showcaseTopSub: "One view for setup, logs, levels and moderation toggles.",
+                showcaseBadge1: "Multi-server",
+                showcaseBadge2: "Role aware",
+                showcaseBadge3: "Live config",
+                showcaseCard1Title: "Moderation rules",
+                showcaseCard1Desc: "Warnings, anti-spam and action defaults aligned in one place.",
+                showcaseCard2Title: "Ticket flows",
+                showcaseCard2Desc: "Panel states, support channels and closure flow made visible.",
+                showcaseCard3Title: "Growth signals",
+                showcaseCard3Desc: "Levels, economy and activity metrics help staff read the server faster.",
+                showcaseFeed1Title: "Overview updated",
+                showcaseFeed1Desc: "Your moderation logs and welcome system stay visible without switching tools.",
+                showcaseFeed2Title: "Servers page redesigned",
+                showcaseFeed2Desc: "Grid and list views help staff jump between projects faster.",
+                showcasePoint1Title: "Clear setup path",
+                showcasePoint1Desc: "The dashboard gives structure to modules that usually become messy when everything lives inside raw slash commands only.",
+                showcasePoint2Title: "Better for staff teams",
+                showcasePoint2Desc: "Admins, moderators and support members can understand the current configuration without guessing what was done before.",
+                showcasePoint3Title: "Made to scale with the bot",
+                showcasePoint3Desc: "As Luma grows, the site can explain features, document workflows and reduce setup friction for new communities.",
+                showcaseDashboardBtn: "Open dashboard",
+                showcaseCommandsBtn: "Browse commands",
                 channelGeneral: "# general",
                 channelCommands: "# bot-commands",
                 channelModLog: "# moderation-log",
@@ -1284,6 +1957,39 @@
                 timeline4Desc: "Moderator updated status and archived transcript.",
                 modMascotAlt: "Luma moderation mascot placeholder",
                 modMascotLabel: "Luma moderation mascot artwork",
+                useCasesKicker: "Use Cases",
+                useCasesTitle: "Different communities, same cleaner operation",
+                useCasesSub: "Luma is easier to understand when people can picture it inside their own server. These are the kinds of communities the bot fits naturally.",
+                useCase1Title: "Gaming servers",
+                useCase1Desc: "Keep public chats cleaner while giving players fast support, self roles and moderation that does not slow the staff down.",
+                useCase1Item1: "Anti-spam, warnings and purge tools for busy channels",
+                useCase1Item2: "Reaction roles for games, regions or squads",
+                useCase1Item3: "Tickets and modmail for reports, appeals and support",
+                useCase2Title: "Creator communities",
+                useCase2Desc: "Manage announcements, support and audience growth without turning the server into a pile of disconnected bots and messy channels.",
+                useCase2Item1: "Welcome flows and role panels for new members",
+                useCase2Item2: "AI help for summaries, replies and moderation drafting",
+                useCase2Item3: "Activity views to spot engaged members faster",
+                useCase3Title: "Support-focused servers",
+                useCase3Desc: "If your team handles questions all day, Luma helps create structure around tickets, responses and moderation handoffs.",
+                useCase3Item1: "Ticket panels and closure flow for organized support",
+                useCase3Item2: "Modmail replies connected to staff workflow",
+                useCase3Item3: "Clear logs so the next moderator can continue the case",
+                miniCtaTitle: "Not sure where to start?",
+                miniCtaSub: "Use the command hub to see what Luma already does, then join the community if you want to shape the next features directly.",
+                miniCtaCommandsBtn: "Open command hub",
+                miniCtaCommunityBtn: "Join community",
+                faqKicker: "FAQ",
+                faqTitle: "Questions people usually ask before inviting Luma",
+                faqSub: "A stronger landing page should answer objections before they become friction. These are the first answers users normally need.",
+                faq1Question: "Does Luma replace multiple bots?",
+                faq1Answer: "That is the goal. Luma centralizes moderation, support, tickets, role panels, AI assistance and dashboard setup so your server depends less on scattered tools.",
+                faq2Question: "Do I need the dashboard to use the bot?",
+                faq2Answer: "No. Commands remain important, but the dashboard makes setup, review and multi-server management much easier for staff teams.",
+                faq3Question: "What if my server needs something specific?",
+                faq3Answer: "That is exactly why the community link exists. Luma was built to be very functional already, and feature gaps can be reported directly so the bot keeps evolving with real demand.",
+                faq4Question: "Is Luma good only for Portuguese communities?",
+                faq4Answer: "No. The bot and site already support Portuguese, English and Spanish, which makes it easier to onboard multilingual servers.",
                 ctaTitle: "Bring structure and speed to your Discord team",
                 ctaSub: "Deploy Luma for moderation, AI assistance, tickets, and member support in one polished workflow.",
                 ctaBtn: "Invite Luma Now",
@@ -1335,6 +2041,21 @@
                 featureStatsDesc: "Insights de atividade para decisões mais rápidas da moderação.",
                 featureRolesTitle: "Cargos por Reação",
                 featureRolesDesc: "Painéis de cargos com mapeamento de emojis e setup rápido.",
+                proofKicker: "Por que Luma",
+                proofTitle: "Um bot feito para parecer completo desde o primeiro dia",
+                proofSub: "Agora a home explica melhor o produto, mas a ideia central continua simples: um bot, um fluxo mais limpo para moderação, suporte e operação diária do servidor.",
+                proofPanelTitle: "O que se destaca na prática",
+                proofPanelSub: "A Luma foi moldada em cima de atritos reais de servidores no Discord: bots demais espalhados, fluxos incompletos e staff perdendo tempo com tarefas repetitivas.",
+                proofStat1Value: "Operação all-in-one",
+                proofStat1Label: "Moderação, tickets, modmail, IA e configuração ficam na mesma linguagem de produto.",
+                proofStat2Value: "Onboarding rápido",
+                proofStat2Label: "Você sai do convite para fluxos configurados sem caçar menus confusos.",
+                proofStat3Value: "Feedback da comunidade",
+                proofStat3Label: "Se faltar algo, a comunidade entra direto no ciclo de evolução da Luma.",
+                proofCommandsBtn: "Ver central de comandos",
+                proofCommunityBtn: "Falar na comunidade",
+                founderQuote: "Eu criei o bot para ele ser muito bem funcional, eu acho que não tem nada faltando e se estiver, avisa na comunidade ;3",
+                founderQuoteAuthor: "Recado do Raul Leite, criador por trás da Luma.",
                 commandsKicker: "Superficie de Comando",
                 commandsTitle: "Comandos reais, organizados para a sua equipe",
                 commandsSub: "De configuração até ações de moderação, a Luma mantém o fluxo previsível e fácil de adotar.",
@@ -1350,6 +2071,38 @@
                 commandsSetupDesc: "Padrões do servidor, idioma e configuração guiada.",
                 commandsRolesTitle: "Painéis de Cargo",
                 commandsRolesDesc: "Menus de autoatribuição com painéis persistentes de cargos.",
+                showcaseKicker: "Showcase do Dashboard",
+                showcaseTitle: "O dashboard web transforma configuração em algo usável",
+                showcaseSub: "Em vez de esconder tudo só em comandos, a Luma também dá uma camada visual para sua equipe gerenciar servidores, revisar módulos e manter o bot organizado.",
+                showcaseWindowTitle: "Preview do dashboard da Luma",
+                showcaseNavServers: "Servidores",
+                showcaseNavOverview: "Visão geral",
+                showcaseNavModeration: "Moderação",
+                showcaseNavLevels: "Níveis",
+                showcaseNavEntryExit: "Entrada e saída",
+                showcaseTopTitle: "Operação do servidor em um olhar",
+                showcaseTopSub: "Uma visão para setup, logs, níveis e controles de moderação.",
+                showcaseBadge1: "Multi-servidor",
+                showcaseBadge2: "Com noção de cargos",
+                showcaseBadge3: "Config ao vivo",
+                showcaseCard1Title: "Regras de moderação",
+                showcaseCard1Desc: "Avisos, anti-spam e padrões de ação alinhados em um só lugar.",
+                showcaseCard2Title: "Fluxos de ticket",
+                showcaseCard2Desc: "Estados do painel, canais de suporte e encerramento visíveis.",
+                showcaseCard3Title: "Sinais de crescimento",
+                showcaseCard3Desc: "Níveis, economia e métricas de atividade ajudam a staff a ler o servidor mais rápido.",
+                showcaseFeed1Title: "Visão geral atualizada",
+                showcaseFeed1Desc: "Logs de moderação e sistema de boas-vindas ficam visíveis sem trocar de ferramenta.",
+                showcaseFeed2Title: "Página de servidores redesenhada",
+                showcaseFeed2Desc: "Visual em grade e lista ajuda a staff a alternar entre projetos com mais rapidez.",
+                showcasePoint1Title: "Caminho de setup mais claro",
+                showcasePoint1Desc: "O dashboard dá estrutura para módulos que normalmente viram bagunça quando tudo vive só em slash commands crus.",
+                showcasePoint2Title: "Melhor para equipes",
+                showcasePoint2Desc: "Admins, moderadores e suporte conseguem entender a configuração atual sem adivinhar o que foi feito antes.",
+                showcasePoint3Title: "Feito para crescer com o bot",
+                showcasePoint3Desc: "Conforme a Luma cresce, o site pode explicar recursos, documentar fluxos e reduzir atrito de setup para novas comunidades.",
+                showcaseDashboardBtn: "Abrir dashboard",
+                showcaseCommandsBtn: "Ver comandos",
                 channelGeneral: "# geral",
                 channelCommands: "# comandos-bot",
                 channelModLog: "# log-moderacao",
@@ -1376,6 +2129,39 @@
                 timeline4Desc: "Moderador atualizou o status e arquivou a transcrição.",
                 modMascotAlt: "Placeholder da mascote de moderação da Luma",
                 modMascotLabel: "Arte da mascote de moderacao da Luma",
+                useCasesKicker: "Casos de uso",
+                useCasesTitle: "Comunidades diferentes, mesma operação mais limpa",
+                useCasesSub: "A Luma fica mais fácil de entender quando a pessoa consegue se imaginar usando ela no próprio servidor. Esses são alguns encaixes naturais do bot.",
+                useCase1Title: "Servidores de jogos",
+                useCase1Desc: "Mantenha chats públicos mais limpos enquanto entrega suporte rápido, cargos e moderação sem travar a staff.",
+                useCase1Item1: "Anti-spam, avisos e purge para canais movimentados",
+                useCase1Item2: "Cargos por reação para jogos, regiões ou squads",
+                useCase1Item3: "Tickets e modmail para denúncias, recursos e suporte",
+                useCase2Title: "Comunidades de criador",
+                useCase2Desc: "Gerencie anúncios, suporte e crescimento da audiência sem transformar o servidor em uma pilha de bots desconectados e canais bagunçados.",
+                useCase2Item1: "Boas-vindas e painéis de cargo para novos membros",
+                useCase2Item2: "Ajuda de IA para resumos, respostas e rascunhos de moderação",
+                useCase2Item3: "Visões de atividade para achar membros engajados mais rápido",
+                useCase3Title: "Servidores focados em suporte",
+                useCase3Desc: "Se sua equipe lida com perguntas o dia inteiro, a Luma ajuda a criar estrutura em volta de tickets, respostas e repasses entre moderadores.",
+                useCase3Item1: "Painéis de ticket e fluxo de encerramento para suporte organizado",
+                useCase3Item2: "Respostas de modmail conectadas ao fluxo da staff",
+                useCase3Item3: "Logs claros para o próximo moderador continuar o caso",
+                miniCtaTitle: "Nao sabe por onde começar?",
+                miniCtaSub: "Use a central de comandos para ver o que a Luma já faz e entre na comunidade se quiser influenciar as próximas features diretamente.",
+                miniCtaCommandsBtn: "Abrir central de comandos",
+                miniCtaCommunityBtn: "Entrar na comunidade",
+                faqKicker: "FAQ",
+                faqTitle: "Perguntas que normalmente aparecem antes de convidar a Luma",
+                faqSub: "Uma landing mais forte precisa responder objeções antes que elas virem atrito. Essas são as primeiras respostas que quase todo mundo precisa.",
+                faq1Question: "A Luma substitui vários bots?",
+                faq1Answer: "Esse é o objetivo. A Luma centraliza moderação, suporte, tickets, painéis de cargos, assistência com IA e configuração via dashboard para o servidor depender menos de ferramentas espalhadas.",
+                faq2Question: "Eu preciso do dashboard para usar o bot?",
+                faq2Answer: "Não. Os comandos continuam importantes, mas o dashboard deixa configuração, revisão e gestão de múltiplos servidores muito mais fáceis para a staff.",
+                faq3Question: "E se o meu servidor precisar de algo específico?",
+                faq3Answer: "É exatamente por isso que o link da comunidade existe. A Luma já foi pensada para ser muito funcional, e lacunas podem ser reportadas direto para o bot evoluir com demanda real.",
+                faq4Question: "A Luma é boa só para comunidades em português?",
+                faq4Answer: "Não. O bot e o site já suportam português, inglês e espanhol, o que facilita onboarding em servidores multilíngues.",
                 ctaTitle: "Leve estrutura e velocidade para a sua equipe no Discord",
                 ctaSub: "Implemente a Luma para moderacao, IA, tickets e suporte a membros em um fluxo mais polido.",
                 ctaBtn: "Convidar Luma Agora",
@@ -1427,6 +2213,21 @@
                 featureStatsDesc: "Insights de actividad para que la moderación actúe con confianza.",
                 featureRolesTitle: "Roles por Reacción",
                 featureRolesDesc: "Paneles de roles con mapeo de emojis y configuración rápida.",
+                proofKicker: "Por que Luma",
+                proofTitle: "Un bot creado para sentirse completo desde el primer día",
+                proofSub: "Ahora la home explica mejor el producto, pero la idea central sigue simple: un bot, un flujo más limpio para moderación, soporte y operación diaria del servidor.",
+                proofPanelTitle: "Lo que destaca en la práctica",
+                proofPanelSub: "Luma fue moldeado alrededor de fricciones reales de servidores de Discord: demasiados bots dispersos, flujos incompletos y demasiado tiempo del staff perdido en tareas repetitivas.",
+                proofStat1Value: "Operación all-in-one",
+                proofStat1Label: "Moderación, tickets, modmail, IA y configuración permanecen dentro del mismo lenguaje de producto.",
+                proofStat2Value: "Onboarding rápido",
+                proofStat2Label: "Puedes pasar de la invitación a flujos configurados sin perseguir menús confusos.",
+                proofStat3Value: "Feedback de la comunidad",
+                proofStat3Label: "Si falta algo, la comunidad pasa a formar parte de cómo evoluciona Luma.",
+                proofCommandsBtn: "Ver centro de comandos",
+                proofCommunityBtn: "Hablar en la comunidad",
+                founderQuote: "Creé el bot para que fuera muy funcional. No creo que le falte nada, y si falta algo, avísame en la comunidad ;3",
+                founderQuoteAuthor: "Nota del fundador por Raul Leite, creador de Luma.",
                 commandsKicker: "Superficie de Comandos",
                 commandsTitle: "Comandos reales, organizados para tu equipo",
                 commandsSub: "Desde configuración hasta acciones de moderación, Luma mantiene el flujo predecible y fácil de adoptar.",
@@ -1442,6 +2243,38 @@
                 commandsSetupDesc: "Valores del servidor, idioma y configuración guiada.",
                 commandsRolesTitle: "Paneles de Roles",
                 commandsRolesDesc: "Menús de autoasignación respaldados por paneles persistentes.",
+                showcaseKicker: "Showcase del Dashboard",
+                showcaseTitle: "El dashboard web vuelve usable la configuración",
+                showcaseSub: "En lugar de esconder toda la configuración solo en comandos, Luma también le da a tu equipo una capa visual para gestionar servidores, revisar módulos y mantener el bot organizado.",
+                showcaseWindowTitle: "Vista previa del dashboard de Luma",
+                showcaseNavServers: "Servidores",
+                showcaseNavOverview: "Resumen",
+                showcaseNavModeration: "Moderación",
+                showcaseNavLevels: "Niveles",
+                showcaseNavEntryExit: "Entrada y salida",
+                showcaseTopTitle: "Operación del servidor de un vistazo",
+                showcaseTopSub: "Una vista para setup, logs, niveles y controles de moderación.",
+                showcaseBadge1: "Multi-servidor",
+                showcaseBadge2: "Con roles",
+                showcaseBadge3: "Config en vivo",
+                showcaseCard1Title: "Reglas de moderación",
+                showcaseCard1Desc: "Advertencias, anti-spam y acciones por defecto alineadas en un solo lugar.",
+                showcaseCard2Title: "Flujos de tickets",
+                showcaseCard2Desc: "Estados del panel, canales de soporte y cierre hechos visibles.",
+                showcaseCard3Title: "Señales de crecimiento",
+                showcaseCard3Desc: "Niveles, economía y métricas de actividad ayudan al staff a leer el servidor más rápido.",
+                showcaseFeed1Title: "Resumen actualizado",
+                showcaseFeed1Desc: "Tus logs de moderación y el sistema de bienvenida permanecen visibles sin cambiar de herramienta.",
+                showcaseFeed2Title: "Página de servidores rediseñada",
+                showcaseFeed2Desc: "Las vistas de cuadrícula y lista ayudan al staff a moverse entre proyectos más rápido.",
+                showcasePoint1Title: "Ruta de setup clara",
+                showcasePoint1Desc: "El dashboard da estructura a módulos que suelen volverse desordenados cuando todo vive solo en slash commands crudos.",
+                showcasePoint2Title: "Mejor para equipos",
+                showcasePoint2Desc: "Admins, moderadores y soporte pueden entender la configuración actual sin adivinar qué se hizo antes.",
+                showcasePoint3Title: "Hecho para crecer con el bot",
+                showcasePoint3Desc: "A medida que Luma crece, el sitio puede explicar funciones, documentar flujos y reducir fricción de setup para nuevas comunidades.",
+                showcaseDashboardBtn: "Abrir dashboard",
+                showcaseCommandsBtn: "Ver comandos",
                 channelGeneral: "# general",
                 channelCommands: "# comandos-bot",
                 channelModLog: "# log-moderación",
@@ -1468,6 +2301,39 @@
                 timeline4Desc: "El moderador actualizó el estado y archivó la transcripción.",
                 modMascotAlt: "Placeholder de la mascota de moderación de Luma",
                 modMascotLabel: "Arte de la mascota de moderación de Luma",
+                useCasesKicker: "Casos de uso",
+                useCasesTitle: "Comunidades distintas, misma operación más limpia",
+                useCasesSub: "Luma es más fácil de entender cuando la gente puede imaginarlo dentro de su propio servidor. Estos son los tipos de comunidades donde encaja naturalmente.",
+                useCase1Title: "Servidores gaming",
+                useCase1Desc: "Mantén los chats públicos más limpios mientras das soporte rápido, autorroles y moderación sin frenar al staff.",
+                useCase1Item1: "Anti-spam, advertencias y purge para canales movidos",
+                useCase1Item2: "Roles por reacción para juegos, regiones o squads",
+                useCase1Item3: "Tickets y modmail para reportes, apelaciones y soporte",
+                useCase2Title: "Comunidades de creadores",
+                useCase2Desc: "Gestiona anuncios, soporte y crecimiento de audiencia sin convertir el servidor en una pila de bots desconectados y canales caóticos.",
+                useCase2Item1: "Flujos de bienvenida y paneles de roles para miembros nuevos",
+                useCase2Item2: "Ayuda de IA para resúmenes, respuestas y borradores de moderación",
+                useCase2Item3: "Vistas de actividad para detectar miembros activos más rápido",
+                useCase3Title: "Servidores centrados en soporte",
+                useCase3Desc: "Si tu equipo responde preguntas todo el día, Luma ayuda a crear estructura alrededor de tickets, respuestas y traspasos entre moderadores.",
+                useCase3Item1: "Paneles de ticket y flujo de cierre para soporte ordenado",
+                useCase3Item2: "Respuestas de modmail conectadas al flujo del staff",
+                useCase3Item3: "Logs claros para que el siguiente moderador continúe el caso",
+                miniCtaTitle: "No sabes por dónde empezar?",
+                miniCtaSub: "Usa el centro de comandos para ver lo que Luma ya hace y entra a la comunidad si quieres influir directamente en las próximas funciones.",
+                miniCtaCommandsBtn: "Abrir centro de comandos",
+                miniCtaCommunityBtn: "Entrar a la comunidad",
+                faqKicker: "FAQ",
+                faqTitle: "Preguntas que la gente suele hacer antes de invitar a Luma",
+                faqSub: "Una landing más fuerte debe responder objeciones antes de que se conviertan en fricción. Estas son las primeras respuestas que la mayoría necesita.",
+                faq1Question: "Luma reemplaza varios bots?",
+                faq1Answer: "Ese es el objetivo. Luma centraliza moderación, soporte, tickets, paneles de roles, asistencia con IA y configuración vía dashboard para que tu servidor dependa menos de herramientas dispersas.",
+                faq2Question: "Necesito el dashboard para usar el bot?",
+                faq2Answer: "No. Los comandos siguen siendo importantes, pero el dashboard hace que setup, revisión y gestión de múltiples servidores sea mucho más fácil para el staff.",
+                faq3Question: "Y si mi servidor necesita algo específico?",
+                faq3Answer: "Precisamente por eso existe el enlace de la comunidad. Luma ya fue pensado para ser muy funcional, y cualquier brecha puede reportarse directamente para que el bot evolucione con demanda real.",
+                faq4Question: "Luma sirve solo para comunidades en portugués?",
+                faq4Answer: "No. El bot y el sitio ya soportan portugués, inglés y español, lo que facilita el onboarding de servidores multilingües.",
                 ctaTitle: "Lleva estructura y velocidad a tu equipo de Discord",
                 ctaSub: "Despliega Luma para moderación, IA, tickets y soporte a miembros en un flujo más pulido.",
                 ctaBtn: "Invitar Luma Ahora",
@@ -1636,6 +2502,12 @@
             const heroCommandsBtn = document.getElementById("heroCommandsBtn");
             const heroDashboardBtn = document.getElementById("heroDashboardBtn");
             const heroCommunityBtn = document.getElementById("heroCommunityBtn");
+            const proofCommandsBtn = document.getElementById("proofCommandsBtn");
+            const proofCommunityBtn = document.getElementById("proofCommunityBtn");
+            const showcaseDashboardBtn = document.getElementById("showcaseDashboardBtn");
+            const showcaseCommandsBtn = document.getElementById("showcaseCommandsBtn");
+            const miniCtaCommandsBtn = document.getElementById("miniCtaCommandsBtn");
+            const miniCtaCommunityBtn = document.getElementById("miniCtaCommunityBtn");
 
             [heroInviteBtn, ctaInviteBtn].forEach((btn) => {
                 if (!btn) {
@@ -1653,17 +2525,35 @@
                 });
             }
 
-            if (heroCommandsBtn) {
-                heroCommandsBtn.addEventListener("click", () => {
+            [proofCommunityBtn, miniCtaCommunityBtn].forEach((btn) => {
+                if (!btn) {
+                    return;
+                }
+
+                btn.addEventListener("click", () => {
+                    window.open(communityUrl, "_blank", "noopener,noreferrer");
+                });
+            });
+
+            [heroCommandsBtn, proofCommandsBtn, showcaseCommandsBtn, miniCtaCommandsBtn].forEach((btn) => {
+                if (!btn) {
+                    return;
+                }
+
+                btn.addEventListener("click", () => {
                     window.location.href = "/commands";
                 });
-            }
+            });
 
-            if (heroDashboardBtn) {
-                heroDashboardBtn.addEventListener("click", () => {
+            [heroDashboardBtn, showcaseDashboardBtn].forEach((btn) => {
+                if (!btn) {
+                    return;
+                }
+
+                btn.addEventListener("click", () => {
                     window.location.href = "/dashboard";
                 });
-            }
+            });
         })();
     </script>
 </body>
