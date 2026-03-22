@@ -2811,6 +2811,13 @@ async def dashboard_blog(request: Request) -> Response:
     return FileResponse(WEB_ROOT / "dashboard" / "blog.html")
 
 
+@app.get("/dashboard/mk-script")
+async def dashboard_mk_script(request: Request) -> Response:
+    if not _is_authenticated(request):
+        return RedirectResponse(url="/auth/login?next=/dashboard/mk-script", status_code=302)
+    return FileResponse(WEB_ROOT / "dashboard" / "mk-script.html")
+
+
 @app.get("/dashboard/entry-exit")
 async def dashboard_entry_exit(request: Request) -> Response:
     if not _is_authenticated(request):

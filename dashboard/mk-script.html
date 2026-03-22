@@ -1,0 +1,116 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luma Dashboard - MK Script</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/assets/dashboard.css">
+</head>
+<body data-page="mk-script">
+    <div class="app">
+        <aside class="sidebar">
+            <div class="logo">Luma</div>
+            <nav class="nav">
+                <a href="/dashboard/servers">Servers</a>
+                <a href="/dashboard/overview">Overview</a>
+                <a href="/dashboard/moderation">Moderation</a>
+                <a href="/dashboard/guild-settings">Bot Setup</a>
+                <a href="/dashboard/cogs">Cogs</a>
+                <a href="/dashboard/levels">Levels</a>
+                <a href="/dashboard/economy">Economy</a>
+                <a class="active" href="/dashboard/mk-script">MK Script</a>
+                <a href="/dashboard/blog">Blog</a>
+                <a href="/dashboard/entry-exit">Entry / Exit</a>
+                <a href="/dashboard/config-logs">Config Logs <span class="config-log-dot" id="config-log-dot" hidden>0</span></a>
+            </nav>
+            <div class="user-box" id="session-user">Signed in...</div>
+        </aside>
+
+        <main class="main">
+            <header class="topbar">
+                <div>
+                    <h1 class="title">MK Script Builder</h1>
+                    <p class="subtitle">Drag logic blocks, connect flows, and prototype automation rules visually.</p>
+                </div>
+                <div class="actions">
+                    <select id="guild-select"></select>
+                    <button class="btn" id="mk-test-flow" type="button">Test Flow</button>
+                    <button class="btn primary" id="mk-save-flow" type="button">Publish Draft</button>
+                    <a class="btn" href="/auth/logout">Logout</a>
+                </div>
+            </header>
+
+            <section class="mk-layout">
+                <aside class="mk-panel">
+                    <h3>Logic Blocks</h3>
+                    <p class="lead">Pick blocks and drop them into the flow space.</p>
+                    <div class="mk-palette" id="mk-palette">
+                        <div class="mk-block-template" draggable="true" data-type="trigger" data-title="Message Sent" data-sub="on_message">
+                            <strong>Trigger: Message Sent</strong>
+                            <span>Starts rule execution when a user sends a message.</span>
+                        </div>
+                        <div class="mk-block-template" draggable="true" data-type="condition" data-title="Contains Link" data-sub="contains_link">
+                            <strong>Condition: Contains Link</strong>
+                            <span>Checks if a message has URL or invite pattern.</span>
+                        </div>
+                        <div class="mk-block-template" draggable="true" data-type="condition" data-title="Caps Ratio" data-sub="caps_ratio">
+                            <strong>Condition: Caps Ratio</strong>
+                            <span>Validates if uppercase ratio is above threshold.</span>
+                        </div>
+                        <div class="mk-block-template" draggable="true" data-type="action" data-title="Timeout 10m" data-sub="timeout_10m">
+                            <strong>Action: Timeout 10m</strong>
+                            <span>Applies temporary timeout to the member.</span>
+                        </div>
+                        <div class="mk-block-template" draggable="true" data-type="action" data-title="Send DM" data-sub="send_dm">
+                            <strong>Action: Send DM</strong>
+                            <span>Sends a direct message using a template.</span>
+                        </div>
+                        <div class="mk-block-template" draggable="true" data-type="action" data-title="Delete Message" data-sub="delete_message">
+                            <strong>Action: Delete Message</strong>
+                            <span>Deletes the triggering message from channel.</span>
+                        </div>
+                    </div>
+                </aside>
+
+                <div class="mk-canvas-wrap" id="mk-canvas-wrap">
+                    <svg class="mk-connections" id="mk-connections"></svg>
+                    <div class="mk-canvas" id="mk-canvas"></div>
+                </div>
+
+                <aside class="mk-right">
+                    <section class="mk-panel">
+                        <h3>Selected Block</h3>
+                        <p class="lead" id="mk-selected-help">Select a block on the canvas to view details.</p>
+                        <div class="log-item">
+                            <h3 id="mk-selected-title">No block selected</h3>
+                            <p id="mk-selected-sub">Drop blocks and connect ports to assemble the rule.</p>
+                        </div>
+                    </section>
+
+                    <section class="mk-mini">
+                        <h3>Mini Map</h3>
+                        <div class="mk-minimap" id="mk-minimap"></div>
+                    </section>
+
+                    <section class="mk-log">
+                        <h3>Execution Preview</h3>
+                        <p class="lead">Quick test output for this draft rule.</p>
+                        <div class="mk-log-list" id="mk-log-list">
+                            <div class="mk-log-item"><strong>Ready</strong> Drop blocks to start building the flow.</div>
+                        </div>
+                    </section>
+                </aside>
+            </section>
+        </main>
+    </div>
+
+    <div class="flash" id="flash"></div>
+    <script src="/assets/dashboard.js"></script>
+    <script src="/assets/mk-script.js"></script>
+</body>
+</html>
+
+
