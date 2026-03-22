@@ -940,6 +940,47 @@
             color: var(--text-soft);
         }
 
+        .terms-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 1rem;
+        }
+
+        .terms-card {
+            border-radius: 22px;
+            border: 1px solid var(--glass-border);
+            background: rgba(18, 16, 40, 0.82);
+            backdrop-filter: blur(14px);
+            padding: 1.2rem;
+        }
+
+        .terms-card h3 {
+            font-size: 1rem;
+            margin-bottom: 0.55rem;
+            font-family: "Space Grotesk", sans-serif;
+        }
+
+        .terms-card p {
+            color: var(--text-soft);
+            font-size: 0.9rem;
+            margin-bottom: 0.8rem;
+        }
+
+        .terms-list {
+            list-style: none;
+            display: grid;
+            gap: 0.55rem;
+        }
+
+        .terms-list li {
+            padding: 0.62rem 0.78rem;
+            border-radius: 14px;
+            background: rgba(11, 10, 28, 0.9);
+            border: 1px solid rgba(199, 210, 255, 0.1);
+            color: var(--text-soft);
+            font-size: 0.88rem;
+        }
+
         .faq-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -1322,6 +1363,7 @@
             .moderation-wrap,
             .use-cases-grid,
             .faq-grid,
+            .terms-grid,
             .dashboard-body {
                 grid-template-columns: 1fr;
             }
@@ -1815,6 +1857,32 @@
             </div>
         </section>
 
+        <section class="container reveal" id="terms">
+            <p class="section-kicker" data-i18n="termsKicker">Terms of Use</p>
+            <h2 class="section-title" data-i18n="termsTitle">Terms of use summary for Luma</h2>
+            <p class="section-sub" data-i18n="termsSub">This section is a practical summary to help server owners review expected responsibilities before enabling the bot.</p>
+            <div class="terms-grid">
+                <article class="terms-card">
+                    <h3 data-i18n="termsServerTitle">Server owner responsibilities</h3>
+                    <p data-i18n="termsServerSub">By inviting Luma, the server owner confirms they have permission to configure moderation, support and automation features.</p>
+                    <ul class="terms-list">
+                        <li data-i18n="termsServerItem1">You are responsible for how moderators use commands and role permissions.</li>
+                        <li data-i18n="termsServerItem2">You must follow Discord Terms of Service and Community Guidelines.</li>
+                        <li data-i18n="termsServerItem3">Abuse, harassment or illegal use through the bot may lead to access removal.</li>
+                    </ul>
+                </article>
+                <article class="terms-card">
+                    <h3 data-i18n="termsDataTitle">Data and service limits</h3>
+                    <p data-i18n="termsDataSub">Luma stores only operational data needed for moderation, setup and support workflows.</p>
+                    <ul class="terms-list">
+                        <li data-i18n="termsDataItem1">Settings, logs and ticket records can be stored to keep server workflows functional.</li>
+                        <li data-i18n="termsDataItem2">Service availability can change due to maintenance, Discord API limits or infrastructure issues.</li>
+                        <li data-i18n="termsDataItem3">Using Luma means accepting updates to features and terms when published.</li>
+                    </ul>
+                </article>
+            </div>
+        </section>
+
         <section class="cta container reveal" id="invite">
             <div class="cta-card">
                 <h2 data-i18n="ctaTitle">Ready to light up your Discord server?</h2>
@@ -1990,6 +2058,19 @@
                 faq3Answer: "That is exactly why the community link exists. Luma was built to be very functional already, and feature gaps can be reported directly so the bot keeps evolving with real demand.",
                 faq4Question: "Is Luma good only for Portuguese communities?",
                 faq4Answer: "No. The bot and site already support Portuguese, English and Spanish, which makes it easier to onboard multilingual servers.",
+                termsKicker: "Terms of Use",
+                termsTitle: "Terms of use summary for Luma",
+                termsSub: "This section is a practical summary to help server owners review expected responsibilities before enabling the bot.",
+                termsServerTitle: "Server owner responsibilities",
+                termsServerSub: "By inviting Luma, the server owner confirms they have permission to configure moderation, support and automation features.",
+                termsServerItem1: "You are responsible for how moderators use commands and role permissions.",
+                termsServerItem2: "You must follow Discord Terms of Service and Community Guidelines.",
+                termsServerItem3: "Abuse, harassment or illegal use through the bot may lead to access removal.",
+                termsDataTitle: "Data and service limits",
+                termsDataSub: "Luma stores only operational data needed for moderation, setup and support workflows.",
+                termsDataItem1: "Settings, logs and ticket records can be stored to keep server workflows functional.",
+                termsDataItem2: "Service availability can change due to maintenance, Discord API limits or infrastructure issues.",
+                termsDataItem3: "Using Luma means accepting updates to features and terms when published.",
                 ctaTitle: "Bring structure and speed to your Discord team",
                 ctaSub: "Deploy Luma for moderation, AI assistance, tickets, and member support in one polished workflow.",
                 ctaBtn: "Invite Luma Now",
@@ -2162,6 +2243,19 @@
                 faq3Answer: "É exatamente por isso que o link da comunidade existe. A Luma já foi pensada para ser muito funcional, e lacunas podem ser reportadas direto para o bot evoluir com demanda real.",
                 faq4Question: "A Luma é boa só para comunidades em português?",
                 faq4Answer: "Não. O bot e o site já suportam português, inglês e espanhol, o que facilita onboarding em servidores multilíngues.",
+                termsKicker: "Termos de Uso",
+                termsTitle: "Resumo dos termos de uso da Luma",
+                termsSub: "Esta seção é um resumo prático para ajudar donos de servidor a revisar responsabilidades antes de ativar o bot.",
+                termsServerTitle: "Responsabilidades do dono do servidor",
+                termsServerSub: "Ao convidar a Luma, o dono do servidor confirma que tem permissão para configurar moderação, suporte e automações.",
+                termsServerItem1: "Você é responsável por como moderadores usam comandos e permissões de cargo.",
+                termsServerItem2: "Você deve seguir os Termos de Serviço e as Diretrizes da Comunidade do Discord.",
+                termsServerItem3: "Uso abusivo, assédio ou atividade ilegal com o bot pode resultar em remoção de acesso.",
+                termsDataTitle: "Dados e limites de serviço",
+                termsDataSub: "A Luma armazena apenas dados operacionais necessários para moderação, configuração e suporte.",
+                termsDataItem1: "Configurações, logs e registros de tickets podem ser armazenados para manter os fluxos do servidor funcionais.",
+                termsDataItem2: "A disponibilidade do serviço pode mudar por manutenção, limites da API do Discord ou problemas de infraestrutura.",
+                termsDataItem3: "Usar a Luma significa aceitar atualizações de recursos e termos quando publicados.",
                 ctaTitle: "Leve estrutura e velocidade para a sua equipe no Discord",
                 ctaSub: "Implemente a Luma para moderacao, IA, tickets e suporte a membros em um fluxo mais polido.",
                 ctaBtn: "Convidar Luma Agora",
@@ -2334,6 +2428,19 @@
                 faq3Answer: "Precisamente por eso existe el enlace de la comunidad. Luma ya fue pensado para ser muy funcional, y cualquier brecha puede reportarse directamente para que el bot evolucione con demanda real.",
                 faq4Question: "Luma sirve solo para comunidades en portugués?",
                 faq4Answer: "No. El bot y el sitio ya soportan portugués, inglés y español, lo que facilita el onboarding de servidores multilingües.",
+                termsKicker: "Terminos de Uso",
+                termsTitle: "Resumen de terminos de uso de Luma",
+                termsSub: "Esta sección es un resumen práctico para ayudar a dueños de servidores a revisar responsabilidades antes de activar el bot.",
+                termsServerTitle: "Responsabilidades del dueño del servidor",
+                termsServerSub: "Al invitar Luma, el dueño del servidor confirma que tiene permiso para configurar moderación, soporte y automatizaciones.",
+                termsServerItem1: "Eres responsable de cómo los moderadores usan comandos y permisos de roles.",
+                termsServerItem2: "Debes cumplir los Terminos de Servicio y las Normas de la Comunidad de Discord.",
+                termsServerItem3: "Uso abusivo, acoso o actividad ilegal mediante el bot puede resultar en la eliminación del acceso.",
+                termsDataTitle: "Datos y limites del servicio",
+                termsDataSub: "Luma almacena solo datos operativos necesarios para moderación, configuración y soporte.",
+                termsDataItem1: "Configuraciones, logs y registros de tickets pueden guardarse para mantener flujos funcionales del servidor.",
+                termsDataItem2: "La disponibilidad del servicio puede cambiar por mantenimiento, limites de la API de Discord o problemas de infraestructura.",
+                termsDataItem3: "Usar Luma significa aceptar actualizaciones de funciones y terminos cuando se publiquen.",
                 ctaTitle: "Lleva estructura y velocidad a tu equipo de Discord",
                 ctaSub: "Despliega Luma para moderación, IA, tickets y soporte a miembros en un flujo más pulido.",
                 ctaBtn: "Invitar Luma Ahora",
