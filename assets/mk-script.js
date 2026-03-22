@@ -266,6 +266,48 @@
         };
     }
 
+    function getComposerValue(selectEl, fallback) {
+        const value = selectEl?.value?.trim() || "";
+        return value || fallback;
+    }
+
+    function renderNodeRule(node) {
+        if (node.type === "trigger") {
+            return `
+                <div class="mk-node-rule">
+                    <div class="mk-node-rule-row">
+                        <span class="mk-node-rule-word">when</span>
+                        <span class="mk-node-rule-token">${node.title}</span>
+                    </div>
+                    <p>${node.description}</p>
+                </div>
+            `;
+        }
+
+        if (node.type === "condition") {
+            return `
+                <div class="mk-node-rule">
+                    <div class="mk-node-rule-row">
+                        <span class="mk-node-rule-word">if</span>
+                        <span class="mk-node-rule-token">${node.title}</span>
+                        <span class="mk-node-rule-word">then</span>
+                    </div>
+                    <p>${node.description}</p>
+                </div>
+            `;
+        }
+
+        return `
+            <div class="mk-node-rule">
+                <div class="mk-node-rule-row">
+                    <span class="mk-node-rule-word">do</span>
+                    <span class="mk-node-rule-token">${node.title}</span>
+                </div>
+                <p>${node.description}</p>
+            </div>
+        `;
+    }
+
     function persistDraft() {
         localStorage.setItem("luma-mk-script-draft", JSON.stringify(serializeState()));
     }
@@ -302,7 +344,7 @@
                 <button class="mk-node-remove" type="button" title="Remove block">×</button>
             </div>
             <div class="mk-node-body">
-                <p>${node.description}</p>
+                ${renderNodeRule(node)}
                 <div class="mk-node-meta">
                     <span class="mk-node-pill">${node.type.toUpperCase()}</span>
                     <span class="mk-node-pill">${node.sub}</span>
@@ -453,7 +495,11 @@
     function restoreDraft() {
         const previous = localStorage.getItem("luma-mk-script-draft");
         if (!previous) {
-            createChain(triggerSelect?.value || "on_message", conditionSelect?.value || "contains_link", actionSelect?.value || "timeout_10m");
+            createChain(
+                getComposerValue(triggerSelect, "on_message"),
+                getComposerValue(conditionSelect, "contains_link"),
+                getComposerValue(actionSelect, "timeout_10m"),
+            );
             return;
         }
 
@@ -567,22 +613,22 @@
     });
 
     addTriggerBtn?.addEventListener("click", () => {
-        createNodeByKey("trigger", triggerSelect?.value || "on_message", 48, 150 + state.nodes.size * 14);
+        createNodeByKey("trigger", getComposerValue(triggerSelect, "on_message"), 48, 150 + state.nodes.size * 14);
     });
 
     addConditionBtn?.addEventListener("click", () => {
-        createNodeByKey("condition", conditionSelect?.value || "contains_link", 320, 160 + state.nodes.size * 14);
+        createNodeByKey("condition", getComposerValue(conditionSelect, "contains_link"), 320, 160 + state.nodes.size * 14);
     });
 
     addActionBtn?.addEventListener("click", () => {
-        createNodeByKey("action", actionSelect?.value || "timeout_10m", 590, 170 + state.nodes.size * 14);
+        createNodeByKey("action", getComposerValue(actionSelect, "timeout_10m"), 590, 170 + state.nodes.size * 14);
     });
 
     buildChainBtn?.addEventListener("click", () => {
         createChain(
-            triggerSelect?.value || "on_message",
-            conditionSelect?.value || "contains_link",
-            actionSelect?.value || "timeout_10m",
+            getComposerValue(triggerSelect, "on_message"),
+            getComposerValue(conditionSelect, "contains_link"),
+            getComposerValue(actionSelect, "timeout_10m"),
         );
     });
 

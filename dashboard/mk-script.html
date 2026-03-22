@@ -142,42 +142,44 @@
             <div class="mk-panel-head">
                 <div>
                     <h3>Flow Composer</h3>
-                    <p class="lead mk-overlay-lead">Choose a trigger, condition and action, then generate a starter chain instantly.</p>
+                    <p class="lead mk-overlay-lead">Build a Scratch-style rule with a trigger, one condition and the action that runs right after it.</p>
                 </div>
                 <button class="btn" id="mk-composer-close" type="button">Close</button>
             </div>
 
-            <div class="mk-composer-grid">
-                <div class="field">
-                    <label for="mk-trigger-select">Trigger</label>
+            <div class="mk-scratch-stack">
+                <div class="mk-scratch-trigger">
+                    <span class="mk-scratch-word">when</span>
                     <select id="mk-trigger-select">
-                        <option value="on_message">Select a Trigger</option>
+                        <option value="" selected>Select a Trigger</option>
                         <option value="on_message">Message Sent</option>
                         <option value="member_join">Member Joins</option>
                         <option value="voice_timer">Voice Session Matured</option>
                     </select>
                 </div>
 
-                <div class="field">
-                    <label for="mk-condition-select">Condition</label>
-                    <select id="mk-condition-select">
-                        <option value="contains_link">Select a Condition</option>
-                        <option value="contains_link">Contains Link</option>
-                        <option value="caps_ratio">Caps Ratio</option>
-                        <option value="mention_spam">Mention Spam</option>
-                        <option value="duplicate_message">Duplicate Message</option>
-                    </select>
-                </div>
+                <div class="mk-scratch-condition">
+                    <div class="mk-scratch-cap">
+                        <span class="mk-scratch-word">if</span>
+                        <select id="mk-condition-select">
+                            <option value="" selected>Select a Condition</option>
+                            <option value="contains_link">Contains Link</option>
+                            <option value="caps_ratio">Caps Ratio</option>
+                            <option value="mention_spam">Mention Spam</option>
+                            <option value="duplicate_message">Duplicate Message</option>
+                        </select>
+                        <span class="mk-scratch-word">then</span>
+                    </div>
 
-                <div class="field">
-                    <label for="mk-action-select">Action</label>
-                    <select id="mk-action-select">
-                        <option value="timeout_10m">Select an Action</option>
-                        <option value="timeout_10m">Timeout 10m</option>
-                        <option value="delete_message">Delete Message</option>
-                        <option value="send_dm">Send DM</option>
-                        <option value="flag_review">Flag For Review</option>
-                    </select>
+                    <div class="mk-scratch-slot">
+                        <select id="mk-action-select">
+                            <option value="" selected>Select an Action</option>
+                            <option value="timeout_10m">Timeout 10m</option>
+                            <option value="delete_message">Delete Message</option>
+                            <option value="send_dm">Send DM</option>
+                            <option value="flag_review">Flag For Review</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 
@@ -185,7 +187,7 @@
                 <button class="btn" id="mk-add-trigger" type="button">Add Trigger</button>
                 <button class="btn" id="mk-add-condition" type="button">Add Condition</button>
                 <button class="btn" id="mk-add-action" type="button">Add Action</button>
-                <button class="btn primary" id="mk-build-chain" type="button">Build Chain</button>
+                <button class="btn primary" id="mk-build-chain" type="button">Build If / Then</button>
             </div>
         </div>
     </section>
