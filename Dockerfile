@@ -13,6 +13,8 @@ RUN pip install --prefer-binary --no-compile -r /app/requirements.txt
 COPY index.html /app/index.html
 COPY commands.html /app/commands.html
 COPY dashboard.html /app/dashboard.html
+COPY terms.html /app/terms.html
+COPY privacy.html /app/privacy.html
 COPY dashboard /app/dashboard
 COPY assets /app/assets
 COPY server.py /app/server.py
