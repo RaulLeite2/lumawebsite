@@ -18,7 +18,7 @@ from typing import Any
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Query, Request
-from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from starlette.middleware.sessions import SessionMiddleware
@@ -2725,14 +2725,48 @@ async def commands_page() -> FileResponse:
 
 @app.get("/terms")
 @app.get("/terms.html")
-async def terms_page() -> FileResponse:
-    return FileResponse(WEB_ROOT / "terms.html")
+async def terms_page() -> Response:
+    terms_path = WEB_ROOT / "terms.html"
+    if terms_path.exists():
+        return FileResponse(terms_path)
+
+    fallback = """
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Luma Terms of Service</title></head>
+<body>
+<h1>Terms of Service</h1>
+<p>By using the Luma bot, you agree to comply with Discord rules and applicable laws.</p>
+<p>Server owners are responsible for moderator permissions and bot usage in their servers.</p>
+<p>Service availability may vary due to maintenance, API limits, or infrastructure events.</p>
+<p>Terms may be updated over time. Continued usage indicates acceptance of updates.</p>
+</body>
+</html>
+"""
+    return HTMLResponse(content=fallback)
 
 
 @app.get("/privacy")
 @app.get("/privacy.html")
-async def privacy_page() -> FileResponse:
-    return FileResponse(WEB_ROOT / "privacy.html")
+async def privacy_page() -> Response:
+    privacy_path = WEB_ROOT / "privacy.html"
+    if privacy_path.exists():
+        return FileResponse(privacy_path)
+
+    fallback = """
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Luma Privacy Policy</title></head>
+<body>
+<h1>Privacy Policy</h1>
+<p>Luma processes technical server data needed for bot and dashboard operation.</p>
+<p>This may include guild configuration data, moderation logs, and support workflow records.</p>
+<p>Luma does not sell personal data and uses data only for service operation and security.</p>
+<p>This policy may be updated when technical or legal requirements change.</p>
+</body>
+</html>
+"""
+    return HTMLResponse(content=fallback)
 
 
 @app.get("/auth/login")
