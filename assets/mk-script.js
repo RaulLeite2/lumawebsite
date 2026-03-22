@@ -5,6 +5,12 @@
     const mkPalette = document.getElementById("mk-palette");
     const mkMinimap = document.getElementById("mk-minimap");
     const mkLogList = document.getElementById("mk-log-list");
+    const composerPanel = document.getElementById("mk-composer-panel");
+    const composerToggleBtn = document.getElementById("mk-composer-toggle");
+    const composerCloseBtn = document.getElementById("mk-composer-close");
+    const debugPanel = document.getElementById("mk-debug-panel");
+    const debugCloseBtn = document.getElementById("mk-debug-close");
+    const inspectorDebugBtn = document.getElementById("mk-inspector-debug");
     const selectedTitle = document.getElementById("mk-selected-title");
     const selectedSub = document.getElementById("mk-selected-sub");
     const selectedHelp = document.getElementById("mk-selected-help");
@@ -69,6 +75,8 @@
         nodeCounter: 0,
         debugEnabled: false,
         fullSizeEnabled: false,
+        composerOpen: false,
+        debugOpen: false,
     };
 
     const canvasRect = () => mkCanvas.getBoundingClientRect();
@@ -117,12 +125,23 @@
     }
 
     function syncDebugUi() {
-        const label = state.debugEnabled ? "Debug On" : "Debug Off";
         if (debugToggle) debugToggle.checked = state.debugEnabled;
-        if (debugToggleBtn) debugToggleBtn.textContent = label;
+        if (debugToggleBtn) debugToggleBtn.textContent = state.debugOpen ? "Close Debug" : "Debug";
         if (!state.debugEnabled && debugOutput) {
             debugOutput.textContent = "Debug disabled.";
         }
+    }
+
+    function setComposerOpen(open) {
+        state.composerOpen = !!open;
+        if (composerPanel) composerPanel.hidden = !state.composerOpen;
+        if (composerToggleBtn) composerToggleBtn.classList.toggle("primary", state.composerOpen);
+    }
+
+    function setDebugOpen(open) {
+        state.debugOpen = !!open;
+        if (debugPanel) debugPanel.hidden = !state.debugOpen;
+        syncDebugUi();
     }
 
     function syncFullSizeUi() {
@@ -580,13 +599,30 @@
     });
 
     const toggleDebug = () => {
-        state.debugEnabled = !state.debugEnabled;
+        setDebugOpen(!state.debugOpen);
+        if (state.debugOpen) {
+            state.debugEnabled = true;
+            if (debugToggle) debugToggle.checked = true;
+            pushDebug("Debug panel opened", serializeState(), true);
+            addLog("Debug", "Detailed debug console opened.");
+        }
         syncDebugUi();
-        pushDebug(state.debugEnabled ? "Debug enabled" : "Debug disabled", serializeState(), true);
-        addLog("Debug", state.debugEnabled ? "Detailed debug console enabled." : "Detailed debug console disabled.");
     };
 
     debugToggleBtn?.addEventListener("click", toggleDebug);
+    inspectorDebugBtn?.addEventListener("click", () => setDebugOpen(true));
+    debugCloseBtn?.addEventListener("click", () => setDebugOpen(false));
+    composerToggleBtn?.addEventListener("click", () => setComposerOpen(!state.composerOpen));
+    composerCloseBtn?.addEventListener("click", () => setComposerOpen(false));
+
+    document.querySelectorAll("[data-close-overlay]").forEach((element) => {
+        element.addEventListener("click", () => {
+            const kind = element.getAttribute("data-close-overlay");
+            if (kind === "composer") setComposerOpen(false);
+            if (kind === "debug") setDebugOpen(false);
+        });
+    });
+
     debugToggle?.addEventListener("change", () => {
         state.debugEnabled = !!debugToggle.checked;
         syncDebugUi();
@@ -622,6 +658,10 @@
     });
 
     window.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+            if (state.composerOpen) setComposerOpen(false);
+            if (state.debugOpen) setDebugOpen(false);
+        }
         if (event.key === "Escape" && state.fullSizeEnabled) {
             applyFullSizeMode(false);
         }
@@ -635,6 +675,8 @@
     }
 
     syncDebugUi();
+    setComposerOpen(false);
+    setDebugOpen(false);
     restoreDraft();
     ensureSvgBounds();
     redrawLinks();

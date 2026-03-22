@@ -199,6 +199,10 @@ body.sidebar-collapsed .sidebar {
     padding-inline: 0.6rem;
 }
 
+body.sidebar-collapsed .nav {
+    justify-items: center;
+}
+
 body.sidebar-collapsed .logo {
     font-size: 0;
 }
@@ -209,13 +213,23 @@ body.sidebar-collapsed .logo::before {
 }
 
 body.sidebar-collapsed .nav a {
+    position: relative;
+    width: 100%;
+    min-height: 44px;
     justify-content: center;
+    align-items: center;
+    gap: 0;
     padding-inline: 0.45rem;
+    font-size: 0;
+    line-height: 0;
+    text-indent: -9999px;
+    white-space: nowrap;
     color: transparent;
 }
 
 body.sidebar-collapsed .nav a::before {
     margin: 0;
+    text-indent: 0;
 }
 
 body.sidebar-collapsed .config-log-dot {
@@ -223,10 +237,6 @@ body.sidebar-collapsed .config-log-dot {
     top: 6px;
     right: 6px;
     margin-left: 0;
-}
-
-body.sidebar-collapsed .nav a {
-    position: relative;
 }
 
 body.sidebar-collapsed .user-box {
@@ -1306,12 +1316,37 @@ body.mk-page-entering .main {
 .mk-builder-panel {
     display: grid;
     align-content: start;
-    gap: 0.25rem;
+    grid-template-rows: auto 1fr;
+    gap: 0.85rem;
 }
 
 .mk-right {
     gap: 0.8rem;
     padding-right: 0.1rem;
+    align-content: stretch;
+}
+
+.mk-right > .mk-panel {
+    min-height: 100%;
+}
+
+.mk-library-titlebar {
+    align-items: start;
+}
+
+.mk-library-titlebar > div {
+    display: grid;
+    gap: 0.3rem;
+}
+
+.mk-library-lead {
+    margin-bottom: 0;
+    max-width: 24ch;
+    font-size: 0.82rem;
+}
+
+.mk-builder-panel .mk-palette {
+    align-content: start;
 }
 
 .mk-composer-grid .field {
@@ -1392,6 +1427,23 @@ body.mk-script-fullsize .mk-right {
 
 .mk-eyebrow {
     margin-bottom: 0.55rem;
+}
+
+.mk-inspector-lead {
+    max-width: none;
+}
+
+.mk-inspector-card {
+    min-height: 220px;
+    display: grid;
+    align-content: start;
+    gap: 0.6rem;
+}
+
+.mk-inspector-actions {
+    margin-top: 0.85rem;
+    display: flex;
+    justify-content: flex-start;
 }
 
 .mk-composer-grid {
@@ -1772,6 +1824,51 @@ body.mk-script-fullsize .mk-right {
     margin-bottom: 0.14rem;
 }
 
+.mk-overlay-panel {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+}
+
+.mk-overlay-panel[hidden] {
+    display: none;
+}
+
+.mk-overlay-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(6, 7, 18, 0.68);
+    backdrop-filter: blur(8px);
+}
+
+.mk-overlay-card {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: min(560px, calc(100vw - 2rem));
+    max-height: calc(100vh - 2rem);
+    overflow: auto;
+    transform: translate(-50%, -50%);
+    border-radius: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: linear-gradient(180deg, rgba(18, 18, 41, 0.97), rgba(10, 11, 26, 0.98));
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.4);
+    padding: 1rem;
+}
+
+.mk-overlay-lead {
+    max-width: 34ch;
+    margin-top: 0.2rem;
+}
+
+.mk-debug-card {
+    width: min(680px, calc(100vw - 2rem));
+}
+
+.mk-debug-actions {
+    grid-template-columns: 1fr;
+}
+
 @keyframes mk-node-rise {
     from {
         opacity: 0;
@@ -1833,6 +1930,11 @@ body.mk-script-fullsize .mk-right {
     .mk-right {
         max-height: none;
         overflow: visible;
+    }
+
+    .mk-library-lead,
+    .mk-overlay-lead {
+        max-width: none;
     }
 
     body.mk-script-fullsize .mk-layout {
