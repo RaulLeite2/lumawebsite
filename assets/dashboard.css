@@ -1,14 +1,15 @@
 :root {
-    --bg: #0a0f1a;
-    --panel: #121827;
-    --panel-2: #171f33;
-    --panel-soft: #171f33;
-    --line: #25324f;
-    --border: #25324f;
-    --text: #e9f0ff;
-    --soft: #9db0d9;
-    --brand: #2aa5ff;
-    --brand-2: #66d8ff;
+    --bg: #0a0920;
+    --bg-2: #101033;
+    --panel: #15152c;
+    --panel-2: #1b1b37;
+    --panel-soft: #1a1a35;
+    --line: #2a2a4b;
+    --border: #2a2a4b;
+    --text: #f1f2ff;
+    --soft: #a3a6ce;
+    --brand: #8e4dff;
+    --brand-2: #c26bff;
     --danger: #ff6d7a;
     --ok: #47d7ac;
     --space-1: 0.35rem;
@@ -33,31 +34,34 @@ body {
     font-family: "Plus Jakarta Sans", sans-serif;
     color: var(--text);
     background:
-        radial-gradient(circle at 8% 12%, rgba(42, 165, 255, 0.18), transparent 30%),
-        radial-gradient(circle at 90% 8%, rgba(102, 216, 255, 0.14), transparent 34%),
+        radial-gradient(circle at 12% 8%, rgba(124, 58, 237, 0.2), transparent 34%),
+        radial-gradient(circle at 85% 4%, rgba(88, 101, 242, 0.14), transparent 30%),
+        radial-gradient(circle at 45% 92%, rgba(194, 107, 255, 0.08), transparent 42%),
         var(--bg);
 }
 
 .app {
     display: grid;
-    grid-template-columns: 280px 1fr;
+    grid-template-columns: 250px 1fr;
     min-height: 100vh;
 }
 
 .sidebar {
-    border-right: 1px solid var(--line);
-    background: linear-gradient(180deg, #0d1322 0%, #0a0f1a 100%);
-    padding: 1rem;
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
+    background: linear-gradient(180deg, rgba(10, 10, 27, 0.98) 0%, rgba(7, 7, 20, 0.98) 100%);
+    padding: 1.1rem 0.9rem;
     position: sticky;
     top: 0;
     height: 100vh;
+    backdrop-filter: blur(4px);
 }
 
 .logo {
     font-family: "Space Grotesk", sans-serif;
-    font-size: 1.8rem;
-    color: var(--brand);
-    margin: 0.4rem 0 1rem;
+    font-size: 1.45rem;
+    color: #ffffff;
+    margin: 0.3rem 0 1.1rem;
+    letter-spacing: 0.01em;
 }
 
 .nav {
@@ -71,9 +75,16 @@ body {
     color: var(--soft);
     border: 1px solid transparent;
     border-radius: 10px;
-    padding: 0.62rem 0.7rem;
+    padding: 0.58rem 0.68rem;
     font-weight: 700;
-    font-size: 0.9rem;
+    font-size: 0.87rem;
+    transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.nav a:hover {
+    color: #eaecff;
+    border-color: rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.03);
 }
 
 .config-log-dot {
@@ -96,21 +107,24 @@ body {
 }
 
 .nav a.active {
-    color: #d9f2ff;
-    border-color: rgba(42, 165, 255, 0.34);
-    background: rgba(42, 165, 255, 0.12);
+    color: #f5f3ff;
+    border-color: rgba(142, 77, 255, 0.42);
+    background: linear-gradient(135deg, rgba(142, 77, 255, 0.2), rgba(194, 107, 255, 0.14));
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
 .user-box {
     margin-top: 1rem;
     padding-top: 1rem;
-    border-top: 1px solid var(--line);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
     color: var(--soft);
     font-size: 0.88rem;
 }
 
 .main {
-    padding: 1.15rem;
+    padding: 1.4rem;
+    max-width: 1320px;
+    width: 100%;
 }
 
 .topbar {
@@ -125,6 +139,7 @@ body {
 .title {
     font-family: "Space Grotesk", sans-serif;
     font-size: clamp(1.35rem, 2.8vw, 2rem);
+    letter-spacing: 0.01em;
 }
 
 .subtitle {
@@ -144,9 +159,9 @@ body {
 select,
 input,
 textarea {
-    border: 1px solid var(--line);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 10px;
-    background: var(--panel);
+    background: rgba(21, 21, 44, 0.92);
     color: var(--text);
     font-size: 0.9rem;
     padding: 0.56rem 0.72rem;
@@ -162,12 +177,22 @@ textarea {
     text-decoration: none;
     cursor: pointer;
     font-weight: 700;
+    transition: transform var(--transition-fast), filter var(--transition-fast), border-color var(--transition-fast);
 }
 
 .btn.primary {
-    border: none;
-    color: #061023;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: #fefbff;
     background: linear-gradient(130deg, var(--brand), var(--brand-2));
+    box-shadow: 0 10px 25px rgba(142, 77, 255, 0.28);
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+}
+
+.btn.primary:hover {
+    filter: brightness(1.06);
 }
 
 .btn[disabled] {
@@ -182,17 +207,30 @@ textarea {
 }
 
 .section {
-    border: 1px solid var(--line);
-    background: rgba(18, 24, 39, 0.95);
-    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background:
+        linear-gradient(180deg, rgba(21, 21, 44, 0.96), rgba(16, 16, 37, 0.96));
+    border-radius: 14px;
     padding: 1rem;
     margin-bottom: 0.9rem;
     transition: transform var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
+    position: relative;
+    overflow: hidden;
+}
+
+.section::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(rgba(255, 255, 255, 0.065) 1px, transparent 1px);
+    background-size: 12px 12px;
+    opacity: 0.15;
+    pointer-events: none;
 }
 
 .section:hover {
     transform: translateY(-1px);
-    border-color: rgba(102, 216, 255, 0.24);
+    border-color: rgba(194, 107, 255, 0.3);
 }
 
 .section h2 {
@@ -211,15 +249,15 @@ textarea {
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
-    border: 1px solid rgba(102, 216, 255, 0.26);
+    border: 1px solid rgba(194, 107, 255, 0.28);
     border-radius: 999px;
     padding: 0.28rem 0.55rem;
-    color: #cbefff;
+    color: #f0e4ff;
     font-size: 0.72rem;
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    background: rgba(42, 165, 255, 0.1);
+    background: rgba(142, 77, 255, 0.16);
 }
 
 .metrics {
@@ -229,16 +267,16 @@ textarea {
 }
 
 .metric {
-    border: 1px solid var(--line);
+    border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 12px;
     padding: 0.72rem;
-    background: var(--panel-soft);
+    background: rgba(26, 26, 53, 0.82);
     transition: border-color var(--transition-fast), transform var(--transition-fast);
 }
 
 .metric:hover {
     transform: translateY(-1px);
-    border-color: rgba(102, 216, 255, 0.24);
+    border-color: rgba(194, 107, 255, 0.3);
 }
 
 .metric span {
@@ -335,8 +373,8 @@ textarea {
 .topic-link.active,
 .topic-link:hover {
     color: #dff7ff;
-    border-color: rgba(42, 165, 255, 0.3);
-    background: rgba(42, 165, 255, 0.12);
+    border-color: rgba(142, 77, 255, 0.32);
+    background: rgba(142, 77, 255, 0.16);
 }
 
 .save-banner {
@@ -684,7 +722,7 @@ textarea {
     border: 1px solid rgba(157, 176, 217, 0.22);
     border-radius: 12px;
     padding: 0.75rem;
-    background: rgba(11, 17, 31, 0.62);
+    background: rgba(17, 17, 37, 0.85);
 }
 
 .log-item h3 {
@@ -769,14 +807,23 @@ textarea {
 }
 
 .server-card {
-    border: 1px solid var(--line);
+    border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 12px;
-    background: var(--panel-soft);
+    background:
+        radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+        rgba(26, 26, 53, 0.86);
+    background-size: 10px 10px;
     padding: 0.75rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 0.6rem;
+    transition: border-color var(--transition-fast), transform var(--transition-fast);
+}
+
+.server-card:hover {
+    border-color: rgba(194, 107, 255, 0.35);
+    transform: translateY(-1px);
 }
 
 .server-meta {
@@ -832,8 +879,8 @@ textarea {
     right: 1rem;
     bottom: 1rem;
     border-radius: 10px;
-    border: 1px solid var(--line);
-    background: rgba(9, 13, 23, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(12, 10, 28, 0.95);
     padding: 0.7rem 0.85rem;
     font-size: 0.85rem;
     opacity: 0;
@@ -857,8 +904,8 @@ textarea {
     grid-template-columns: 1.4fr 1fr;
     gap: 0.9rem;
     background:
-        radial-gradient(circle at 85% 10%, rgba(102, 216, 255, 0.15), transparent 30%),
-        linear-gradient(145deg, rgba(18, 30, 56, 0.96), rgba(10, 16, 29, 0.96));
+        radial-gradient(circle at 85% 10%, rgba(194, 107, 255, 0.2), transparent 30%),
+        linear-gradient(145deg, rgba(35, 24, 72, 0.96), rgba(14, 14, 36, 0.96));
 }
 
 .hero-graph-wrap {
@@ -872,7 +919,7 @@ textarea {
     width: 100%;
     min-height: 120px;
     border-radius: 12px;
-    background: linear-gradient(180deg, rgba(20, 31, 54, 0.8), rgba(9, 16, 29, 0.8));
+    background: linear-gradient(180deg, rgba(42, 29, 83, 0.8), rgba(15, 15, 36, 0.8));
 }
 
 .risk-heatmap {
@@ -908,6 +955,28 @@ textarea {
 .risk-cell.level-3 { background: rgba(255, 159, 67, 0.45); }
 .risk-cell.level-4 { background: rgba(255, 107, 107, 0.52); }
 .risk-cell.level-5 { background: rgba(214, 48, 49, 0.62); }
+
+.section,
+.metric,
+.server-card,
+.log-item,
+.btn,
+select,
+input,
+textarea {
+    animation: dashboard-rise 220ms ease both;
+}
+
+@keyframes dashboard-rise {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
 
 .skeleton {
     position: relative;
@@ -947,6 +1016,12 @@ body.focus-mode .focus-hide-on-staff {
     .sidebar {
         position: static;
         height: auto;
+        border-right: none;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .main {
+        padding: 1rem;
     }
 
     .metrics,
@@ -972,5 +1047,19 @@ body.focus-mode .focus-hide-on-staff {
 
     .warn-flow-item {
         grid-template-columns: 1fr;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .section,
+    .metric,
+    .server-card,
+    .log-item,
+    .btn,
+    select,
+    input,
+    textarea {
+        animation: none;
+        transition: none;
     }
 }
