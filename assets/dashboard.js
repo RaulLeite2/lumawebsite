@@ -1348,11 +1348,19 @@ function renderServers(context) {
         });
     }
 
+    const preferredMode = localStorage.getItem("luma_servers_view") || "grid";
+    grid.classList.toggle("list-mode", preferredMode === "list");
+
+    const gridButton = document.getElementById("servers-view-grid");
+    const listButton = document.getElementById("servers-view-list");
+    if (gridButton) gridButton.classList.toggle("active", preferredMode === "grid");
+    if (listButton) listButton.classList.toggle("active", preferredMode === "list");
+
     grid.innerHTML = "";
 
     if (!guilds.length) {
         const empty = document.createElement("article");
-        empty.className = "server-card";
+        empty.className = "server-card project-card";
         empty.innerHTML = `
             <div class="server-meta">
                 <span class="server-fallback">?</span>
@@ -1368,7 +1376,7 @@ function renderServers(context) {
 
     guilds.forEach((guild) => {
         const card = document.createElement("article");
-        card.className = "server-card";
+        card.className = "server-card project-card";
 
         const iconMarkup = guild.icon
             ? `<img class="server-icon" src="https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png?size=128" alt="${guild.name}">`
@@ -1377,15 +1385,24 @@ function renderServers(context) {
         const role = guild.owner ? t("owner", "Owner") : guild.configurable ? t("administrator", "Administrator") : t("member", "Member");
         const disabledAttr = guild.configurable ? "" : "disabled";
         const buttonLabel = guild.configurable ? t("configure", "Configure") : t("no_access", "No Access");
+        const accessTag = guild.configurable ? "Access Ready" : "Limited";
+        const onlineText = guild.configurable ? "Setup enabled" : "Read-only access";
         card.innerHTML = `
-            <div class="server-meta">
-                ${iconMarkup}
-                <div class="server-text">
-                    <div class="server-name">${guild.name}</div>
-                    <div class="server-role">${role}</div>
+            <div class="server-head">
+                <div class="server-meta">
+                    ${iconMarkup}
+                    <div class="server-text">
+                        <div class="server-name">${guild.name}</div>
+                        <div class="server-role">${role}</div>
+                    </div>
                 </div>
+                <span class="server-access ${guild.configurable ? "ready" : "locked"}">${accessTag}</span>
             </div>
-            <button class="btn primary" data-configure-guild="${guild.id}" ${disabledAttr}>${buttonLabel}</button>
+            <div class="server-foot">
+                <div class="server-status-dot ${guild.configurable ? "up" : "down"}"></div>
+                <p>${onlineText}</p>
+            </div>
+            <button class="btn primary server-configure-btn" data-configure-guild="${guild.id}" ${disabledAttr}>${buttonLabel}</button>
         `;
 
         grid.appendChild(card);
@@ -2595,6 +2612,20 @@ function bindPageActions() {
                 flash("Failed to select guild");
             }
         });
+    }
+
+    const gridView = document.getElementById("servers-view-grid");
+    const listView = document.getElementById("servers-view-list");
+    if (gridView && listView && serversGrid) {
+        const updateMode = (mode) => {
+            localStorage.setItem("luma_servers_view", mode);
+            serversGrid.classList.toggle("list-mode", mode === "list");
+            gridView.classList.toggle("active", mode === "grid");
+            listView.classList.toggle("active", mode === "list");
+        };
+
+        gridView.addEventListener("click", () => updateMode("grid"));
+        listView.addEventListener("click", () => updateMode("list"));
     }
 
     const saveModeration = document.getElementById("save-moderation");

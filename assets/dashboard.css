@@ -70,7 +70,9 @@ body {
 }
 
 .nav a {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
     text-decoration: none;
     color: var(--soft);
     border: 1px solid transparent;
@@ -80,6 +82,33 @@ body {
     font-size: 0.87rem;
     transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
 }
+
+.nav a::before {
+    width: 1.35rem;
+    height: 1.35rem;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.02);
+    color: #d9dbff;
+    font-size: 0.63rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    flex: 0 0 auto;
+}
+
+.nav a[href$="/servers"]::before { content: "SV"; }
+.nav a[href$="/overview"]::before { content: "OV"; }
+.nav a[href$="/moderation"]::before { content: "MD"; }
+.nav a[href$="/guild-settings"]::before { content: "BT"; }
+.nav a[href$="/cogs"]::before { content: "CG"; }
+.nav a[href$="/levels"]::before { content: "LV"; }
+.nav a[href$="/economy"]::before { content: "EC"; }
+.nav a[href$="/blog"]::before { content: "BL"; }
+.nav a[href$="/entry-exit"]::before { content: "EX"; }
+.nav a[href$="/config-logs"]::before { content: "LG"; }
 
 .nav a:hover {
     color: #eaecff;
@@ -111,6 +140,12 @@ body {
     border-color: rgba(142, 77, 255, 0.42);
     background: linear-gradient(135deg, rgba(142, 77, 255, 0.2), rgba(194, 107, 255, 0.14));
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.nav a.active::before {
+    border-color: rgba(194, 107, 255, 0.46);
+    background: rgba(194, 107, 255, 0.2);
+    color: #fff;
 }
 
 .user-box {
@@ -806,6 +841,117 @@ textarea {
     gap: 0.75rem;
 }
 
+.view-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    background: rgba(16, 16, 35, 0.86);
+    padding: 0.2rem;
+}
+
+.view-switch-btn {
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--soft);
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 0.78rem;
+    padding: 0.35rem 0.62rem;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.view-switch-btn.active {
+    color: #f7f2ff;
+    background: linear-gradient(120deg, rgba(142, 77, 255, 0.5), rgba(194, 107, 255, 0.42));
+}
+
+.servers-grid.list-mode {
+    grid-template-columns: 1fr;
+}
+
+.project-card {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+        "head button"
+        "foot button";
+    align-items: center;
+    gap: 0.7rem 0.9rem;
+    border-radius: 14px;
+    padding: 0.9rem;
+}
+
+.servers-grid.list-mode .project-card {
+    grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.server-head {
+    grid-area: head;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.7rem;
+}
+
+.server-foot {
+    grid-area: foot;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--soft);
+    font-size: 0.79rem;
+}
+
+.server-access {
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: 0.69rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 0.22rem 0.5rem;
+    white-space: nowrap;
+}
+
+.server-access.ready {
+    color: #d8fff0;
+    border-color: rgba(71, 215, 172, 0.35);
+    background: rgba(71, 215, 172, 0.12);
+}
+
+.server-access.locked {
+    color: #ffe3e8;
+    border-color: rgba(255, 109, 122, 0.35);
+    background: rgba(255, 109, 122, 0.12);
+}
+
+.server-status-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    flex: 0 0 auto;
+}
+
+.server-status-dot.up {
+    background: #53d6ad;
+    box-shadow: 0 0 0 4px rgba(83, 214, 173, 0.18);
+}
+
+.server-status-dot.down {
+    background: #ff7b8a;
+    box-shadow: 0 0 0 4px rgba(255, 123, 138, 0.18);
+}
+
+.server-configure-btn {
+    grid-area: button;
+    align-self: center;
+    min-width: 120px;
+    justify-self: end;
+}
+
 .server-card {
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 12px;
@@ -1047,6 +1193,19 @@ body.focus-mode .focus-hide-on-staff {
 
     .warn-flow-item {
         grid-template-columns: 1fr;
+    }
+
+    .project-card {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+            "head"
+            "foot"
+            "button";
+    }
+
+    .server-configure-btn {
+        justify-self: stretch;
+        width: 100%;
     }
 }
 
