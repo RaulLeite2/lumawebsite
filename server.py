@@ -2723,6 +2723,18 @@ async def commands_page() -> FileResponse:
     return FileResponse(WEB_ROOT / "commands.html")
 
 
+@app.get("/terms")
+@app.get("/terms.html")
+async def terms_page() -> FileResponse:
+    return FileResponse(WEB_ROOT / "terms.html")
+
+
+@app.get("/privacy")
+@app.get("/privacy.html")
+async def privacy_page() -> FileResponse:
+    return FileResponse(WEB_ROOT / "privacy.html")
+
+
 @app.get("/auth/login")
 async def auth_login(request: Request, next_path: str = Query(default="/dashboard/servers", alias="next")) -> RedirectResponse:
     config = _oauth_config()

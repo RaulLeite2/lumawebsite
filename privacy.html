@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Politica de Privacidade - Luma</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-main: #090815;
+            --bg-deep: #111028;
+            --accent-hot: #88ebff;
+            --accent-soft: #83b9ff;
+            --accent-warm: #ffb9e2;
+            --text-main: #f7f6ff;
+            --text-soft: #b7bce1;
+            --glass-bg: rgba(22, 20, 47, 0.72);
+            --glass-border: rgba(199, 210, 255, 0.14);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: "Plus Jakarta Sans", sans-serif;
+            color: var(--text-main);
+            background:
+                radial-gradient(circle at 12% 18%, rgba(165, 140, 255, 0.2), transparent 30%),
+                radial-gradient(circle at 88% 22%, rgba(136, 235, 255, 0.15), transparent 34%),
+                linear-gradient(180deg, #090815 0%, #0d0c20 52%, #111028 100%);
+            min-height: 100vh;
+            line-height: 1.65;
+            padding: clamp(1.2rem, 3vw, 2rem);
+        }
+
+        .container {
+            width: min(920px, 96vw);
+            margin: 0 auto;
+        }
+
+        .legal-shell {
+            border-radius: 26px;
+            border: 1px solid var(--glass-border);
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            padding: clamp(1.2rem, 3vw, 2rem);
+            box-shadow: 0 25px 60px rgba(2, 8, 18, 0.45);
+        }
+
+        h1 {
+            font-family: "Space Grotesk", sans-serif;
+            font-size: clamp(1.8rem, 4vw, 2.6rem);
+            letter-spacing: -0.03em;
+            margin-bottom: 0.35rem;
+        }
+
+        .meta {
+            color: var(--text-soft);
+            margin-bottom: 1.3rem;
+            font-size: 0.94rem;
+        }
+
+        .kicker {
+            color: var(--accent-hot);
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            font-weight: 700;
+            font-size: 0.78rem;
+            margin-bottom: 0.45rem;
+        }
+
+        section + section {
+            margin-top: 1.15rem;
+        }
+
+        h2 {
+            font-family: "Space Grotesk", sans-serif;
+            font-size: 1.08rem;
+            margin-bottom: 0.45rem;
+        }
+
+        p,
+        li {
+            color: var(--text-soft);
+            font-size: 0.95rem;
+        }
+
+        ul {
+            margin-left: 1.1rem;
+            margin-top: 0.45rem;
+            display: grid;
+            gap: 0.35rem;
+        }
+
+        .bottom-links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-top: 1.2rem;
+        }
+
+        .pill {
+            text-decoration: none;
+            color: var(--text-main);
+            border: 1px solid var(--glass-border);
+            background: rgba(18, 16, 40, 0.84);
+            border-radius: 999px;
+            padding: 0.5rem 0.95rem;
+            font-size: 0.84rem;
+            font-weight: 700;
+            transition: transform 180ms ease;
+        }
+
+        .pill:hover {
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+    <main class="container">
+        <article class="legal-shell">
+            <p class="kicker">Luma Legal</p>
+            <h1>Politica de Privacidade</h1>
+            <p class="meta">Ultima atualizacao: 22 de marco de 2026</p>
+
+            <section>
+                <h2>1. Dados coletados</h2>
+                <p>Para funcionamento do bot e do dashboard, a Luma pode processar dados tecnicos do servidor e do uso de comandos.</p>
+                <ul>
+                    <li>ID de servidor, ID de canal, ID de cargo e configuracoes de modulos.</li>
+                    <li>Registros operacionais de moderacao, tickets e modmail, quando habilitados.</li>
+                    <li>Dados basicos de autenticacao necessarios para sessao no dashboard.</li>
+                </ul>
+            </section>
+
+            <section>
+                <h2>2. Finalidade do uso dos dados</h2>
+                <p>Os dados sao utilizados para manter recursos do bot funcionando, fornecer historico operacional e permitir administracao do servidor via dashboard.</p>
+            </section>
+
+            <section>
+                <h2>3. Compartilhamento</h2>
+                <p>A Luma nao vende dados pessoais. Dados podem ser processados por provedores de infraestrutura e servicos necessarios para operacao tecnica.</p>
+            </section>
+
+            <section>
+                <h2>4. Retencao e seguranca</h2>
+                <p>Os dados sao mantidos apenas pelo tempo necessario para operacao, auditoria e seguranca do servico, respeitando limites tecnicos e legais aplicaveis.</p>
+            </section>
+
+            <section>
+                <h2>5. Direitos e solicitacoes</h2>
+                <p>Donos de servidor podem solicitar esclarecimentos sobre dados do proprio servidor e ajustes quando tecnicamente viavel, usando os canais oficiais da comunidade da Luma.</p>
+            </section>
+
+            <section>
+                <h2>6. Atualizacoes desta politica</h2>
+                <p>Esta politica pode ser atualizada para refletir mudancas tecnicas, operacionais ou legais. A versao mais recente sera publicada nesta pagina.</p>
+            </section>
+
+            <div class="bottom-links">
+                <a class="pill" href="/terms">Ler Termos de Servico</a>
+                <a class="pill" href="/">Voltar ao site</a>
+            </div>
+        </article>
+    </main>
+</body>
+</html>
