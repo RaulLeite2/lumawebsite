@@ -58,35 +58,78 @@
                     </div>
 
                     <div class="mk-palette" id="mk-palette">
-                        <div class="mk-block-template" draggable="true" data-type="trigger" data-title="Message Sent" data-sub="on_message">
+                        <div class="mk-block-template mk-block-template-configurable" draggable="true" data-type="trigger" data-title="Message Sent" data-sub="on_message">
                             <span class="mk-template-kicker">Trigger</span>
-                            <strong>Message Sent</strong>
-                            <span>Starts rule execution when a user sends a message.</span>
+                            <strong class="mk-template-title">Message Sent</strong>
+                            <span class="mk-template-copy">Starts rule execution when a user sends a message.</span>
+                            <label class="mk-template-field">
+                                <span>Selection</span>
+                                <select class="mk-template-select" aria-label="Trigger selection">
+                                    <option value="on_message" data-title="Message Sent" data-description="Starts rule execution when a user sends a message.">Message Sent</option>
+                                    <option value="member_join" data-title="Member Joins" data-description="Starts when a member enters the server.">Member Joins</option>
+                                    <option value="voice_timer" data-title="Voice Session Matured" data-description="Fires after a valid voice interval completes.">Voice Session Matured</option>
+                                </select>
+                            </label>
                         </div>
-                        <div class="mk-block-template" draggable="true" data-type="condition" data-title="Contains Link" data-sub="contains_link">
+                        <div class="mk-block-template mk-block-template-configurable" draggable="true" data-type="condition" data-title="Contains Link" data-sub="contains_link">
                             <span class="mk-template-kicker">Condition</span>
-                            <strong>Contains Link</strong>
-                            <span>Checks if a message has URL or invite pattern.</span>
+                            <strong class="mk-template-title">Contains Link</strong>
+                            <span class="mk-template-copy">Checks if a message has URL or invite pattern.</span>
+                            <label class="mk-template-field">
+                                <span>Selection</span>
+                                <select class="mk-template-select" aria-label="Condition selection">
+                                    <option value="contains_link" data-title="Contains Link" data-description="Checks if a message has URL or invite pattern.">Contains Link</option>
+                                    <option value="caps_ratio" data-title="Caps Ratio" data-description="Validates if uppercase ratio is above threshold.">Caps Ratio</option>
+                                    <option value="mention_spam" data-title="Mention Spam" data-description="Flags bursts of user or role mentions.">Mention Spam</option>
+                                    <option value="duplicate_message" data-title="Duplicate Message" data-description="Detects repeated content in a short window.">Duplicate Message</option>
+                                </select>
+                            </label>
                         </div>
-                        <div class="mk-block-template" draggable="true" data-type="condition" data-title="Caps Ratio" data-sub="caps_ratio">
-                            <span class="mk-template-kicker">Condition</span>
-                            <strong>Caps Ratio</strong>
-                            <span>Validates if uppercase ratio is above threshold.</span>
-                        </div>
-                        <div class="mk-block-template" draggable="true" data-type="action" data-title="Timeout 10m" data-sub="timeout_10m">
+                        <div class="mk-block-template mk-block-template-configurable" draggable="true" data-type="action" data-title="Timeout 10m" data-sub="timeout_10m">
                             <span class="mk-template-kicker">Action</span>
-                            <strong>Timeout 10m</strong>
-                            <span>Applies temporary timeout to the member.</span>
+                            <strong class="mk-template-title">Timeout 10m</strong>
+                            <span class="mk-template-copy">Applies temporary timeout to the member.</span>
+                            <label class="mk-template-field">
+                                <span>Selection</span>
+                                <select class="mk-template-select" aria-label="Action selection">
+                                    <option value="timeout_10m" data-title="Timeout 10m" data-description="Applies temporary timeout to the member.">Timeout 10m</option>
+                                    <option value="delete_message" data-title="Delete Message" data-description="Deletes the triggering message from channel.">Delete Message</option>
+                                    <option value="send_dm" data-title="Send DM" data-description="Sends a direct message using a template.">Send DM</option>
+                                    <option value="flag_review" data-title="Flag For Review" data-description="Creates a human-review event for staff.">Flag For Review</option>
+                                </select>
+                            </label>
                         </div>
-                        <div class="mk-block-template" draggable="true" data-type="action" data-title="Send DM" data-sub="send_dm">
-                            <span class="mk-template-kicker">Action</span>
-                            <strong>Send DM</strong>
-                            <span>Sends a direct message using a template.</span>
+                    </div>
+
+                    <div class="mk-preset-stack">
+                        <div class="mk-panel-head mk-preset-head">
+                            <div>
+                                <h3>Moderation Presets</h3>
+                                <p class="lead mk-preset-lead">Drop a full moderation routine on the board with one click, then tweak any block in the inspector.</p>
+                            </div>
+                            <span class="pill accent-orange">1-Click</span>
                         </div>
-                        <div class="mk-block-template" draggable="true" data-type="action" data-title="Delete Message" data-sub="delete_message">
-                            <span class="mk-template-kicker">Action</span>
-                            <strong>Delete Message</strong>
-                            <span>Deletes the triggering message from channel.</span>
+                        <div class="mk-preset-list">
+                            <button class="mk-preset-card" type="button" data-mk-preset="anti_link">
+                                <span class="mk-preset-kicker">Message Guard</span>
+                                <strong>Anti-Link Shield</strong>
+                                <span>When a message contains links, delete it, timeout the member and send a DM notice.</span>
+                            </button>
+                            <button class="mk-preset-card" type="button" data-mk-preset="mention_raid">
+                                <span class="mk-preset-kicker">Raid Control</span>
+                                <strong>Mention Raid Lock</strong>
+                                <span>Catches mention spam and escalates into delete, timeout and staff review.</span>
+                            </button>
+                            <button class="mk-preset-card" type="button" data-mk-preset="duplicate_flood">
+                                <span class="mk-preset-kicker">Flood Filter</span>
+                                <strong>Duplicate Flood Stop</strong>
+                                <span>Flags repeated messages, removes the content and opens a review route for mods.</span>
+                            </button>
+                            <button class="mk-preset-card" type="button" data-mk-preset="caps_control">
+                                <span class="mk-preset-kicker">Tone Control</span>
+                                <strong>Caps Control</strong>
+                                <span>Checks caps ratio, deletes the message and warns the member by DM.</span>
+                            </button>
                         </div>
                     </div>
                 </aside>
@@ -94,14 +137,19 @@
                 <div class="mk-canvas-wrap" id="mk-canvas-wrap">
                     <div class="mk-canvas-toolbar">
                         <div>
-                            <strong>Project Canvas</strong>
-                            <span>Link blocks, test routes and keep the flow readable.</span>
+                            <strong id="mk-toolbar-title">Project Canvas</strong>
+                            <span id="mk-toolbar-subtitle">Link blocks, test routes and keep the flow readable.</span>
                         </div>
                         <div class="mk-toolbar-actions">
+                            <button class="btn" id="mk-undo" type="button">Undo</button>
+                            <button class="btn" id="mk-redo" type="button">Redo</button>
+                            <button class="btn" id="mk-export-flow" type="button">Export JSON</button>
+                            <button class="btn" id="mk-import-trigger" type="button">Import JSON</button>
                             <button class="btn" id="mk-auto-layout" type="button">Auto Layout</button>
                             <button class="btn" id="mk-clear-canvas" type="button">Clear Canvas</button>
                         </div>
                     </div>
+                    <input id="mk-import-input" type="file" accept=".json,application/json" hidden>
 
                     <div class="mk-canvas-decor mk-canvas-decor-service">Service Dock</div>
                     <div class="mk-canvas-decor mk-canvas-decor-project">Project Route</div>
@@ -126,9 +174,60 @@
                             <h3 id="mk-selected-title">No block selected</h3>
                             <p id="mk-selected-sub">Drop blocks and connect ports to assemble the rule.</p>
                             <p class="mk-selected-meta" id="mk-selected-meta">The panel will show position, node type and link counts.</p>
+                            <div class="mk-health-chips" id="mk-health-chips">
+                                <span class="mk-health-chip">No block data yet</span>
+                            </div>
+                        </div>
+                        <div class="mk-inspector-form">
+                            <div class="field">
+                                <label for="mk-selected-subtype">Block Variant</label>
+                                <select id="mk-selected-subtype" disabled></select>
+                            </div>
+                            <div class="field">
+                                <label for="mk-selected-title-input">Display Title</label>
+                                <input id="mk-selected-title-input" type="text" maxlength="48" placeholder="Block title" disabled>
+                            </div>
+                            <div class="field">
+                                <label for="mk-selected-description-input">Description</label>
+                                <textarea id="mk-selected-description-input" rows="4" maxlength="160" placeholder="Explain what this block does" disabled></textarea>
+                            </div>
                         </div>
                         <div class="mk-inspector-actions">
+                            <button class="btn" id="mk-apply-node" type="button" disabled>Apply</button>
+                            <button class="btn" id="mk-duplicate-node" type="button" disabled>Duplicate</button>
+                            <button class="btn" id="mk-disconnect-node" type="button" disabled>Detach Links</button>
                             <button class="btn" id="mk-inspector-debug" type="button">Open Debug</button>
+                            <button class="btn danger" id="mk-delete-node" type="button" disabled>Delete</button>
+                        </div>
+                    </section>
+
+                    <section class="mk-panel">
+                        <div class="mk-panel-head">
+                            <h3>Flow Health</h3>
+                            <span class="pill accent-blue" id="mk-flow-status">Blank</span>
+                        </div>
+                        <p class="lead" id="mk-flow-summary">Build a rule and MK Script will score its readiness, coverage and loose ends.</p>
+                        <div class="mk-health-grid">
+                            <div class="mk-health-stat">
+                                <strong id="mk-count-triggers">0</strong>
+                                <span>Triggers</span>
+                            </div>
+                            <div class="mk-health-stat">
+                                <strong id="mk-count-conditions">0</strong>
+                                <span>Conditions</span>
+                            </div>
+                            <div class="mk-health-stat">
+                                <strong id="mk-count-actions">0</strong>
+                                <span>Actions</span>
+                            </div>
+                        </div>
+                        <div class="mk-health-list" id="mk-flow-issues">
+                            <div class="mk-log-item"><strong>Waiting</strong> Add blocks to start validating the flow.</div>
+                        </div>
+                        <div class="mk-shortcuts">
+                            <span>Delete removes the selected block</span>
+                            <span>Ctrl/Cmd+D duplicates the selected block</span>
+                            <span>Ctrl/Cmd+Z and Ctrl/Cmd+Y undo or redo changes</span>
                         </div>
                     </section>
                 </aside>
@@ -188,6 +287,13 @@
                 <button class="btn" id="mk-add-condition" type="button">Add Condition</button>
                 <button class="btn" id="mk-add-action" type="button">Add Action</button>
                 <button class="btn primary" id="mk-build-chain" type="button">Build If / Then</button>
+            </div>
+
+            <div class="mk-preset-inline">
+                <button class="btn" type="button" data-mk-preset="anti_link">Anti-Link</button>
+                <button class="btn" type="button" data-mk-preset="mention_raid">Mention Raid</button>
+                <button class="btn" type="button" data-mk-preset="duplicate_flood">Duplicate Flood</button>
+                <button class="btn" type="button" data-mk-preset="caps_control">Caps Control</button>
             </div>
         </div>
     </section>
