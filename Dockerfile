@@ -6,6 +6,7 @@ COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
 COPY index.html /app/index.html
+COPY commands.html /app/commands.html
 COPY dashboard.html /app/dashboard.html
 COPY dashboard /app/dashboard
 COPY assets /app/assets
