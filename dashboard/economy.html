@@ -54,6 +54,76 @@
             </section>
 
             <section class="section">
+                <h2>Voice Drops</h2>
+                <p class="lead">Reward members for staying in valid voice calls and announce the next drop in a configurable text channel.</p>
+                <div class="metrics">
+                    <div class="metric"><span>Your drops today</span><strong id="voice-drops-today">-</strong></div>
+                    <div class="metric"><span>Your voice intervals</span><strong id="voice-drops-intervals">-</strong></div>
+                    <div class="metric"><span>Guild total today</span><strong id="voice-drops-guild-total">-</strong></div>
+                    <div class="metric"><span>Participants today</span><strong id="voice-drops-participants">-</strong></div>
+                </div>
+
+                <div class="grid-2 compact-grid" style="margin-top:1rem;">
+                    <div class="field">
+                        <label for="voice-drops-enabled">Enable voice drops</label>
+                        <input id="voice-drops-enabled" class="switch" type="checkbox">
+                    </div>
+                    <div class="field">
+                        <label for="voice-drops-channel">Announcement channel</label>
+                        <select id="voice-drops-channel"></select>
+                    </div>
+                </div>
+
+                <div class="grid-2 compact-grid">
+                    <div class="field">
+                        <label for="voice-drops-interval">Drop interval (minutes)</label>
+                        <input id="voice-drops-interval" type="number" min="5" max="120" value="15">
+                    </div>
+                    <div class="field">
+                        <label for="voice-drops-reminder">Reminder before drop (minutes)</label>
+                        <input id="voice-drops-reminder" type="number" min="0" max="120" value="15">
+                    </div>
+                </div>
+
+                <div class="grid-2 compact-grid">
+                    <div class="field">
+                        <label for="voice-drops-min-members">Minimum active members in call</label>
+                        <input id="voice-drops-min-members" type="number" min="2" max="25" value="2">
+                    </div>
+                    <div class="field">
+                        <label for="voice-drops-party-bonus">Party bonus percent</label>
+                        <input id="voice-drops-party-bonus" type="number" min="0" max="500" value="10">
+                    </div>
+                </div>
+
+                <div class="grid-2 compact-grid">
+                    <div class="field">
+                        <label for="voice-drops-min">Minimum drop reward</label>
+                        <input id="voice-drops-min" type="number" min="1" max="100000" value="20">
+                    </div>
+                    <div class="field">
+                        <label for="voice-drops-max">Maximum drop reward</label>
+                        <input id="voice-drops-max" type="number" min="1" max="100000" value="45">
+                    </div>
+                </div>
+
+                <div class="grid-2 compact-grid">
+                    <div class="field">
+                        <label for="voice-drops-cap">Daily cap per member</label>
+                        <input id="voice-drops-cap" type="number" min="1" max="1000000" value="500">
+                    </div>
+                    <div class="field">
+                        <label>Rules</label>
+                        <p class="lead" id="voice-drops-rule-hint">Only members in non-AFK calls with enough active people and no deaf abuse can progress toward drops.</p>
+                    </div>
+                </div>
+
+                <div class="actions" style="margin-top:0.9rem;">
+                    <button class="btn primary" id="save-voice-drops" type="button">Save Voice Drops</button>
+                </div>
+            </section>
+
+            <section class="section">
                 <h2>Shop</h2>
                 <p class="lead">Buy economy items and consumables.</p>
                 <div id="econ-shop-list" class="log-feed"></div>

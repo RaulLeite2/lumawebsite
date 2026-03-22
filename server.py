@@ -189,6 +189,18 @@ class EntryExitEmbedSettings(BaseModel):
     leave_color: str = "#ef476f"
 
 
+class VoiceDropsSettings(BaseModel):
+    enabled: bool = False
+    announce_channel: str = ""
+    interval_minutes: int = Field(default=15, ge=5, le=120)
+    reminder_minutes: int = Field(default=15, ge=0, le=120)
+    min_members: int = Field(default=2, ge=2, le=25)
+    reward_min: int = Field(default=20, ge=1, le=100000)
+    reward_max: int = Field(default=45, ge=1, le=100000)
+    daily_cap: int = Field(default=500, ge=1, le=1000000)
+    party_bonus_percent: int = Field(default=10, ge=0, le=500)
+
+
 class DashboardState(BaseModel):
     guild: GuildSettings
     moderation: ModerationSettings
@@ -197,6 +209,7 @@ class DashboardState(BaseModel):
     logs: LogSettings
     modmail: ModmailSettings
     entry_exit: EntryExitEmbedSettings
+    voice_drops: VoiceDropsSettings
     cogs: dict[str, bool]
 
 
@@ -242,6 +255,18 @@ class SetupUpdatePayload(BaseModel):
     modmail: ModmailSettings
     entry_exit: EntryExitEmbedSettings
     cogs: dict[str, bool]
+
+
+class VoiceDropsUpdatePayload(BaseModel):
+    enabled: bool = False
+    announce_channel: str = ""
+    interval_minutes: int = Field(default=15, ge=5, le=120)
+    reminder_minutes: int = Field(default=15, ge=0, le=120)
+    min_members: int = Field(default=2, ge=2, le=25)
+    reward_min: int = Field(default=20, ge=1, le=100000)
+    reward_max: int = Field(default=45, ge=1, le=100000)
+    daily_cap: int = Field(default=500, ge=1, le=1000000)
+    party_bonus_percent: int = Field(default=10, ge=0, le=500)
 
 
 class AutoModSimulationPayload(BaseModel):
@@ -311,7 +336,16 @@ SELECT
     modmail_anonymous_replies,
     modmail_close_on_idle,
     modmail_alert_role_id,
-    modmail_auto_close_hours
+    modmail_auto_close_hours,
+    voice_drops_enabled,
+    voice_drops_channel_id,
+    voice_drops_interval_minutes,
+    voice_drops_reminder_minutes,
+    voice_drops_min_members,
+    voice_drops_min_amount,
+    voice_drops_max_amount,
+    voice_drops_daily_cap,
+    voice_drops_party_bonus_percent
 FROM guilds
 WHERE guild_id = $1
 """
@@ -394,6 +428,7 @@ def _collect_setup_changes(previous_state: dict[str, Any], updated_state: dict[s
         "logs": updated_state.get("logs", {}),
         "modmail": updated_state.get("modmail", {}),
         "entry_exit": updated_state.get("entry_exit", {}),
+        "voice_drops": updated_state.get("voice_drops", {}),
         "cogs": updated_state.get("cogs", {}),
         "moderation": {
             "enabled": updated_state.get("moderation", {}).get("enabled"),
@@ -411,6 +446,7 @@ def _collect_setup_changes(previous_state: dict[str, Any], updated_state: dict[s
         "logs": previous_state.get("logs", {}),
         "modmail": previous_state.get("modmail", {}),
         "entry_exit": previous_state.get("entry_exit", {}),
+        "voice_drops": previous_state.get("voice_drops", {}),
         "cogs": previous_state.get("cogs", {}),
         "moderation": {
             "enabled": previous_state.get("moderation", {}).get("enabled"),
@@ -464,6 +500,15 @@ def _collect_setup_changes(previous_state: dict[str, Any], updated_state: dict[s
         "entry_exit.leave_title": "Leave title",
         "entry_exit.leave_description": "Leave description",
         "entry_exit.leave_color": "Leave color",
+        "voice_drops.enabled": "Voice drops",
+        "voice_drops.announce_channel": "Voice drops announce channel",
+        "voice_drops.interval_minutes": "Voice drops interval",
+        "voice_drops.reminder_minutes": "Voice drops reminder",
+        "voice_drops.min_members": "Voice drops minimum members",
+        "voice_drops.reward_min": "Voice drops minimum reward",
+        "voice_drops.reward_max": "Voice drops maximum reward",
+        "voice_drops.daily_cap": "Voice drops daily cap",
+        "voice_drops.party_bonus_percent": "Voice drops party bonus",
         "moderation.smart_antiflood": "Smart anti-flood",
     }
 
@@ -794,6 +839,15 @@ async def _ensure_dashboard_tables(pool: Any) -> None:
     try:
         async with pool.acquire() as connection:
             await connection.execute("ALTER TABLE moderation_logs ADD COLUMN IF NOT EXISTS channel_id BIGINT")
+            await connection.execute("ALTER TABLE guilds ADD COLUMN IF NOT EXISTS voice_drops_enabled BOOLEAN NOT NULL DEFAULT FALSE")
+            await connection.execute("ALTER TABLE guilds ADD COLUMN IF NOT EXISTS voice_drops_channel_id BIGINT")
+            await connection.execute("ALTER TABLE guilds ADD COLUMN IF NOT EXISTS voice_drops_interval_minutes INT NOT NULL DEFAULT 15")
+            await connection.execute("ALTER TABLE guilds ADD COLUMN IF NOT EXISTS voice_drops_reminder_minutes INT NOT NULL DEFAULT 15")
+            await connection.execute("ALTER TABLE guilds ADD COLUMN IF NOT EXISTS voice_drops_min_members INT NOT NULL DEFAULT 2")
+            await connection.execute("ALTER TABLE guilds ADD COLUMN IF NOT EXISTS voice_drops_min_amount INT NOT NULL DEFAULT 20")
+            await connection.execute("ALTER TABLE guilds ADD COLUMN IF NOT EXISTS voice_drops_max_amount INT NOT NULL DEFAULT 45")
+            await connection.execute("ALTER TABLE guilds ADD COLUMN IF NOT EXISTS voice_drops_daily_cap INT NOT NULL DEFAULT 500")
+            await connection.execute("ALTER TABLE guilds ADD COLUMN IF NOT EXISTS voice_drops_party_bonus_percent INT NOT NULL DEFAULT 10")
             await connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS guild_modmail_roles (
@@ -953,6 +1007,21 @@ async def _ensure_dashboard_tables(pool: Any) -> None:
             )
             await connection.execute(
                 """
+                CREATE TABLE IF NOT EXISTS user_voice_drops_daily (
+                    guild_id BIGINT NOT NULL REFERENCES guilds(guild_id) ON DELETE CASCADE,
+                    user_id BIGINT NOT NULL,
+                    day_key DATE NOT NULL,
+                    total_amount INT NOT NULL DEFAULT 0,
+                    total_intervals INT NOT NULL DEFAULT 0,
+                    last_drop_at TIMESTAMP,
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (guild_id, user_id, day_key)
+                )
+                """
+            )
+            await connection.execute(
+                """
                 CREATE TABLE IF NOT EXISTS blog_posts (
                     id BIGSERIAL PRIMARY KEY,
                     author_user_id BIGINT NOT NULL,
@@ -971,6 +1040,8 @@ async def _ensure_dashboard_tables(pool: Any) -> None:
             await connection.execute("CREATE INDEX IF NOT EXISTS idx_economy_transactions_user_time ON economy_transactions(user_id, created_at)")
             await connection.execute("CREATE INDEX IF NOT EXISTS idx_economy_transactions_type_time ON economy_transactions(tx_type, created_at)")
             await connection.execute("CREATE INDEX IF NOT EXISTS idx_economy_transactions_guild_time ON economy_transactions(guild_id, created_at)")
+            await connection.execute("CREATE INDEX IF NOT EXISTS idx_user_voice_drops_daily_guild_day ON user_voice_drops_daily(guild_id, day_key)")
+            await connection.execute("CREATE INDEX IF NOT EXISTS idx_user_voice_drops_daily_user_day ON user_voice_drops_daily(user_id, day_key)")
             await connection.execute("ALTER TABLE guild_raid_settings ADD COLUMN IF NOT EXISTS mode VARCHAR(16) NOT NULL DEFAULT 'lockdown'")
             await connection.execute("ALTER TABLE guild_raid_settings ADD COLUMN IF NOT EXISTS recovery_cooldown_minutes INT NOT NULL DEFAULT 10")
             await connection.execute(
@@ -1322,6 +1393,27 @@ def _merge_db_row_into_state(state: dict[str, Any], row: dict[str, Any]) -> dict
     if auto_close_hours is not None:
         state["modmail"]["auto_close_hours"] = int(auto_close_hours)
 
+    voice_drops_enabled = row.get("voice_drops_enabled")
+    if voice_drops_enabled is not None:
+        state["voice_drops"]["enabled"] = bool(voice_drops_enabled)
+
+    voice_drops_channel_id = row.get("voice_drops_channel_id")
+    if voice_drops_channel_id is not None:
+        state["voice_drops"]["announce_channel"] = _id_to_input_value(voice_drops_channel_id, state["voice_drops"].get("announce_channel", ""))
+
+    for source_key, target_key in (
+        ("voice_drops_interval_minutes", "interval_minutes"),
+        ("voice_drops_reminder_minutes", "reminder_minutes"),
+        ("voice_drops_min_members", "min_members"),
+        ("voice_drops_min_amount", "reward_min"),
+        ("voice_drops_max_amount", "reward_max"),
+        ("voice_drops_daily_cap", "daily_cap"),
+        ("voice_drops_party_bonus_percent", "party_bonus_percent"),
+    ):
+        source_value = row.get(source_key)
+        if source_value is not None:
+            state["voice_drops"][target_key] = int(source_value)
+
     escalation_steps = row.get("warning_escalation_steps")
     if isinstance(escalation_steps, list):
         state["warnings"]["escalation_steps"] = _parse_warning_steps(escalation_steps)
@@ -1389,6 +1481,11 @@ async def _sync_state_to_database(guild_id: str, state: dict[str, Any]) -> bool:
     entry_exit = state.get("entry_exit", {})
     welcome_channel_id = _extract_discord_id(entry_exit.get("welcome_channel"))
     leave_channel_id = _extract_discord_id(entry_exit.get("leave_channel"))
+    voice_drops = state.get("voice_drops", {})
+    reward_min = max(1, int(voice_drops.get("reward_min") or 20))
+    reward_max = max(reward_min, int(voice_drops.get("reward_max") or 45))
+    reminder_minutes = max(0, min(int(voice_drops.get("reminder_minutes") or 15), int(voice_drops.get("interval_minutes") or 15)))
+    voice_drops_channel_id = _extract_discord_id(voice_drops.get("announce_channel"))
 
     try:
         async with pool.acquire() as connection:
@@ -1421,13 +1518,23 @@ async def _sync_state_to_database(guild_id: str, state: dict[str, Any]) -> bool:
                     modmail_anonymous_replies,
                     modmail_close_on_idle,
                     modmail_alert_role_id,
+                    voice_drops_enabled,
+                    voice_drops_channel_id,
+                    voice_drops_interval_minutes,
+                    voice_drops_reminder_minutes,
+                    voice_drops_min_members,
+                    voice_drops_min_amount,
+                    voice_drops_max_amount,
+                    voice_drops_daily_cap,
+                    voice_drops_party_bonus_percent,
                     modmail_auto_close_hours,
                     updated_at
                 )
                 VALUES (
                     $1, $2, $3, $4, $5, $6, $7, $8, $9,
                     $10, $11, $12, $13, $14, $15, $16, $17, $18,
-                    $19, $20, $21, $22, $23, $24, $25, $26, $27, CURRENT_TIMESTAMP
+                    $19, $20, $21, $22, $23, $24, $25, $26, $27,
+                    $28, $29, $30, $31, $32, $33, $34, $35, $36, CURRENT_TIMESTAMP
                 )
                 ON CONFLICT (guild_id)
                 DO UPDATE SET
@@ -1456,6 +1563,15 @@ async def _sync_state_to_database(guild_id: str, state: dict[str, Any]) -> bool:
                     modmail_anonymous_replies = EXCLUDED.modmail_anonymous_replies,
                     modmail_close_on_idle = EXCLUDED.modmail_close_on_idle,
                     modmail_alert_role_id = EXCLUDED.modmail_alert_role_id,
+                    voice_drops_enabled = EXCLUDED.voice_drops_enabled,
+                    voice_drops_channel_id = EXCLUDED.voice_drops_channel_id,
+                    voice_drops_interval_minutes = EXCLUDED.voice_drops_interval_minutes,
+                    voice_drops_reminder_minutes = EXCLUDED.voice_drops_reminder_minutes,
+                    voice_drops_min_members = EXCLUDED.voice_drops_min_members,
+                    voice_drops_min_amount = EXCLUDED.voice_drops_min_amount,
+                    voice_drops_max_amount = EXCLUDED.voice_drops_max_amount,
+                    voice_drops_daily_cap = EXCLUDED.voice_drops_daily_cap,
+                    voice_drops_party_bonus_percent = EXCLUDED.voice_drops_party_bonus_percent,
                     modmail_auto_close_hours = EXCLUDED.modmail_auto_close_hours,
                     updated_at = CURRENT_TIMESTAMP
                 """,
@@ -1485,6 +1601,15 @@ async def _sync_state_to_database(guild_id: str, state: dict[str, Any]) -> bool:
                 bool(state["modmail"].get("anonymous_replies")),
                 bool(state["modmail"].get("close_on_idle")),
                 modmail_alert_role_id,
+                bool(voice_drops.get("enabled")),
+                voice_drops_channel_id,
+                max(5, int(voice_drops.get("interval_minutes") or 15)),
+                reminder_minutes,
+                max(2, int(voice_drops.get("min_members") or 2)),
+                reward_min,
+                reward_max,
+                max(reward_max, int(voice_drops.get("daily_cap") or 500)),
+                max(0, int(voice_drops.get("party_bonus_percent") or 10)),
                 int(state["modmail"].get("auto_close_hours") or 48),
             )
             await connection.executemany(
@@ -2305,6 +2430,7 @@ def _default_state() -> dict[str, Any]:
         "logs": LogSettings().model_dump(),
         "modmail": ModmailSettings().model_dump(),
         "entry_exit": EntryExitEmbedSettings().model_dump(),
+        "voice_drops": VoiceDropsSettings().model_dump(),
         "cogs": {name: True for name in _read_available_cogs()},
     }
 
@@ -2318,6 +2444,7 @@ def _normalize_guild_state(raw_state: dict[str, Any], guild_id: str, guild_name:
     normalized["logs"].update(raw_state.get("logs", {}))
     normalized["modmail"].update(raw_state.get("modmail", {}))
     normalized["entry_exit"].update(raw_state.get("entry_exit", {}))
+    normalized["voice_drops"].update(raw_state.get("voice_drops", {}))
 
     normalized["guild"]["guild_id"] = guild_id
     if not normalized["guild"].get("guild_name"):
@@ -2344,6 +2471,18 @@ def _normalize_guild_state(raw_state: dict[str, Any], guild_id: str, guild_name:
     if not raw_state.get("modmail"):
         normalized["modmail"]["enabled"] = normalized["moderation"]["modmail_enabled"]
     normalized["moderation"]["modmail_enabled"] = normalized["modmail"]["enabled"]
+
+    interval_minutes = max(5, int(normalized["voice_drops"].get("interval_minutes") or 15))
+    reminder_minutes = max(0, int(normalized["voice_drops"].get("reminder_minutes") or 15))
+    reward_min = max(1, int(normalized["voice_drops"].get("reward_min") or 20))
+    reward_max = max(reward_min, int(normalized["voice_drops"].get("reward_max") or 45))
+    normalized["voice_drops"]["interval_minutes"] = min(interval_minutes, 120)
+    normalized["voice_drops"]["reminder_minutes"] = min(reminder_minutes, normalized["voice_drops"]["interval_minutes"])
+    normalized["voice_drops"]["reward_min"] = reward_min
+    normalized["voice_drops"]["reward_max"] = reward_max
+    normalized["voice_drops"]["daily_cap"] = max(reward_max, int(normalized["voice_drops"].get("daily_cap") or 500))
+    normalized["voice_drops"]["min_members"] = max(2, int(normalized["voice_drops"].get("min_members") or 2))
+    normalized["voice_drops"]["party_bonus_percent"] = max(0, int(normalized["voice_drops"].get("party_bonus_percent") or 10))
 
     available_cogs = _read_available_cogs()
     loaded_cogs = raw_state.get("cogs", {})
@@ -2749,8 +2888,10 @@ async def get_leveling_settings(request: Request) -> dict[str, Any]:
 async def dashboard_economy_overview(request: Request) -> dict[str, Any]:
     _require_auth(request)
     user_id = _require_session_user_id(request)
+    active_guild = _require_active_guild(request)
+    guild_id_int = _extract_discord_id(active_guild.get("id"))
     pool = _db_pool()
-    if pool is None:
+    if pool is None or guild_id_int is None:
         raise HTTPException(status_code=503, detail="Database unavailable")
 
     async with pool.acquire() as connection:
@@ -2794,6 +2935,26 @@ async def dashboard_economy_overview(request: Request) -> dict[str, Any]:
             """,
             user_id,
         )
+        voice_self = await connection.fetchrow(
+            """
+            SELECT total_amount, total_intervals, last_drop_at
+            FROM user_voice_drops_daily
+            WHERE guild_id = $1 AND user_id = $2 AND day_key = CURRENT_DATE
+            """,
+            guild_id_int,
+            user_id,
+        )
+        voice_guild = await connection.fetchrow(
+            """
+            SELECT
+                COALESCE(SUM(total_amount), 0) AS total_amount,
+                COALESCE(SUM(total_intervals), 0) AS total_intervals,
+                COALESCE(COUNT(*), 0) AS participant_count
+            FROM user_voice_drops_daily
+            WHERE guild_id = $1 AND day_key = CURRENT_DATE
+            """,
+            guild_id_int,
+        )
 
     balance = int(row.get("balance") or 0) if row else 0
     last_daily = row.get("last_daily") if row else None
@@ -2831,6 +2992,14 @@ async def dashboard_economy_overview(request: Request) -> dict[str, Any]:
             }
             for item in effects
         ],
+        "voice_drops_summary": {
+            "today_total": int(voice_self.get("total_amount") or 0) if voice_self else 0,
+            "today_intervals": int(voice_self.get("total_intervals") or 0) if voice_self else 0,
+            "last_drop_at": voice_self.get("last_drop_at").isoformat() if voice_self and voice_self.get("last_drop_at") else None,
+            "guild_total_today": int(voice_guild.get("total_amount") or 0) if voice_guild else 0,
+            "guild_intervals_today": int(voice_guild.get("total_intervals") or 0) if voice_guild else 0,
+            "guild_participants_today": int(voice_guild.get("participant_count") or 0) if voice_guild else 0,
+        },
     }
 
 
@@ -4091,6 +4260,38 @@ async def update_setup(payload: SetupUpdatePayload, request: Request) -> dict[st
         "state": _state_with_metrics(state),
         "applied_changes": changes,
         "applied_changes_count": len(changes),
+    }
+
+
+@app.put("/api/dashboard/economy/voice-drops")
+async def update_voice_drops(payload: VoiceDropsUpdatePayload, request: Request) -> dict[str, Any]:
+    _require_auth(request)
+    active_guild = await _require_dashboard_role(request, "admin")
+    guild_id = str(active_guild.get("id"))
+    guild_name = str(active_guild.get("name", f"Guild {guild_id}"))
+
+    state = await _get_effective_state_for_guild(guild_id, guild_name)
+    previous_state = json.loads(json.dumps(state))
+
+    normalized_payload = payload.model_dump()
+    normalized_payload["reward_max"] = max(int(normalized_payload.get("reward_max") or 0), int(normalized_payload.get("reward_min") or 0))
+    normalized_payload["daily_cap"] = max(int(normalized_payload["reward_max"]), int(normalized_payload.get("daily_cap") or 0))
+    normalized_payload["reminder_minutes"] = min(int(normalized_payload.get("reminder_minutes") or 0), int(normalized_payload.get("interval_minutes") or 15))
+
+    state["voice_drops"].update(normalized_payload)
+    state = await _persist_state_for_guild(guild_id, guild_name, state)
+
+    changes = _collect_setup_changes(previous_state, state)
+    user = request.session.get("user")
+    moderator_id = _extract_discord_id(user.get("id") if isinstance(user, dict) else None)
+    await _create_snapshot(guild_id, state, created_by=moderator_id, source="voice_drops", changes=changes)
+    await _log_dashboard_changes(guild_id, moderator_id, changes)
+
+    return {
+        "ok": True,
+        "active_guild_id": guild_id,
+        "state": _state_with_metrics(state),
+        "applied_changes": changes,
     }
 
 

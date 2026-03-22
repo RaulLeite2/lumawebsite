@@ -444,6 +444,24 @@ const STATIC_TRANSLATIONS = {
     "Leaderboard": { pt: "Leaderboard", en: "Leaderboard", es: "Clasificacion" },
     "Top 15 members by XP in this server.": { pt: "Top 15 membros por XP neste servidor.", en: "Top 15 members by XP in this server.", es: "Top 15 miembros por XP en este servidor." },
     "No leaderboard data yet.": { pt: "Nenhum dado no leaderboard ainda.", en: "No leaderboard data yet.", es: "Todavia no hay datos en el leaderboard." },
+    "Voice Drops": { pt: "Drops de Call", en: "Voice Drops", es: "Drops de Voz" },
+    "Reward members for staying in valid voice calls and announce the next drop in a configurable text channel.": { pt: "Recompense membros por permanecerem em calls validas e anuncie o proximo drop em um canal de texto configuravel.", en: "Reward members for staying in valid voice calls and announce the next drop in a configurable text channel.", es: "Recompensa a los miembros por quedarse en llamadas validas y anuncia el siguiente drop en un canal de texto configurable." },
+    "Your drops today": { pt: "Seus drops hoje", en: "Your drops today", es: "Tus drops hoy" },
+    "Your voice intervals": { pt: "Seus intervalos de voz", en: "Your voice intervals", es: "Tus intervalos de voz" },
+    "Guild total today": { pt: "Total da guild hoje", en: "Guild total today", es: "Total del servidor hoy" },
+    "Participants today": { pt: "Participantes hoje", en: "Participants today", es: "Participantes hoy" },
+    "Enable voice drops": { pt: "Ativar drops de call", en: "Enable voice drops", es: "Activar drops de voz" },
+    "Announcement channel": { pt: "Canal de anuncio", en: "Announcement channel", es: "Canal de anuncios" },
+    "Drop interval (minutes)": { pt: "Intervalo do drop (minutos)", en: "Drop interval (minutes)", es: "Intervalo del drop (minutos)" },
+    "Reminder before drop (minutes)": { pt: "Lembrete antes do drop (minutos)", en: "Reminder before drop (minutes)", es: "Recordatorio antes del drop (minutos)" },
+    "Minimum active members in call": { pt: "Minimo de membros ativos na call", en: "Minimum active members in call", es: "Minimo de miembros activos en llamada" },
+    "Party bonus percent": { pt: "Bonus de call cheia (%)", en: "Party bonus percent", es: "Bonus por llamada llena (%)" },
+    "Minimum drop reward": { pt: "Recompensa minima do drop", en: "Minimum drop reward", es: "Recompensa minima del drop" },
+    "Maximum drop reward": { pt: "Recompensa maxima do drop", en: "Maximum drop reward", es: "Recompensa maxima del drop" },
+    "Daily cap per member": { pt: "Limite diario por membro", en: "Daily cap per member", es: "Limite diario por miembro" },
+    "Only members in non-AFK calls with enough active people and no deaf abuse can progress toward drops.": { pt: "Somente membros em calls nao-AFK, com gente ativa suficiente e sem abuso de deaf, progridem para os drops.", en: "Only members in non-AFK calls with enough active people and no deaf abuse can progress toward drops.", es: "Solo los miembros en llamadas no-AFK, con gente activa suficiente y sin abuso de deaf, progresan hacia los drops." },
+    "Save Voice Drops": { pt: "Salvar Drops de Call", en: "Save Voice Drops", es: "Guardar Drops de Voz" },
+    "Choose a voice drops channel": { pt: "Escolha um canal para os drops", en: "Choose a voice drops channel", es: "Elige un canal para los drops" },
 };
 
 function translateStaticText(text) {
@@ -506,6 +524,14 @@ const FLASH_TRANSLATION_KEYS = {
     "Failed to save leveling": "levels_save_error",
     "Leaderboard refreshed": "leaderboard_refreshed",
     "Failed to refresh leaderboard": "leaderboard_refresh_error",
+    "Voice drops saved": "voice_drops_saved",
+    "Failed to save voice drops": "voice_drops_save_error",
+    "Economy refreshed": "economy_refresh_success",
+    "Failed to refresh economy": "economy_refresh_error",
+    "Failed to claim daily": "daily_claim_error",
+    "Purchase completed": "purchase_completed",
+    "Failed to buy item": "purchase_error",
+    "Failed to use item": "use_item_error",
 };
 
 const FLASH_TRANSLATIONS = {
@@ -563,6 +589,14 @@ const FLASH_TRANSLATIONS = {
         levels_save_error: "Failed to save leveling",
         leaderboard_refreshed: "Leaderboard refreshed",
         leaderboard_refresh_error: "Failed to refresh leaderboard",
+        voice_drops_saved: "Voice drops saved",
+        voice_drops_save_error: "Failed to save voice drops",
+        economy_refresh_success: "Economy refreshed",
+        economy_refresh_error: "Failed to refresh economy",
+        daily_claim_error: "Failed to claim daily",
+        purchase_completed: "Purchase completed",
+        purchase_error: "Failed to buy item",
+        use_item_error: "Failed to use item",
     },
     pt: {
         guild_switched: "Guild alterada",
@@ -618,6 +652,14 @@ const FLASH_TRANSLATIONS = {
         levels_save_error: "Falha ao salvar levels",
         leaderboard_refreshed: "Leaderboard atualizado",
         leaderboard_refresh_error: "Falha ao atualizar leaderboard",
+        voice_drops_saved: "Drops de call salvos",
+        voice_drops_save_error: "Falha ao salvar drops de call",
+        economy_refresh_success: "Economia atualizada",
+        economy_refresh_error: "Falha ao atualizar economia",
+        daily_claim_error: "Falha ao resgatar daily",
+        purchase_completed: "Compra concluida",
+        purchase_error: "Falha ao comprar item",
+        use_item_error: "Falha ao usar item",
     },
     es: {
         guild_switched: "Servidor cambiado",
@@ -673,6 +715,14 @@ const FLASH_TRANSLATIONS = {
         levels_save_error: "Error al guardar nivelacion",
         leaderboard_refreshed: "Clasificacion actualizada",
         leaderboard_refresh_error: "Error al actualizar clasificacion",
+        voice_drops_saved: "Drops de voz guardados",
+        voice_drops_save_error: "Error al guardar drops de voz",
+        economy_refresh_success: "Economia actualizada",
+        economy_refresh_error: "Error al actualizar economia",
+        daily_claim_error: "Error al reclamar el daily",
+        purchase_completed: "Compra completada",
+        purchase_error: "Error al comprar item",
+        use_item_error: "Error al usar item",
     },
 };
 
@@ -1088,6 +1138,7 @@ function applyResourceSelectors(context) {
     populateSelect(document.getElementById("modmail-channel"), setupResources.categories || [], translateStaticText("Choose a modmail category"));
     populateSelect(document.getElementById("welcome-channel"), setupResources.text_channels || [], translateStaticText("Choose welcome channel"));
     populateSelect(document.getElementById("leave-channel"), setupResources.text_channels || [], translateStaticText("Choose leave channel"));
+    populateSelect(document.getElementById("voice-drops-channel"), setupResources.text_channels || [], translateStaticText("Choose a voice drops channel"));
     populateRoleSelect(document.getElementById("auto-role"), setupResources.roles || []);
     populateRoleSelect(document.getElementById("auto-immune-role-picker"), setupResources.roles || []);
     populateRoleSelect(document.getElementById("modmail-role-picker"), setupResources.roles || []);
@@ -2324,6 +2375,45 @@ function formatSecondsToHhMm(seconds) {
     return `${hours}h ${minutes}m`;
 }
 
+function renderVoiceDropsSettings(context, overview) {
+    const state = context?.state?.voice_drops || {};
+    const summary = overview?.voice_drops_summary || {};
+
+    const refs = {
+        enabled: document.getElementById("voice-drops-enabled"),
+        channel: document.getElementById("voice-drops-channel"),
+        interval: document.getElementById("voice-drops-interval"),
+        reminder: document.getElementById("voice-drops-reminder"),
+        minMembers: document.getElementById("voice-drops-min-members"),
+        partyBonus: document.getElementById("voice-drops-party-bonus"),
+        rewardMin: document.getElementById("voice-drops-min"),
+        rewardMax: document.getElementById("voice-drops-max"),
+        dailyCap: document.getElementById("voice-drops-cap"),
+        today: document.getElementById("voice-drops-today"),
+        intervals: document.getElementById("voice-drops-intervals"),
+        guildTotal: document.getElementById("voice-drops-guild-total"),
+        participants: document.getElementById("voice-drops-participants"),
+    };
+
+    if (!refs.enabled) return;
+
+    applyResourceSelectors(context);
+    refs.enabled.checked = Boolean(state.enabled);
+    ensureOption(refs.channel, state.announce_channel, state.announce_channel);
+    refs.channel.value = state.announce_channel || "";
+    refs.interval.value = String(state.interval_minutes ?? 15);
+    refs.reminder.value = String(state.reminder_minutes ?? 15);
+    refs.minMembers.value = String(state.min_members ?? 2);
+    refs.partyBonus.value = String(state.party_bonus_percent ?? 10);
+    refs.rewardMin.value = String(state.reward_min ?? 20);
+    refs.rewardMax.value = String(state.reward_max ?? 45);
+    refs.dailyCap.value = String(state.daily_cap ?? 500);
+    refs.today.textContent = `${Number(summary.today_total || 0).toLocaleString()} Drops`;
+    refs.intervals.textContent = String(Number(summary.today_intervals || 0));
+    refs.guildTotal.textContent = `${Number(summary.guild_total_today || 0).toLocaleString()} Drops`;
+    refs.participants.textContent = String(Number(summary.guild_participants_today || 0));
+}
+
 function renderEconomyDashboard(overview, shop, stats, season, transactions) {
     const balanceEl = document.getElementById("econ-balance");
     const timerEl = document.getElementById("econ-daily-timer");
@@ -2334,6 +2424,8 @@ function renderEconomyDashboard(overview, shop, stats, season, transactions) {
     const seasonList = document.getElementById("econ-season-list");
     const txList = document.getElementById("econ-transactions-list");
     if (!balanceEl || !timerEl || !shopList || !inventoryList || !badgesList) return;
+
+    renderVoiceDropsSettings(dashboardContext, overview);
 
     balanceEl.textContent = `${Number(overview?.balance || 0).toLocaleString()} Lumicoins`;
     const remaining = Number(overview?.daily_remaining_seconds || 0);
@@ -3126,6 +3218,39 @@ function bindPageActions() {
                 flash("Economy refreshed", "success");
             } catch (error) {
                 flash("Failed to refresh economy", "error");
+            }
+        });
+    }
+
+    const saveVoiceDrops = document.getElementById("save-voice-drops");
+    if (saveVoiceDrops) {
+        saveVoiceDrops.addEventListener("click", async () => {
+            const rewardMin = Math.max(1, Number(document.getElementById("voice-drops-min")?.value || 20));
+            const rewardMax = Math.max(rewardMin, Number(document.getElementById("voice-drops-max")?.value || 45));
+            const intervalMinutes = Math.max(5, Number(document.getElementById("voice-drops-interval")?.value || 15));
+            const payload = {
+                enabled: document.getElementById("voice-drops-enabled")?.checked ?? false,
+                announce_channel: document.getElementById("voice-drops-channel")?.value?.trim() || "",
+                interval_minutes: intervalMinutes,
+                reminder_minutes: Math.min(intervalMinutes, Math.max(0, Number(document.getElementById("voice-drops-reminder")?.value || 15))),
+                min_members: Math.max(2, Number(document.getElementById("voice-drops-min-members")?.value || 2)),
+                reward_min: rewardMin,
+                reward_max: rewardMax,
+                daily_cap: Math.max(rewardMax, Number(document.getElementById("voice-drops-cap")?.value || 500)),
+                party_bonus_percent: Math.max(0, Number(document.getElementById("voice-drops-party-bonus")?.value || 10)),
+            };
+
+            try {
+                const res = await api("/api/dashboard/economy/voice-drops", {
+                    method: "PUT",
+                    body: JSON.stringify(payload),
+                });
+                dashboardContext.state = res.state;
+                renderPage(dashboardContext);
+                await loadEconomyDashboard();
+                flash("Voice drops saved", "success");
+            } catch (error) {
+                flash("Failed to save voice drops", "error");
             }
         });
     }
