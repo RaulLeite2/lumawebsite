@@ -305,6 +305,13 @@ class BlogPostCreatePayload(BaseModel):
     is_published: bool = True
 
 
+class MKScriptLaunchPayload(BaseModel):
+    blocks: int = Field(default=0, ge=0, le=5000)
+    links: int = Field(default=0, ge=0, le=10000)
+    validation_status: str = Field(default="Draft", max_length=32)
+    flow_summary: str = Field(default="", max_length=320)
+
+
 state_lock = threading.Lock()
 
 GUILD_DB_SELECT = """
@@ -2504,7 +2511,7 @@ def _normalize_guild_state(raw_state: dict[str, Any], guild_id: str, guild_name:
 
 def _load_state_container() -> dict[str, Any]:
     if not STATE_FILE.exists():
-        container = {"guild_states": {}, "staged_states": {}}
+        container = {"guild_states": {}, "staged_states": {}, "mk_scripts": {}}
         _save_state(container)
         return container
 
@@ -2512,9 +2519,9 @@ def _load_state_container() -> dict[str, Any]:
         with STATE_FILE.open("r", encoding="utf-8") as f:
             raw = json.load(f)
     except (json.JSONDecodeError, OSError):
-        raw = {"guild_states": {}, "staged_states": {}}
+        raw = {"guild_states": {}, "staged_states": {}, "mk_scripts": {}}
 
-    container = {"guild_states": {}, "staged_states": {}}
+    container = {"guild_states": {}, "staged_states": {}, "mk_scripts": {}}
     if isinstance(raw, dict) and "guild_states" in raw and isinstance(raw.get("guild_states"), dict):
         for gid, state in raw["guild_states"].items():
             if not isinstance(gid, str) or not isinstance(state, dict):
@@ -2533,6 +2540,21 @@ def _load_state_container() -> dict[str, Any]:
                 continue
             default_name = str(state.get("guild", {}).get("guild_name", f"Guild {gid}"))
             container["staged_states"][gid] = _normalize_guild_state(state, gid, default_name)
+
+    if isinstance(raw, dict) and isinstance(raw.get("mk_scripts"), dict):
+        for gid, status in raw.get("mk_scripts", {}).items():
+            if not isinstance(gid, str) or not isinstance(status, dict):
+                continue
+            container["mk_scripts"][gid] = {
+                "bot_active": bool(status.get("bot_active")),
+                "launch_count": max(0, int(status.get("launch_count") or 0)),
+                "last_launch_at": str(status.get("last_launch_at") or ""),
+                "last_validation_status": str(status.get("last_validation_status") or ""),
+                "last_flow_summary": str(status.get("last_flow_summary") or ""),
+                "last_blocks": max(0, int(status.get("last_blocks") or 0)),
+                "last_links": max(0, int(status.get("last_links") or 0)),
+                "updated_by": str(status.get("updated_by") or ""),
+            }
 
     _save_state(container)
     return container
@@ -2558,6 +2580,44 @@ def _store_state_for_guild(guild_id: str, guild_name: str, state: dict[str, Any]
     container.setdefault("guild_states", {})[guild_id] = _normalize_guild_state(state, guild_id, guild_name)
     _save_state(container)
     return container["guild_states"][guild_id]
+
+
+def _get_mk_script_status_for_guild(guild_id: str) -> dict[str, Any]:
+    container = _load_state_container()
+    status = container.setdefault("mk_scripts", {}).get(guild_id)
+    if not isinstance(status, dict):
+        return {
+            "bot_active": False,
+            "launch_count": 0,
+            "last_launch_at": "",
+            "last_validation_status": "",
+            "last_flow_summary": "",
+            "last_blocks": 0,
+            "last_links": 0,
+            "updated_by": "",
+        }
+    return status
+
+
+def _set_mk_script_status_for_guild(guild_id: str, status: dict[str, Any]) -> dict[str, Any]:
+    container = _load_state_container()
+    mk_scripts = container.setdefault("mk_scripts", {})
+    current = mk_scripts.get(guild_id) if isinstance(mk_scripts.get(guild_id), dict) else {}
+
+    merged = {
+        "bot_active": bool(status.get("bot_active", current.get("bot_active", False))),
+        "launch_count": max(0, int(status.get("launch_count", current.get("launch_count", 0)) or 0)),
+        "last_launch_at": str(status.get("last_launch_at", current.get("last_launch_at", "")) or ""),
+        "last_validation_status": str(status.get("last_validation_status", current.get("last_validation_status", "")) or ""),
+        "last_flow_summary": str(status.get("last_flow_summary", current.get("last_flow_summary", "")) or ""),
+        "last_blocks": max(0, int(status.get("last_blocks", current.get("last_blocks", 0)) or 0)),
+        "last_links": max(0, int(status.get("last_links", current.get("last_links", 0)) or 0)),
+        "updated_by": str(status.get("updated_by", current.get("updated_by", "")) or ""),
+    }
+
+    mk_scripts[guild_id] = merged
+    _save_state(container)
+    return merged
 
 
 async def _get_effective_state_for_guild(guild_id: str, guild_name: str) -> dict[str, Any]:
@@ -4117,6 +4177,63 @@ async def dashboard_health_metrics(
     state = _state_with_metrics(await _get_effective_state_for_guild(guild_id, guild_name))
     health = await _fetch_server_health(guild_id, period, state)
     return {"ok": True, "active_guild_id": guild_id, "health": health}
+
+
+@app.get("/api/dashboard/mk-script/status")
+async def dashboard_mk_script_status(request: Request) -> dict[str, Any]:
+    _require_auth(request)
+    active_guild = _require_active_guild(request)
+    guild_id = str(active_guild.get("id"))
+
+    mk_status = _get_mk_script_status_for_guild(guild_id)
+    message = (
+        "MK Script esta ativo no bot."
+        if mk_status.get("bot_active")
+        else "MK Script ainda nao foi sincronizado com o bot."
+    )
+    return {
+        "ok": True,
+        "active_guild_id": guild_id,
+        "mk_status": {
+            **mk_status,
+            "message": message,
+        },
+    }
+
+
+@app.post("/api/dashboard/mk-script/launch")
+async def dashboard_mk_script_launch(payload: MKScriptLaunchPayload, request: Request) -> dict[str, Any]:
+    _require_auth(request)
+    active_guild = await _require_dashboard_role(request, "moderator")
+    guild_id = str(active_guild.get("id"))
+
+    user = request.session.get("user")
+    updated_by = str(user.get("username") or user.get("id") or "dashboard-user") if isinstance(user, dict) else "dashboard-user"
+
+    previous = _get_mk_script_status_for_guild(guild_id)
+    launch_count = max(0, int(previous.get("launch_count") or 0)) + 1
+    merged = _set_mk_script_status_for_guild(
+        guild_id,
+        {
+            "bot_active": payload.blocks > 0,
+            "launch_count": launch_count,
+            "last_launch_at": datetime.utcnow().isoformat() + "Z",
+            "last_validation_status": payload.validation_status,
+            "last_flow_summary": payload.flow_summary,
+            "last_blocks": payload.blocks,
+            "last_links": payload.links,
+            "updated_by": updated_by,
+        },
+    )
+
+    return {
+        "ok": True,
+        "active_guild_id": guild_id,
+        "mk_status": {
+            **merged,
+            "message": "Seu Script MK foi lancado ao bot",
+        },
+    }
 
 
 @app.post("/api/dashboard/automod/simulate")

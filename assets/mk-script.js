@@ -48,12 +48,18 @@
     const autoLayoutBtn = document.getElementById("mk-auto-layout");
     const clearCanvasBtn = document.getElementById("mk-clear-canvas");
     const testFlowBtn = document.getElementById("mk-test-flow");
+    const botStatusBtn = document.getElementById("mk-bot-status");
     const saveFlowBtn = document.getElementById("mk-save-flow");
     const undoBtn = document.getElementById("mk-undo");
     const redoBtn = document.getElementById("mk-redo");
     const exportFlowBtn = document.getElementById("mk-export-flow");
     const importTriggerBtn = document.getElementById("mk-import-trigger");
     const importInput = document.getElementById("mk-import-input");
+    const terminalOutput = document.getElementById("mk-terminal-output");
+    const terminalTestBtn = document.getElementById("mk-terminal-test");
+    const terminalClearBtn = document.getElementById("mk-terminal-clear");
+    const terminalCommandInput = document.getElementById("mk-terminal-command");
+    const terminalCommandRunBtn = document.getElementById("mk-terminal-command-run");
 
     if (!mkWrap || !mkCanvas || !mkConnections || !mkPalette) {
         return;
@@ -185,6 +191,27 @@
         if (className) element.className = className;
         if (textContent !== undefined) element.textContent = textContent;
         return element;
+    }
+
+    function wait(ms) {
+        return new Promise((resolve) => window.setTimeout(resolve, ms));
+    }
+
+    function terminalStamp() {
+        return new Date().toLocaleTimeString();
+    }
+
+    function appendTerminalLine(message, level = "info") {
+        if (!terminalOutput) return;
+        const prefix = level === "cmd" ? ">" : level === "ok" ? "[ok]" : level === "warn" ? "[warn]" : "[info]";
+        const line = `[${terminalStamp()}] ${prefix} ${message}`;
+        terminalOutput.textContent = `${terminalOutput.textContent}\n${line}`.trim();
+        terminalOutput.scrollTop = terminalOutput.scrollHeight;
+    }
+
+    function clearTerminal() {
+        if (!terminalOutput) return;
+        terminalOutput.textContent = "[boot] MK terminal ready.\n[tip] Type \"mk status\" to verify bot sync.";
     }
 
     function cloneJson(value) {
@@ -1180,6 +1207,137 @@
         localStorage.setItem("luma-mk-script-draft", JSON.stringify(serializeState()));
     }
 
+    async function fetchMkBotStatus() {
+        const response = await fetch("/api/dashboard/mk-script/status", {
+            headers: {
+                Accept: "application/json",
+            },
+            credentials: "same-origin",
+        });
+
+        let payload = null;
+        try {
+            payload = await response.json();
+        } catch (error) {
+            payload = null;
+        }
+
+        if (!response.ok) {
+            const detail = payload && typeof payload.detail === "string" ? payload.detail : "Status check failed";
+            throw new Error(detail);
+        }
+
+        return payload || {};
+    }
+
+    async function launchMkScript(report) {
+        const response = await fetch("/api/dashboard/mk-script/launch", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Accept: "application/json",
+            },
+            credentials: "same-origin",
+            body: JSON.stringify({
+                blocks: state.nodes.size,
+                links: state.links.length,
+                validation_status: report.status,
+                flow_summary: report.summary,
+            }),
+        });
+
+        let payload = null;
+        try {
+            payload = await response.json();
+        } catch (error) {
+            payload = null;
+        }
+
+        if (!response.ok) {
+            const detail = payload && typeof payload.detail === "string" ? payload.detail : "Launch command failed";
+            throw new Error(detail);
+        }
+
+        return payload || {};
+    }
+
+    async function runTerminalDryTest() {
+        const report = validateFlow();
+        appendTerminalLine("Running mk test command...", "cmd");
+        await wait(220);
+        appendTerminalLine(`Flow status: ${report.status} | blocks=${state.nodes.size} | links=${state.links.length}`);
+        await wait(180);
+        appendTerminalLine(report.summary, report.status === "Ready" ? "ok" : "warn");
+    }
+
+    async function runLaunchSequence() {
+        const report = validateFlow();
+        appendTerminalLine("mk launch --sync bot", "cmd");
+        appendTerminalLine("Lendo Codigo...");
+        await wait(320);
+        appendTerminalLine("Aplicando Informacoes...");
+        await wait(320);
+        appendTerminalLine("Comendo Cookies...");
+        await wait(320);
+        appendTerminalLine("Pronto!");
+
+        try {
+            const payload = await launchMkScript(report);
+            appendTerminalLine("Seu Script MK foi lancado ao bot", "ok");
+            if (payload?.mk_status?.launch_count) {
+                appendTerminalLine(`Bot sync count: ${payload.mk_status.launch_count}`, "ok");
+            }
+            window.showFlash?.("MK Script launched and synced", "success");
+        } catch (error) {
+            appendTerminalLine(String(error), "warn");
+            window.showFlash?.("Failed to launch MK Script", "error");
+        }
+    }
+
+    async function runStatusCommand() {
+        appendTerminalLine("mk status", "cmd");
+        try {
+            const payload = await fetchMkBotStatus();
+            const status = payload?.mk_status || {};
+            const active = status.bot_active ? "ACTIVE" : "INACTIVE";
+            appendTerminalLine(`Bot MK status: ${active}`, status.bot_active ? "ok" : "warn");
+            appendTerminalLine(status.message || "No status message from bot sync.");
+            if (status.last_launch_at) {
+                appendTerminalLine(`Last launch: ${status.last_launch_at}`);
+            }
+        } catch (error) {
+            appendTerminalLine(String(error), "warn");
+            window.showFlash?.("MK status check failed", "error");
+        }
+    }
+
+    async function runTerminalCommand(rawCommand) {
+        const normalized = (rawCommand || "").trim().toLowerCase();
+        if (!normalized) return;
+
+        if (normalized === "mk status" || normalized === "/mk status") {
+            await runStatusCommand();
+            return;
+        }
+
+        if (normalized === "mk test" || normalized === "/mk test") {
+            await runTerminalDryTest();
+            return;
+        }
+
+        if (normalized === "mk launch" || normalized === "/mk launch") {
+            await runLaunchSequence();
+            return;
+        }
+
+        if (normalized === "help" || normalized === "mk help") {
+            appendTerminalLine("Commands: mk status | mk test | mk launch", "ok");
+            return;
+        }
+
+        appendTerminalLine(`Unknown command: ${rawCommand}`, "warn");
+    }
+
     function exportFlow() {
         const snapshot = serializeState();
         const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: "application/json" });
@@ -1434,14 +1592,39 @@
         addLog("Preview Run", `Flow tested as ${report.status.toLowerCase()} with ${payload.blocks} blocks and ${payload.links} connections.`);
         pushDebug("Flow preview executed", payload, true);
         window.showFlash?.(`Flow preview ${report.status === "Ready" ? "completed" : "reported warnings"}`, report.status === "Ready" ? "success" : "warning");
+        void runTerminalDryTest();
     });
 
-    saveFlowBtn?.addEventListener("click", () => {
+    saveFlowBtn?.addEventListener("click", async () => {
         persistDraft();
         const snapshot = serializeState();
         addLog("Draft Saved", `Stored ${snapshot.nodes.length} blocks locally.`);
         pushDebug("Draft saved", snapshot, true);
-        window.showFlash?.("Draft saved locally", "success");
+        await runLaunchSequence();
+    });
+
+    botStatusBtn?.addEventListener("click", () => {
+        void runStatusCommand();
+    });
+
+    terminalTestBtn?.addEventListener("click", () => {
+        void runTerminalDryTest();
+    });
+
+    terminalClearBtn?.addEventListener("click", clearTerminal);
+
+    terminalCommandRunBtn?.addEventListener("click", () => {
+        const command = terminalCommandInput?.value || "";
+        if (terminalCommandInput) terminalCommandInput.value = "";
+        void runTerminalCommand(command);
+    });
+
+    terminalCommandInput?.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter") return;
+        event.preventDefault();
+        const command = terminalCommandInput.value || "";
+        terminalCommandInput.value = "";
+        void runTerminalCommand(command);
     });
 
     fullSizeBtn?.addEventListener("click", () => {
@@ -1508,6 +1691,7 @@
     setComposerOpen(false);
     setDebugOpen(false);
     resetLogList();
+    clearTerminal();
     syncCanvasStageSize();
     restoreDraft();
     ensureSvgBounds();

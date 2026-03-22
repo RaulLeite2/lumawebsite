@@ -2374,6 +2374,49 @@ body.mk-script-fullsize .mk-right {
     grid-template-columns: 1fr;
 }
 
+.mk-terminal-toolbar {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.55rem;
+    margin-bottom: 0.7rem;
+}
+
+.mk-terminal-command-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.55rem;
+    margin-bottom: 0.7rem;
+}
+
+.mk-terminal-command-row input {
+    width: 100%;
+    border-radius: 10px;
+    border: 1px solid rgba(166, 255, 199, 0.24);
+    background: rgba(7, 19, 15, 0.86);
+    color: #daffe8;
+    font-family: "Space Grotesk", sans-serif;
+    font-size: 0.79rem;
+    padding: 0.62rem 0.72rem;
+}
+
+.mk-terminal-output {
+    margin: 0;
+    min-height: 180px;
+    max-height: 280px;
+    overflow: auto;
+    border-radius: 12px;
+    border: 1px solid rgba(155, 255, 188, 0.24);
+    background:
+        linear-gradient(180deg, rgba(6, 22, 14, 0.96), rgba(5, 14, 10, 0.98)),
+        repeating-linear-gradient(0deg, rgba(149, 255, 194, 0.05), rgba(149, 255, 194, 0.05) 1px, transparent 1px, transparent 22px);
+    color: #b4ffd0;
+    font-family: "Space Grotesk", monospace;
+    font-size: 0.76rem;
+    line-height: 1.55;
+    padding: 0.75rem;
+    white-space: pre-wrap;
+}
+
 @keyframes mk-node-rise {
     from {
         opacity: 0;
@@ -2447,6 +2490,14 @@ body.mk-script-fullsize .mk-right {
     }
 
     .mk-compose-actions {
+        grid-template-columns: 1fr;
+    }
+
+    .mk-terminal-toolbar {
+        grid-template-columns: 1fr;
+    }
+
+    .mk-terminal-command-row {
         grid-template-columns: 1fr;
     }
 

@@ -42,6 +42,7 @@
                     <button class="btn" id="mk-fullsize-toggle" type="button">Full Size Off</button>
                     <button class="btn" id="mk-debug-toggle" type="button">Debug</button>
                     <button class="btn" id="mk-test-flow" type="button">Test Flow</button>
+                    <button class="btn" id="mk-bot-status" type="button">Check MK Active</button>
                     <button class="btn primary" id="mk-save-flow" type="button">Publish Draft</button>
                     <a class="btn" href="/auth/logout">Logout</a>
                 </div>
@@ -229,6 +230,24 @@
                             <span>Ctrl/Cmd+D duplicates the selected block</span>
                             <span>Ctrl/Cmd+Z and Ctrl/Cmd+Y undo or redo changes</span>
                         </div>
+                    </section>
+
+                    <section class="mk-panel">
+                        <div class="mk-panel-head">
+                            <h3>MK Terminal</h3>
+                            <span class="pill accent-orange">Live</span>
+                        </div>
+                        <p class="lead">Run tests, deploy flow updates, and check if the bot has MK Script active.</p>
+                        <div class="mk-terminal-toolbar">
+                            <button class="btn" id="mk-terminal-test" type="button">Run Terminal Test</button>
+                            <button class="btn" id="mk-terminal-clear" type="button">Clear</button>
+                        </div>
+                        <div class="mk-terminal-command-row">
+                            <input id="mk-terminal-command" type="text" placeholder="Try: mk status" maxlength="64">
+                            <button class="btn" id="mk-terminal-command-run" type="button">Run</button>
+                        </div>
+                        <pre class="mk-terminal-output" id="mk-terminal-output">[boot] MK terminal ready.
+[tip] Type "mk status" to verify bot sync.</pre>
                     </section>
                 </aside>
             </section>
