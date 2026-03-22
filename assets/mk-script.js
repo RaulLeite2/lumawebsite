@@ -184,6 +184,7 @@
         history: [],
         future: [],
         canvasHeight: 590,
+        terminalBusy: false,
     };
 
     function createElement(tagName, className, textContent) {
@@ -212,6 +213,42 @@
     function clearTerminal() {
         if (!terminalOutput) return;
         terminalOutput.textContent = "[boot] MK terminal ready.\n[tip] Type \"mk status\" to verify bot sync.";
+    }
+
+    function formatErrorMessage(error, fallback) {
+        if (error instanceof Error && error.message) {
+            return error.message;
+        }
+        if (typeof error === "string" && error.trim()) {
+            return error.trim();
+        }
+        return fallback;
+    }
+
+    function setTerminalBusy(isBusy) {
+        state.terminalBusy = !!isBusy;
+        [terminalTestBtn, terminalClearBtn, terminalCommandRunBtn, botStatusBtn, testFlowBtn, saveFlowBtn].forEach((element) => {
+            if (element) element.disabled = state.terminalBusy;
+        });
+        if (terminalCommandInput) {
+            terminalCommandInput.disabled = state.terminalBusy;
+        }
+    }
+
+    async function runTerminalTask(taskName, task) {
+        if (state.terminalBusy) {
+            appendTerminalLine("Terminal busy. Wait for current task to finish.", "warn");
+            return;
+        }
+
+        setTerminalBusy(true);
+        try {
+            await task();
+        } catch (error) {
+            appendTerminalLine(`${taskName} failed: ${formatErrorMessage(error, "Unexpected terminal failure")}`, "warn");
+        } finally {
+            setTerminalBusy(false);
+        }
     }
 
     function cloneJson(value) {
@@ -1215,15 +1252,20 @@
             credentials: "same-origin",
         });
 
+        const raw = await response.text();
         let payload = null;
         try {
-            payload = await response.json();
+            payload = raw ? JSON.parse(raw) : null;
         } catch (error) {
             payload = null;
         }
 
         if (!response.ok) {
-            const detail = payload && typeof payload.detail === "string" ? payload.detail : "Status check failed";
+            const detail = payload && typeof payload.detail === "string"
+                ? payload.detail
+                : raw && !raw.trim().startsWith("<")
+                    ? raw.trim().slice(0, 180)
+                    : `Status check failed (HTTP ${response.status})`;
             throw new Error(detail);
         }
 
@@ -1246,15 +1288,20 @@
             }),
         });
 
+        const raw = await response.text();
         let payload = null;
         try {
-            payload = await response.json();
+            payload = raw ? JSON.parse(raw) : null;
         } catch (error) {
             payload = null;
         }
 
         if (!response.ok) {
-            const detail = payload && typeof payload.detail === "string" ? payload.detail : "Launch command failed";
+            const detail = payload && typeof payload.detail === "string"
+                ? payload.detail
+                : raw && !raw.trim().startsWith("<")
+                    ? raw.trim().slice(0, 180)
+                    : `Launch command failed (HTTP ${response.status})`;
             throw new Error(detail);
         }
 
@@ -1289,7 +1336,7 @@
             }
             window.showFlash?.("MK Script launched and synced", "success");
         } catch (error) {
-            appendTerminalLine(String(error), "warn");
+            appendTerminalLine(formatErrorMessage(error, "Launch sequence failed"), "warn");
             window.showFlash?.("Failed to launch MK Script", "error");
         }
     }
@@ -1301,12 +1348,18 @@
             const status = payload?.mk_status || {};
             const active = status.bot_active ? "ACTIVE" : "INACTIVE";
             appendTerminalLine(`Bot MK status: ${active}`, status.bot_active ? "ok" : "warn");
+            if (payload?.dashboard_role) {
+                appendTerminalLine(`Dashboard role: ${String(payload.dashboard_role).toUpperCase()}`);
+            }
+            if (payload?.can_launch === false) {
+                appendTerminalLine("Launch blocked: moderator role required for mk launch.", "warn");
+            }
             appendTerminalLine(status.message || "No status message from bot sync.");
             if (status.last_launch_at) {
                 appendTerminalLine(`Last launch: ${status.last_launch_at}`);
             }
         } catch (error) {
-            appendTerminalLine(String(error), "warn");
+            appendTerminalLine(formatErrorMessage(error, "MK status command failed"), "warn");
             window.showFlash?.("MK status check failed", "error");
         }
     }
@@ -1592,7 +1645,7 @@
         addLog("Preview Run", `Flow tested as ${report.status.toLowerCase()} with ${payload.blocks} blocks and ${payload.links} connections.`);
         pushDebug("Flow preview executed", payload, true);
         window.showFlash?.(`Flow preview ${report.status === "Ready" ? "completed" : "reported warnings"}`, report.status === "Ready" ? "success" : "warning");
-        void runTerminalDryTest();
+        void runTerminalTask("mk test", runTerminalDryTest);
     });
 
     saveFlowBtn?.addEventListener("click", async () => {
@@ -1600,23 +1653,27 @@
         const snapshot = serializeState();
         addLog("Draft Saved", `Stored ${snapshot.nodes.length} blocks locally.`);
         pushDebug("Draft saved", snapshot, true);
-        await runLaunchSequence();
+        await runTerminalTask("mk launch", runLaunchSequence);
     });
 
     botStatusBtn?.addEventListener("click", () => {
-        void runStatusCommand();
+        void runTerminalTask("mk status", runStatusCommand);
     });
 
     terminalTestBtn?.addEventListener("click", () => {
-        void runTerminalDryTest();
+        void runTerminalTask("mk test", runTerminalDryTest);
     });
 
-    terminalClearBtn?.addEventListener("click", clearTerminal);
+    terminalClearBtn?.addEventListener("click", () => {
+        if (!state.terminalBusy) {
+            clearTerminal();
+        }
+    });
 
     terminalCommandRunBtn?.addEventListener("click", () => {
         const command = terminalCommandInput?.value || "";
         if (terminalCommandInput) terminalCommandInput.value = "";
-        void runTerminalCommand(command);
+        void runTerminalTask(command || "terminal command", () => runTerminalCommand(command));
     });
 
     terminalCommandInput?.addEventListener("keydown", (event) => {
@@ -1624,7 +1681,7 @@
         event.preventDefault();
         const command = terminalCommandInput.value || "";
         terminalCommandInput.value = "";
-        void runTerminalCommand(command);
+        void runTerminalTask(command || "terminal command", () => runTerminalCommand(command));
     });
 
     fullSizeBtn?.addEventListener("click", () => {
