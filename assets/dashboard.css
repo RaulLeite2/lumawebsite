@@ -1651,10 +1651,11 @@ body.mk-script-fullsize .mk-right {
     margin-bottom: 1rem;
 }
 
-.mk-preset-inline {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.55rem;
+.mk-composer-note {
+    margin: 0;
+    color: #cfd7ff;
+    font-size: 0.78rem;
+    line-height: 1.55;
 }
 
 .mk-palette {
@@ -1764,7 +1765,9 @@ body.mk-script-fullsize .mk-right {
 
 .mk-canvas-wrap {
     position: relative;
-    overflow: hidden;
+    overflow: auto;
+    display: grid;
+    align-content: start;
     background:
         radial-gradient(circle at 0 0, rgba(194, 107, 255, 0.12), transparent 28%),
         radial-gradient(circle at 100% 0, rgba(88, 101, 242, 0.12), transparent 30%),
@@ -1772,15 +1775,14 @@ body.mk-script-fullsize .mk-right {
 }
 
 .mk-canvas-toolbar {
-    position: absolute;
+    position: sticky;
     top: 0.9rem;
-    left: 0.9rem;
-    right: 0.9rem;
     z-index: 3;
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: 0.8rem;
+    margin: 0.9rem 0.9rem 0;
     padding: 0.7rem 0.8rem;
     border-radius: 14px;
     border: 1px solid rgba(255, 255, 255, 0.09);
@@ -1833,9 +1835,9 @@ body.mk-script-fullsize .mk-right {
 .mk-canvas {
     position: relative;
     width: 100%;
-    height: 100%;
+    height: auto;
     min-height: 590px;
-    padding-top: 4.8rem;
+    padding: 1.1rem 0 6rem;
     background-image:
         linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
         linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
@@ -1906,6 +1908,10 @@ body.mk-script-fullsize .mk-right {
     height: 18px;
     border-bottom: 1px solid var(--mk-node-edge);
     border-radius: 0 0 14px 14px;
+}
+
+.mk-node:last-child .mk-node-shell::after {
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.08);
 }
 
 .mk-node[data-type="trigger"] {
@@ -2014,7 +2020,8 @@ body.mk-script-fullsize .mk-right {
     gap: 0.32rem;
     min-height: 60px;
     padding: 0.75rem 0.85rem;
-    margin-left: 0.95rem;
+    margin-left: 1.15rem;
+    margin-right: 0.4rem;
     border-radius: 16px 16px 18px 18px;
     border: 1px dashed rgba(255, 255, 255, 0.26);
     background: rgba(17, 10, 0, 0.14);
@@ -2443,10 +2450,6 @@ body.mk-script-fullsize .mk-right {
         grid-template-columns: 1fr;
     }
 
-    .mk-preset-inline {
-        grid-template-columns: 1fr;
-    }
-
     .mk-health-grid {
         grid-template-columns: 1fr;
     }
@@ -2463,8 +2466,6 @@ body.mk-script-fullsize .mk-right {
     .mk-canvas-toolbar {
         position: relative;
         top: 0;
-        left: 0;
-        right: 0;
         margin: 0.9rem;
     }
 

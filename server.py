@@ -1,5 +1,5 @@
 import asyncio
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from datetime import datetime, timedelta
 import importlib
 import json
@@ -833,6 +833,18 @@ async def _connect_database_pool() -> Any | None:
 
     print("[Dashboard] Falling back to local dashboard state only.")
     return None
+
+
+async def _bootstrap_database(app: FastAPI) -> None:
+    pool = await _connect_database_pool()
+    if pool is None:
+        return
+
+    app.state.db_pool = pool
+    try:
+        await _ensure_dashboard_tables(pool)
+    except Exception as exc:
+        print(f"[Dashboard] Deferred database initialization failed: {exc}")
 
 
 async def _ensure_dashboard_tables(pool: Any) -> None:
@@ -2601,12 +2613,17 @@ def _state_with_metrics(state: dict[str, Any]) -> dict[str, Any]:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.db_pool = await _connect_database_pool()
-    if app.state.db_pool is not None:
-        await _ensure_dashboard_tables(app.state.db_pool)
+    app.state.db_pool = None
+    app.state.db_bootstrap_task = asyncio.create_task(_bootstrap_database(app))
     try:
         yield
     finally:
+        bootstrap_task = getattr(app.state, "db_bootstrap_task", None)
+        if bootstrap_task is not None and not bootstrap_task.done():
+            bootstrap_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await bootstrap_task
+
         pool = getattr(app.state, "db_pool", None)
         if pool is not None:
             await pool.close()

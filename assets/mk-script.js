@@ -100,15 +100,15 @@
             nodes: [
                 { key: "trigger", type: "trigger", sub: "on_message", offsetX: 0, offsetY: 0 },
                 { key: "condition", type: "condition", sub: "contains_link", offsetX: 18, offsetY: 162 },
-                { key: "delete", type: "action", sub: "delete_message", offsetX: 38, offsetY: 360 },
-                { key: "timeout", type: "action", sub: "timeout_10m", offsetX: 202, offsetY: 534 },
-                { key: "dm", type: "action", sub: "send_dm", offsetX: -122, offsetY: 534 },
+                { key: "delete", type: "action", sub: "delete_message", offsetX: 36, offsetY: 360 },
+                { key: "timeout", type: "action", sub: "timeout_10m", offsetX: 54, offsetY: 534 },
+                { key: "dm", type: "action", sub: "send_dm", offsetX: 72, offsetY: 708 },
             ],
             links: [
                 ["trigger", "condition"],
                 ["condition", "delete"],
                 ["delete", "timeout"],
-                ["delete", "dm"],
+                ["timeout", "dm"],
             ],
         },
         mention_raid: {
@@ -117,15 +117,15 @@
             nodes: [
                 { key: "trigger", type: "trigger", sub: "on_message", offsetX: 0, offsetY: 0 },
                 { key: "condition", type: "condition", sub: "mention_spam", offsetX: 18, offsetY: 162 },
-                { key: "delete", type: "action", sub: "delete_message", offsetX: 28, offsetY: 360 },
-                { key: "timeout", type: "action", sub: "timeout_10m", offsetX: 188, offsetY: 534 },
-                { key: "review", type: "action", sub: "flag_review", offsetX: -136, offsetY: 534 },
+                { key: "delete", type: "action", sub: "delete_message", offsetX: 36, offsetY: 360 },
+                { key: "timeout", type: "action", sub: "timeout_10m", offsetX: 54, offsetY: 534 },
+                { key: "review", type: "action", sub: "flag_review", offsetX: 72, offsetY: 708 },
             ],
             links: [
                 ["trigger", "condition"],
                 ["condition", "delete"],
                 ["delete", "timeout"],
-                ["delete", "review"],
+                ["timeout", "review"],
             ],
         },
         duplicate_flood: {
@@ -134,15 +134,15 @@
             nodes: [
                 { key: "trigger", type: "trigger", sub: "on_message", offsetX: 0, offsetY: 0 },
                 { key: "condition", type: "condition", sub: "duplicate_message", offsetX: 18, offsetY: 162 },
-                { key: "delete", type: "action", sub: "delete_message", offsetX: 30, offsetY: 360 },
-                { key: "timeout", type: "action", sub: "timeout_10m", offsetX: 188, offsetY: 534 },
-                { key: "review", type: "action", sub: "flag_review", offsetX: -136, offsetY: 534 },
+                { key: "delete", type: "action", sub: "delete_message", offsetX: 36, offsetY: 360 },
+                { key: "timeout", type: "action", sub: "timeout_10m", offsetX: 54, offsetY: 534 },
+                { key: "review", type: "action", sub: "flag_review", offsetX: 72, offsetY: 708 },
             ],
             links: [
                 ["trigger", "condition"],
                 ["condition", "delete"],
                 ["delete", "timeout"],
-                ["delete", "review"],
+                ["timeout", "review"],
             ],
         },
         caps_control: {
@@ -151,8 +151,8 @@
             nodes: [
                 { key: "trigger", type: "trigger", sub: "on_message", offsetX: 0, offsetY: 0 },
                 { key: "condition", type: "condition", sub: "caps_ratio", offsetX: 18, offsetY: 162 },
-                { key: "delete", type: "action", sub: "delete_message", offsetX: 28, offsetY: 360 },
-                { key: "dm", type: "action", sub: "send_dm", offsetX: 188, offsetY: 534 },
+                { key: "delete", type: "action", sub: "delete_message", offsetX: 36, offsetY: 360 },
+                { key: "dm", type: "action", sub: "send_dm", offsetX: 54, offsetY: 534 },
             ],
             links: [
                 ["trigger", "condition"],
@@ -177,6 +177,7 @@
         debugOpen: false,
         history: [],
         future: [],
+        canvasHeight: 590,
     };
 
     function createElement(tagName, className, textContent) {
@@ -207,11 +208,20 @@
 
     function clampNodePosition(x, y) {
         const width = Math.max(mkCanvas.clientWidth, 320);
-        const height = Math.max(mkCanvas.clientHeight, 520);
+        const height = Math.max(state.canvasHeight || mkCanvas.clientHeight, 590);
         return {
             x: Math.min(Math.max(24, snapValue(x)), Math.max(24, width - 296)),
             y: Math.min(Math.max(108, snapValue(y)), Math.max(108, height - 190)),
         };
+    }
+
+    function syncCanvasStageSize(extraBottom = 0) {
+        const nodes = Array.from(state.nodes.values());
+        const deepestNode = nodes.length ? Math.max(...nodes.map((node) => node.y + 190)) : 0;
+        state.canvasHeight = Math.max(590, snapValue(Math.max(deepestNode, extraBottom) + 72));
+        mkCanvas.style.minHeight = `${state.canvasHeight}px`;
+        mkCanvas.style.height = `${state.canvasHeight}px`;
+        mkConnections.style.height = `${state.canvasHeight}px`;
     }
 
     function humanizeKey(value) {
@@ -518,7 +528,7 @@
 
     function ensureSvgBounds() {
         mkConnections.setAttribute("width", String(mkWrap.clientWidth));
-        mkConnections.setAttribute("height", String(mkWrap.clientHeight));
+        mkConnections.setAttribute("height", String(state.canvasHeight || mkWrap.clientHeight));
     }
 
     function curvePath(p1, p2) {
@@ -537,6 +547,7 @@
     }
 
     function redrawLinks() {
+        syncCanvasStageSize();
         ensureSvgBounds();
         mkConnections.replaceChildren();
 
@@ -823,6 +834,7 @@
     }
 
     function createNode(definition, x, y, options = {}) {
+        syncCanvasStageSize(y + 220);
         const position = clampNodePosition(x, y);
         state.nodeCounter += 1;
         const node = {
@@ -939,6 +951,11 @@
         const anchor = options.anchor || getStackAnchor();
         const createdNodes = new Map();
 
+        if (Array.isArray(blueprint.nodes) && blueprint.nodes.length) {
+            const maxOffsetY = Math.max(...blueprint.nodes.map((spec) => spec.offsetY || 0));
+            syncCanvasStageSize(anchor.y + maxOffsetY + 260);
+        }
+
         blueprint.nodes.forEach((spec) => {
             const position = clampNodePosition(anchor.x + spec.offsetX, anchor.y + spec.offsetY);
             const node = createNodeByKey(spec.type, spec.sub, position.x, position.y, { finalize: false, log: false, select: false });
@@ -981,41 +998,76 @@
 
     function autoLayout() {
         const nodes = Array.from(state.nodes.values());
-        const depthMap = new Map(nodes.map((node) => [node.id, node.type === "trigger" ? 0 : 1]));
+        const incoming = new Map(nodes.map((node) => [node.id, 0]));
+        const outgoing = new Map(nodes.map((node) => [node.id, []]));
 
-        for (let attempt = 0; attempt < nodes.length; attempt += 1) {
-            state.links.forEach((link) => {
-                const nextDepth = (depthMap.get(link.from) || 0) + 1;
-                if (nextDepth > (depthMap.get(link.to) || 0)) {
-                    depthMap.set(link.to, nextDepth);
-                }
-            });
-        }
-
-        const depthGroups = new Map();
-        nodes.forEach((node) => {
-            const depth = depthMap.get(node.id) || 0;
-            if (!depthGroups.has(depth)) {
-                depthGroups.set(depth, []);
+        state.links.forEach((link) => {
+            incoming.set(link.to, (incoming.get(link.to) || 0) + 1);
+            if (!outgoing.has(link.from)) {
+                outgoing.set(link.from, []);
             }
-            depthGroups.get(depth).push(node);
+            outgoing.get(link.from).push(link.to);
         });
 
-        Array.from(depthGroups.entries())
-            .sort((a, b) => a[0] - b[0])
-            .forEach(([depth, group]) => {
-                group.sort((left, right) => left.x - right.x || left.y - right.y);
-                group.forEach((node, lane) => {
-                    const position = clampNodePosition(84 + lane * 312, 140 + depth * 180);
-                    node.x = position.x;
-                    node.y = position.y;
-                    const element = mkCanvas.querySelector(`.mk-node[data-node-id="${node.id}"]`);
-                    if (element) {
-                        element.style.left = `${node.x}px`;
-                        element.style.top = `${node.y}px`;
-                    }
+        const roots = nodes
+            .filter((node) => (incoming.get(node.id) || 0) === 0)
+            .sort((left, right) => left.x - right.x || left.y - right.y);
+        const visited = new Set();
+        const columns = [];
+
+        function pushComponent(rootId) {
+            const queue = [{ id: rootId, depth: 0 }];
+            const rows = new Map();
+
+            while (queue.length) {
+                const current = queue.shift();
+                if (!current || visited.has(current.id)) {
+                    continue;
+                }
+
+                visited.add(current.id);
+                if (!rows.has(current.depth)) {
+                    rows.set(current.depth, []);
+                }
+                rows.get(current.depth).push(current.id);
+
+                (outgoing.get(current.id) || []).forEach((targetId) => {
+                    queue.push({ id: targetId, depth: current.depth + 1 });
                 });
-            });
+            }
+
+            if (rows.size) {
+                columns.push(rows);
+            }
+        }
+
+        roots.forEach((root) => pushComponent(root.id));
+        nodes.forEach((node) => {
+            if (!visited.has(node.id)) {
+                pushComponent(node.id);
+            }
+        });
+
+        syncCanvasStageSize(columns.length * 220 + 640);
+
+        columns.forEach((rows, columnIndex) => {
+            Array.from(rows.entries())
+                .sort((a, b) => a[0] - b[0])
+                .forEach(([depth, ids]) => {
+                    ids.forEach((nodeId, slotIndex) => {
+                        const node = state.nodes.get(nodeId);
+                        if (!node) return;
+                        const position = clampNodePosition(84 + columnIndex * 312 + slotIndex * 154, 140 + depth * 180);
+                        node.x = position.x;
+                        node.y = position.y;
+                        const element = mkCanvas.querySelector(`.mk-node[data-node-id="${node.id}"]`);
+                        if (element) {
+                            element.style.left = `${node.x}px`;
+                            element.style.top = `${node.y}px`;
+                        }
+                    });
+                });
+        });
 
         addLog("Auto Layout", "Canvas reordered into a cleaner grid.");
         finalizeGraphChange("Auto layout complete", serializeState());
@@ -1216,6 +1268,7 @@
             const node = state.nodes.get(state.dragNodeState.nodeId);
             const dx = event.clientX - state.dragNodeState.startX;
             const dy = event.clientY - state.dragNodeState.startY;
+            syncCanvasStageSize(state.dragNodeState.nodeStartY + dy + 230);
             const position = clampNodePosition(state.dragNodeState.nodeStartX + dx, state.dragNodeState.nodeStartY + dy);
             node.x = position.x;
             node.y = position.y;
@@ -1455,6 +1508,7 @@
     setComposerOpen(false);
     setDebugOpen(false);
     resetLogList();
+    syncCanvasStageSize();
     restoreDraft();
     ensureSvgBounds();
     redrawLinks();
