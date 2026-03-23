@@ -148,6 +148,23 @@
             font-family: "Space Grotesk", sans-serif;
         }
 
+        .brand-copy {
+            display: inline-flex;
+            flex-direction: column;
+            line-height: 1.1;
+        }
+
+        .brand-main {
+            font-size: 1.1rem;
+        }
+
+        .brand-signature {
+            font-size: 0.66rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--text-soft);
+        }
+
         .brand-dot {
             width: 12px;
             height: 12px;
@@ -1386,7 +1403,10 @@
             <nav>
                 <div class="brand">
                     <span class="brand-dot"></span>
-                    Luma
+                    <div class="brand-copy">
+                        <span class="brand-main">Luma</span>
+                        <span class="brand-signature" data-i18n="brandSignature">By The Abyss</span>
+                    </div>
                 </div>
                 <div class="nav-right">
                     <div class="nav-links">
@@ -1827,6 +1847,8 @@
     <footer>
         <span data-i18n="footerText">Luma brings moderation, AI assistance and support workflows into one polished Discord experience.</span>
         <br>
+        <span data-i18n="footerOwnership">Luma is a project by The Abyss.</span>
+        <br>
         <a class="footer-link" href="https://discord.gg/MysvAN49K2" target="_blank" rel="noopener noreferrer" data-i18n="footerDiscordLink">Join the Luma Discord community</a>
         <br>
         <a class="footer-link" href="/terms" data-i18n="footerTermsLink">Terms of Service</a>
@@ -1840,6 +1862,7 @@
                 pageTitle: "Luma Discord Bot",
                 navFeatures: "Features",
                 navCommands: "Commands",
+                brandSignature: "By The Abyss",
                 statusOnline: "Online",
                 heroEyebrow: "Discord operations suite",
                 heroTitle: "Your server, brighter with <span>Luma</span>.",
@@ -1998,6 +2021,7 @@
                 ctaSub: "Deploy Luma for moderation, AI assistance, tickets, and member support in one polished workflow.",
                 ctaBtn: "Invite Luma Now",
                 footerText: "Luma brings moderation, AI assistance and support workflows into one polished Discord experience.",
+                footerOwnership: "Luma is a project by The Abyss.",
                 footerDiscordLink: "Join the Luma Discord community",
                 footerTermsLink: "Terms of Service",
                 footerPrivacyLink: "Privacy Policy",
@@ -2014,6 +2038,7 @@
                 pageTitle: "Luma Bot para Discord",
                 navFeatures: "Recursos",
                 navCommands: "Comandos",
+                brandSignature: "Por The Abyss",
                 statusOnline: "Online",
                 heroEyebrow: "Suite de operacao para Discord",
                 heroTitle: "Seu servidor, mais brilhante com <span>Luma</span>.",
@@ -2172,6 +2197,7 @@
                 ctaSub: "Implemente a Luma para moderacao, IA, tickets e suporte a membros em um fluxo mais polido.",
                 ctaBtn: "Convidar Luma Agora",
                 footerText: "A Luma une moderacao, assistencia com IA e suporte em uma experiencia polida para Discord.",
+                footerOwnership: "A Luma e um projeto da The Abyss.",
                 footerDiscordLink: "Entrar na comunidade da Luma no Discord",
                 footerTermsLink: "Termos de Servico",
                 footerPrivacyLink: "Politica de Privacidade",
@@ -2188,6 +2214,7 @@
                 pageTitle: "Luma Bot para Discord",
                 navFeatures: "Funciones",
                 navCommands: "Comandos",
+                brandSignature: "Por The Abyss",
                 statusOnline: "En linea",
                 heroEyebrow: "Suite operativa para Discord",
                 heroTitle: "Tu servidor, más brillante con <span>Luma</span>.",
@@ -2346,6 +2373,7 @@
                 ctaSub: "Despliega Luma para moderación, IA, tickets y soporte a miembros en un flujo más pulido.",
                 ctaBtn: "Invitar Luma Ahora",
                 footerText: "Luma reúne moderación, asistencia con IA y soporte en una experiencia pulida para Discord.",
+                footerOwnership: "Luma es un proyecto de The Abyss.",
                 footerDiscordLink: "Entrar a la comunidad de Luma en Discord",
                 footerTermsLink: "Terminos del Servicio",
                 footerPrivacyLink: "Politica de Privacidad",
