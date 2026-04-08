@@ -3,3 +3,16 @@ Thumbs.db
 node_modules/
 dist/
 build/
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Local environment/config
+.env
+.env.*
+.vscode/
