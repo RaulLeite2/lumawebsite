@@ -10,11 +10,64 @@
 <body>
 
 <div class="entry-overlay" id="entryOverlay">
-    <div class="entry-card">
-        <span class="entry-kicker">Luma Territories</span>
-        <h1>Entre no front de guerra</h1>
-        <p>Conquiste, fortaleça, suba de liga e dispute o topo entre Abismo, Tempestade, Eclipse e Celestial.</p>
-        <button class="entry-button" id="enterGameButton">Entrar no Jogo</button>
+    <div class="hub-shell">
+        <aside class="hub-left">
+            <span class="entry-kicker">Luma Territories Hub</span>
+            <h1>Escolha Seu Campeão</h1>
+            <p>Monte sua identidade inicial e entre no mapa com o bioma da sua preferência.</p>
+
+            <div class="hub-character-list" id="hubCharacterList">
+                <button type="button" class="hub-character active" data-character="Sentinela">
+                    <span class="hub-char-avatar">🛡️</span>
+                    <span class="hub-char-meta">
+                        <strong>Sentinela</strong>
+                        <small>Defesa e controle de território</small>
+                    </span>
+                </button>
+                <button type="button" class="hub-character" data-character="Caçador">
+                    <span class="hub-char-avatar">🏹</span>
+                    <span class="hub-char-meta">
+                        <strong>Caçador</strong>
+                        <small>Pressão móvel e flanqueamento</small>
+                    </span>
+                </button>
+                <button type="button" class="hub-character" data-character="Arcanista">
+                    <span class="hub-char-avatar">✨</span>
+                    <span class="hub-char-meta">
+                        <strong>Arcanista</strong>
+                        <small>Suporte estratégico e buffs</small>
+                    </span>
+                </button>
+            </div>
+        </aside>
+
+        <section class="hub-right">
+            <div class="hub-preview">
+                <h2>Pré-visualização da campanha</h2>
+                <p><strong id="hubSelectedCharacter">Sentinela</strong> em <strong id="hubSelectedBiome">Neve</strong></p>
+            </div>
+
+            <div class="hub-biome-list" id="hubBiomeList">
+                <button type="button" class="hub-biome active" data-biome="snow">
+                    <span>❄️ Neve</span>
+                    <small>Visibilidade alta, clima gelado</small>
+                </button>
+                <button type="button" class="hub-biome" data-biome="forest">
+                    <span>🌲 Floresta</span>
+                    <small>Patrulha entre matas e ruínas</small>
+                </button>
+                <button type="button" class="hub-biome" data-biome="desert">
+                    <span>🏜️ Deserto</span>
+                    <small>Terreno árido e trilhas quentes</small>
+                </button>
+                <button type="button" class="hub-biome" data-biome="volcanic">
+                    <span>🌋 Vulcânico</span>
+                    <small>Zona hostil e aura de ameaça</small>
+                </button>
+            </div>
+
+            <button class="entry-button" id="enterGameButton">Entrar no Mundo</button>
+        </section>
     </div>
 </div>
 

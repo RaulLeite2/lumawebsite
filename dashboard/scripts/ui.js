@@ -9,6 +9,63 @@ let currentLeaderboard = [];
 let hudTickInterval = null;
 let territoryPresence = {};
 let inspectScene = null;
+let selectedCharacter = 'Sentinela';
+let selectedBiome = 'snow';
+
+const BIOME_PRESETS = {
+    snow: {
+        label: 'Neve',
+        background: '#dce4f6',
+        speckleBase: '255,255,255',
+        roadA: 'rgba(98, 112, 142, 0.55)',
+        roadB: 'rgba(219, 145, 39, 0.68)',
+        overlay: 'rgba(217, 136, 152, 0.34)',
+        border: 'rgba(177, 32, 40, 0.95)',
+        fortOuter: 'rgba(178, 125, 126, 0.42)',
+        fortInner: 'rgba(167, 110, 112, 0.55)',
+        soil: 'rgba(121, 79, 73, 0.7)',
+        crop: '#ad662e',
+    },
+    forest: {
+        label: 'Floresta',
+        background: '#cedbc6',
+        speckleBase: '211,235,205',
+        roadA: 'rgba(86, 102, 75, 0.58)',
+        roadB: 'rgba(129, 89, 44, 0.68)',
+        overlay: 'rgba(120, 165, 120, 0.28)',
+        border: 'rgba(44, 95, 50, 0.95)',
+        fortOuter: 'rgba(120, 140, 100, 0.45)',
+        fortInner: 'rgba(93, 110, 82, 0.56)',
+        soil: 'rgba(94, 78, 51, 0.74)',
+        crop: '#9b7f3f',
+    },
+    desert: {
+        label: 'Deserto',
+        background: '#efdcb9',
+        speckleBase: '245,228,188',
+        roadA: 'rgba(158, 126, 77, 0.58)',
+        roadB: 'rgba(218, 126, 52, 0.72)',
+        overlay: 'rgba(214, 160, 120, 0.3)',
+        border: 'rgba(168, 76, 36, 0.95)',
+        fortOuter: 'rgba(183, 144, 106, 0.45)',
+        fortInner: 'rgba(156, 120, 88, 0.56)',
+        soil: 'rgba(136, 96, 54, 0.74)',
+        crop: '#cf8c3f',
+    },
+    volcanic: {
+        label: 'Vulcanico',
+        background: '#3b3f51',
+        speckleBase: '205,205,220',
+        roadA: 'rgba(85, 86, 98, 0.72)',
+        roadB: 'rgba(225, 92, 48, 0.72)',
+        overlay: 'rgba(156, 78, 76, 0.32)',
+        border: 'rgba(255, 114, 56, 0.95)',
+        fortOuter: 'rgba(130, 87, 88, 0.45)',
+        fortInner: 'rgba(108, 72, 73, 0.56)',
+        soil: 'rgba(92, 57, 49, 0.8)',
+        crop: '#dc7837',
+    },
+};
 
 // -- Init ---------------------------------------------------------------------
 document.addEventListener('DOMContentLoaded', async () => {
@@ -509,11 +566,48 @@ function setupActionButtons() {
 
 function setupEntryTransition() {
     const button = document.getElementById('enterGameButton');
+    const characterButtons = Array.from(document.querySelectorAll('.hub-character'));
+    const biomeButtons = Array.from(document.querySelectorAll('.hub-biome'));
+    const selectedCharacterLabel = document.getElementById('hubSelectedCharacter');
+    const selectedBiomeLabel = document.getElementById('hubSelectedBiome');
+
+    const syncHubLabels = () => {
+        if (selectedCharacterLabel) {
+            selectedCharacterLabel.textContent = selectedCharacter;
+        }
+        if (selectedBiomeLabel) {
+            const preset = BIOME_PRESETS[selectedBiome] || BIOME_PRESETS.snow;
+            selectedBiomeLabel.textContent = preset.label;
+        }
+    };
+
+    characterButtons.forEach((item) => {
+        item.addEventListener('click', () => {
+            selectedCharacter = item.getAttribute('data-character') || 'Sentinela';
+            characterButtons.forEach((buttonItem) => buttonItem.classList.remove('active'));
+            item.classList.add('active');
+            syncHubLabels();
+        });
+    });
+
+    biomeButtons.forEach((item) => {
+        item.addEventListener('click', () => {
+            selectedBiome = item.getAttribute('data-biome') || 'snow';
+            biomeButtons.forEach((buttonItem) => buttonItem.classList.remove('active'));
+            item.classList.add('active');
+            syncHubLabels();
+        });
+    });
+
+    syncHubLabels();
+
     if (!button) {
         return;
     }
+
     button.addEventListener('click', () => {
         document.body.classList.add('game-entered');
+        flash(`Entrando com ${selectedCharacter} no bioma ${BIOME_PRESETS[selectedBiome]?.label || 'Neve'}.`);
     });
 }
 
@@ -905,16 +999,17 @@ function drawInspectScene(territory, units) {
     const width = canvas.width;
     const height = canvas.height;
     const random = createSeededRandom(hashTerritorySeed(territory) ^ 0x9e3779b9);
+    const biome = BIOME_PRESETS[selectedBiome] || BIOME_PRESETS.snow;
     ctx.imageSmoothingEnabled = false;
 
     ctx.clearRect(0, 0, width, height);
 
-    ctx.fillStyle = '#dce4f6';
+    ctx.fillStyle = biome.background;
     ctx.fillRect(0, 0, width, height);
 
     for (let index = 0; index < 520; index += 1) {
         const alpha = 0.12 + random() * 0.18;
-        ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+        ctx.fillStyle = `rgba(${biome.speckleBase},${alpha})`;
         const x = Math.floor(random() * width);
         const y = Math.floor(random() * height);
         const size = random() > 0.86 ? 3 : 2;
@@ -939,13 +1034,13 @@ function drawInspectScene(territory, units) {
         ctx.stroke();
     };
 
-    drawRoad('rgba(98, 112, 142, 0.55)', 8, 0x12b7);
-    drawRoad('rgba(219, 145, 39, 0.68)', 6, 0x8ab1);
+    drawRoad(biome.roadA, 8, 0x12b7);
+    drawRoad(biome.roadB, 6, 0x8ab1);
 
     const cx = width * 0.5;
-    const cy = height * 0.5;
-    const halfW = width * 0.5;
-    const halfH = height * 0.42;
+    const cy = height * 0.53;
+    const halfW = width * 0.34;
+    const halfH = height * 0.3;
 
     const drawDiamond = () => {
         ctx.beginPath();
@@ -957,11 +1052,11 @@ function drawInspectScene(territory, units) {
     };
 
     drawDiamond();
-    ctx.fillStyle = 'rgba(217, 136, 152, 0.36)';
+    ctx.fillStyle = biome.overlay;
     ctx.fill();
 
     drawDiamond();
-    ctx.strokeStyle = 'rgba(177, 32, 40, 0.95)';
+    ctx.strokeStyle = biome.border;
     ctx.lineWidth = 4;
     ctx.stroke();
 
@@ -999,14 +1094,14 @@ function drawInspectScene(territory, units) {
         [0.81, 0.12],
         [0.88, 0.52],
         [0.12, 0.52],
-    ], 'rgba(178, 125, 126, 0.42)');
+    ], biome.fortOuter);
 
     drawIsoPoly([
         [0.34, 0.26],
         [0.66, 0.26],
         [0.66, 0.52],
         [0.34, 0.52],
-    ], 'rgba(167, 110, 112, 0.55)', 'rgba(145, 93, 97, 0.9)', 2);
+    ], biome.fortInner, 'rgba(112, 78, 82, 0.9)', 2);
 
     drawIsoPoly([
         [0.05, 0.22],
@@ -1039,7 +1134,7 @@ function drawInspectScene(territory, units) {
         [0.72, 0.62],
         [0.72, 0.93],
         [0.28, 0.93],
-    ], 'rgba(121, 79, 73, 0.7)', 'rgba(99, 60, 57, 0.85)', 2);
+    ], biome.soil, 'rgba(99, 60, 57, 0.85)', 2);
 
     const rows = 2;
     const cols = 3;
@@ -1056,7 +1151,7 @@ function drawInspectScene(territory, units) {
                 [u0, v1],
             ], 'rgba(92, 52, 33, 0.85)', 'rgba(150, 108, 70, 0.7)', 1.5);
             const crop = iso((u0 + u1) * 0.5, (v0 + v1) * 0.5);
-            ctx.fillStyle = '#ad662e';
+            ctx.fillStyle = biome.crop;
             ctx.beginPath();
             ctx.arc(crop.x, crop.y - 3, 4, 0, Math.PI * 2);
             ctx.fill();
@@ -1153,7 +1248,8 @@ function openInspectModal() {
         title.textContent = selectedTerritory.name;
     }
     if (subtitle) {
-        subtitle.textContent = `${selectedTerritory.league || 'Abismo'} • Comandado por ${selectedTerritory.owner || 'Sem dono'}`;
+        const biomeLabel = BIOME_PRESETS[selectedBiome]?.label || 'Neve';
+        subtitle.textContent = `${selectedTerritory.league || 'Abismo'} • ${biomeLabel} • ${selectedCharacter} • Comandado por ${selectedTerritory.owner || 'Sem dono'}`;
     }
     if (composition) {
         composition.textContent = `${totalUnits} unidades em campo`;
