@@ -299,6 +299,10 @@ class EconomyUsePayload(BaseModel):
     item_key: str = Field(min_length=1, max_length=64)
 
 
+class TerritoryActionPayload(BaseModel):
+    territory_id: int = Field(ge=1)
+
+
 class BlogPostCreatePayload(BaseModel):
     title: str = Field(min_length=3, max_length=160)
     content: str = Field(min_length=10, max_length=12000)
@@ -1026,6 +1030,21 @@ async def _ensure_dashboard_tables(pool: Any) -> None:
             )
             await connection.execute(
                 """
+                CREATE TABLE IF NOT EXISTS territories (
+                    id SERIAL PRIMARY KEY,
+                    name VARCHAR(255) NOT NULL,
+                    owner_id BIGINT,
+                    called_at TIMESTAMP,
+                    attack_time TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    luma_coins INT NOT NULL DEFAULT 100,
+                    owner_reward_coins INT NOT NULL DEFAULT 25,
+                    defense_level INT NOT NULL DEFAULT 1
+                )
+                """
+            )
+            await connection.execute(
+                """
                 CREATE TABLE IF NOT EXISTS user_voice_drops_daily (
                     guild_id BIGINT NOT NULL REFERENCES guilds(guild_id) ON DELETE CASCADE,
                     user_id BIGINT NOT NULL,
@@ -1059,10 +1078,38 @@ async def _ensure_dashboard_tables(pool: Any) -> None:
             await connection.execute("CREATE INDEX IF NOT EXISTS idx_economy_transactions_user_time ON economy_transactions(user_id, created_at)")
             await connection.execute("CREATE INDEX IF NOT EXISTS idx_economy_transactions_type_time ON economy_transactions(tx_type, created_at)")
             await connection.execute("CREATE INDEX IF NOT EXISTS idx_economy_transactions_guild_time ON economy_transactions(guild_id, created_at)")
+            await connection.execute("CREATE INDEX IF NOT EXISTS idx_territories_owner_id ON territories(owner_id)")
             await connection.execute("CREATE INDEX IF NOT EXISTS idx_user_voice_drops_daily_guild_day ON user_voice_drops_daily(guild_id, day_key)")
             await connection.execute("CREATE INDEX IF NOT EXISTS idx_user_voice_drops_daily_user_day ON user_voice_drops_daily(user_id, day_key)")
             await connection.execute("ALTER TABLE guild_raid_settings ADD COLUMN IF NOT EXISTS mode VARCHAR(16) NOT NULL DEFAULT 'lockdown'")
             await connection.execute("ALTER TABLE guild_raid_settings ADD COLUMN IF NOT EXISTS recovery_cooldown_minutes INT NOT NULL DEFAULT 10")
+            await connection.execute("ALTER TABLE territories ADD COLUMN IF NOT EXISTS owner_reward_coins INT NOT NULL DEFAULT 25")
+            await connection.execute("ALTER TABLE territories ADD COLUMN IF NOT EXISTS luma_coins INT NOT NULL DEFAULT 100")
+            await connection.execute("ALTER TABLE territories ADD COLUMN IF NOT EXISTS defense_level INT NOT NULL DEFAULT 1")
+            await connection.execute(
+                """
+                INSERT INTO territories (name)
+                SELECT v.name
+                FROM (
+                    VALUES
+                        ('Kingsfall'),
+                        ('Ironcrest'),
+                        ('Stormhold'),
+                        ('Goldhaven'),
+                        ('Highwatch'),
+                        ('Redstone Keep'),
+                        ('Frostguard'),
+                        ('Valoria'),
+                        ('Drakenfell'),
+                        ('Thornwall')
+                ) AS v(name)
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM territories t
+                    WHERE LOWER(t.name) = LOWER(v.name)
+                )
+                """
+            )
             await connection.execute(
                 """
                 INSERT INTO shop_items (item_key, item_name, item_description, price, category, is_active)
@@ -2927,6 +2974,26 @@ async def dashboard_economy(request: Request) -> Response:
     return FileResponse(WEB_ROOT / "dashboard" / "economy.html")
 
 
+@app.get("/dashboard/territories")
+async def dashboard_territories(request: Request) -> Response:
+    if not _is_authenticated(request):
+        return RedirectResponse(url="/auth/login?next=/dashboard/territories", status_code=302)
+    return FileResponse(WEB_ROOT / "dashboard" / "territories.html")
+
+
+@app.get("/dashboard/style.css")
+async def dashboard_territories_style() -> Response:
+    return FileResponse(WEB_ROOT / "dashboard" / "style.css")
+
+
+@app.get("/dashboard/scripts/{script_name}")
+async def dashboard_territories_scripts(script_name: str) -> Response:
+    allowed = {"map.js", "ui.js"}
+    if script_name not in allowed:
+        raise HTTPException(status_code=404, detail="Script not found")
+    return FileResponse(WEB_ROOT / "dashboard" / "scripts" / script_name)
+
+
 @app.get("/dashboard/blog")
 async def dashboard_blog(request: Request) -> Response:
     if not _is_authenticated(request):
@@ -3645,6 +3712,361 @@ async def dashboard_economy_use(payload: EconomyUsePayload, request: Request) ->
                 }
 
             raise HTTPException(status_code=400, detail="Item has no use action")
+
+
+@app.get("/api/dashboard/territories/list")
+async def dashboard_territories_list(request: Request) -> dict[str, Any]:
+    _require_auth(request)
+    user_id = _require_session_user_id(request)
+    pool = _db_pool()
+    if pool is None:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
+    active_guild = _active_guild_from_session(request)
+    guild_id_str = str(active_guild.get("id")) if isinstance(active_guild, dict) and active_guild.get("id") else None
+
+    async with pool.acquire() as connection:
+        await connection.execute(
+            """
+            INSERT INTO economy (user_id, balance)
+            VALUES ($1, 0)
+            ON CONFLICT (user_id) DO NOTHING
+            """,
+            user_id,
+        )
+        balance = await connection.fetchval("SELECT balance FROM economy WHERE user_id = $1", user_id)
+        rows = await connection.fetch(
+            """
+            SELECT id, name, owner_id, called_at, attack_time, luma_coins, owner_reward_coins, defense_level
+            FROM territories
+            ORDER BY id ASC
+            """
+        )
+
+    owner_ids = [int(row["owner_id"]) for row in rows if row.get("owner_id") is not None]
+    owner_names: dict[str, str] = {}
+    if guild_id_str and owner_ids:
+        owner_names = await _fetch_guild_member_display_names(guild_id_str, owner_ids)
+
+    return {
+        "ok": True,
+        "current_user_id": str(user_id),
+        "balance": int(balance or 0),
+        "territories": [
+            {
+                "id": int(row["id"]),
+                "name": str(row["name"]),
+                "owner_id": str(row["owner_id"]) if row.get("owner_id") is not None else None,
+                "owner_display": owner_names.get(str(row["owner_id"])) if row.get("owner_id") is not None else None,
+                "defense_level": int(row["defense_level"] or 1),
+                "luma_coins": int(row["luma_coins"] or 100),
+                "owner_reward_coins": int(row["owner_reward_coins"] or 25),
+                "called_at": row.get("called_at").isoformat() if row.get("called_at") else None,
+                "attack_time": row.get("attack_time").isoformat() if row.get("attack_time") else None,
+                "is_mine": row.get("owner_id") == user_id,
+            }
+            for row in rows
+        ],
+    }
+
+
+@app.post("/api/dashboard/territories/claim")
+async def dashboard_territories_claim(payload: TerritoryActionPayload, request: Request) -> dict[str, Any]:
+    _require_auth(request)
+    user_id = _require_session_user_id(request)
+    active_guild = _active_guild_from_session(request)
+    guild_id_int = _extract_discord_id(active_guild.get("id")) if isinstance(active_guild, dict) else None
+    pool = _db_pool()
+    if pool is None:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
+    claim_cost = 50
+
+    async with pool.acquire() as connection:
+        async with connection.transaction():
+            territory = await connection.fetchrow(
+                """
+                SELECT id, name, owner_id
+                FROM territories
+                WHERE id = $1
+                FOR UPDATE
+                """,
+                payload.territory_id,
+            )
+            if territory is None:
+                raise HTTPException(status_code=404, detail="Territory not found")
+            if territory.get("owner_id") is not None:
+                return {"ok": False, "message": "Esse território já possui dono."}
+
+            await connection.execute(
+                """
+                INSERT INTO economy (user_id, balance)
+                VALUES ($1, 0)
+                ON CONFLICT (user_id) DO NOTHING
+                """,
+                user_id,
+            )
+            current_balance = await connection.fetchval(
+                "SELECT balance FROM economy WHERE user_id = $1 FOR UPDATE",
+                user_id,
+            )
+            current_balance = int(current_balance or 0)
+            if current_balance < claim_cost:
+                return {
+                    "ok": False,
+                    "message": f"Saldo insuficiente para reivindicar (necessário: {claim_cost}).",
+                    "balance": current_balance,
+                }
+
+            new_balance = await connection.fetchval(
+                """
+                UPDATE economy
+                SET balance = balance - $1,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE user_id = $2
+                RETURNING balance
+                """,
+                claim_cost,
+                user_id,
+            )
+            await connection.execute(
+                "UPDATE territories SET owner_id = $1, called_at = CURRENT_TIMESTAMP WHERE id = $2",
+                user_id,
+                payload.territory_id,
+            )
+            await connection.execute(
+                """
+                INSERT INTO economy_transactions (user_id, guild_id, delta, balance_after, tx_type, metadata)
+                VALUES ($1, $2, $3, $4, 'territory_claim', $5::jsonb)
+                """,
+                user_id,
+                guild_id_int,
+                -claim_cost,
+                int(new_balance or 0),
+                json.dumps({"territory_id": int(payload.territory_id), "territory_name": str(territory.get("name") or "")}),
+            )
+
+    return {
+        "ok": True,
+        "message": f"Você reivindicou {territory['name']} com sucesso.",
+        "balance": int(new_balance or 0),
+    }
+
+
+@app.post("/api/dashboard/territories/attack")
+async def dashboard_territories_attack(payload: TerritoryActionPayload, request: Request) -> dict[str, Any]:
+    _require_auth(request)
+    user_id = _require_session_user_id(request)
+    active_guild = _active_guild_from_session(request)
+    guild_id_int = _extract_discord_id(active_guild.get("id")) if isinstance(active_guild, dict) else None
+    pool = _db_pool()
+    if pool is None:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
+    attack_cost = 100
+
+    async with pool.acquire() as connection:
+        async with connection.transaction():
+            territory = await connection.fetchrow(
+                """
+                SELECT id, name, owner_id, defense_level, luma_coins
+                FROM territories
+                WHERE id = $1
+                FOR UPDATE
+                """,
+                payload.territory_id,
+            )
+            if territory is None:
+                raise HTTPException(status_code=404, detail="Territory not found")
+            if territory.get("owner_id") == user_id:
+                return {"ok": False, "message": "Você não pode atacar seu próprio território."}
+
+            await connection.execute(
+                """
+                INSERT INTO economy (user_id, balance)
+                VALUES ($1, 0)
+                ON CONFLICT (user_id) DO NOTHING
+                """,
+                user_id,
+            )
+            current_balance = await connection.fetchval(
+                "SELECT balance FROM economy WHERE user_id = $1 FOR UPDATE",
+                user_id,
+            )
+            current_balance = int(current_balance or 0)
+            if current_balance < attack_cost:
+                return {
+                    "ok": False,
+                    "message": f"Saldo insuficiente para atacar (necessário: {attack_cost}).",
+                    "balance": current_balance,
+                }
+
+            balance_after_cost = await connection.fetchval(
+                """
+                UPDATE economy
+                SET balance = balance - $1,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE user_id = $2
+                RETURNING balance
+                """,
+                attack_cost,
+                user_id,
+            )
+            await connection.execute(
+                """
+                INSERT INTO economy_transactions (user_id, guild_id, delta, balance_after, tx_type, metadata)
+                VALUES ($1, $2, $3, $4, 'territory_attack_cost', $5::jsonb)
+                """,
+                user_id,
+                guild_id_int,
+                -attack_cost,
+                int(balance_after_cost or 0),
+                json.dumps({"territory_id": int(payload.territory_id), "territory_name": str(territory.get("name") or "")}),
+            )
+
+            defense_level = max(1, int(territory.get("defense_level") or 1))
+            success_chance = max(0.20, 0.70 - (defense_level * 0.05))
+            success = random.random() < success_chance
+
+            if not success:
+                await connection.execute(
+                    "UPDATE territories SET attack_time = CURRENT_TIMESTAMP WHERE id = $1",
+                    payload.territory_id,
+                )
+                return {
+                    "ok": True,
+                    "success": False,
+                    "message": f"Ataque falhou. Defesa inimiga segurou o território ({int(success_chance * 100)}% de chance).",
+                    "balance": int(balance_after_cost or 0),
+                }
+
+            conquest_reward = int(territory.get("luma_coins") or 0)
+            balance_after_win = await connection.fetchval(
+                """
+                UPDATE economy
+                SET balance = balance + $1,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE user_id = $2
+                RETURNING balance
+                """,
+                conquest_reward,
+                user_id,
+            )
+            await connection.execute(
+                """
+                UPDATE territories
+                SET owner_id = $1,
+                    called_at = CURRENT_TIMESTAMP,
+                    attack_time = CURRENT_TIMESTAMP,
+                    defense_level = 1
+                WHERE id = $2
+                """,
+                user_id,
+                payload.territory_id,
+            )
+            await connection.execute(
+                """
+                INSERT INTO economy_transactions (user_id, guild_id, delta, balance_after, tx_type, metadata)
+                VALUES ($1, $2, $3, $4, 'territory_conquest', $5::jsonb)
+                """,
+                user_id,
+                guild_id_int,
+                conquest_reward,
+                int(balance_after_win or 0),
+                json.dumps({"territory_id": int(payload.territory_id), "territory_name": str(territory.get("name") or "")}),
+            )
+
+    return {
+        "ok": True,
+        "success": True,
+        "message": f"Você conquistou {territory['name']} e ganhou {conquest_reward} Luma Coins.",
+        "balance": int(balance_after_win or 0),
+        "reward": int(conquest_reward),
+    }
+
+
+@app.post("/api/dashboard/territories/collect")
+async def dashboard_territories_collect(payload: TerritoryActionPayload, request: Request) -> dict[str, Any]:
+    _require_auth(request)
+    user_id = _require_session_user_id(request)
+    active_guild = _active_guild_from_session(request)
+    guild_id_int = _extract_discord_id(active_guild.get("id")) if isinstance(active_guild, dict) else None
+    pool = _db_pool()
+    if pool is None:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
+    cooldown_seconds = 3600
+
+    async with pool.acquire() as connection:
+        async with connection.transaction():
+            territory = await connection.fetchrow(
+                """
+                SELECT id, name, owner_id, called_at, owner_reward_coins
+                FROM territories
+                WHERE id = $1
+                FOR UPDATE
+                """,
+                payload.territory_id,
+            )
+            if territory is None:
+                raise HTTPException(status_code=404, detail="Territory not found")
+            if territory.get("owner_id") != user_id:
+                return {"ok": False, "message": "Somente o dono pode coletar essa recompensa."}
+
+            last_called = territory.get("called_at")
+            if last_called is not None:
+                last_dt = last_called.replace(tzinfo=None) if getattr(last_called, "tzinfo", None) else last_called
+                now = datetime.utcnow()
+                elapsed = (now - last_dt).total_seconds()
+                if elapsed < cooldown_seconds:
+                    return {
+                        "ok": False,
+                        "cooldown": True,
+                        "remaining_seconds": int(cooldown_seconds - elapsed),
+                    }
+
+            reward = int(territory.get("owner_reward_coins") or 0)
+            await connection.execute(
+                """
+                INSERT INTO economy (user_id, balance)
+                VALUES ($1, 0)
+                ON CONFLICT (user_id) DO NOTHING
+                """,
+                user_id,
+            )
+            new_balance = await connection.fetchval(
+                """
+                UPDATE economy
+                SET balance = balance + $1,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE user_id = $2
+                RETURNING balance
+                """,
+                reward,
+                user_id,
+            )
+            await connection.execute(
+                "UPDATE territories SET called_at = CURRENT_TIMESTAMP WHERE id = $1",
+                payload.territory_id,
+            )
+            await connection.execute(
+                """
+                INSERT INTO economy_transactions (user_id, guild_id, delta, balance_after, tx_type, metadata)
+                VALUES ($1, $2, $3, $4, 'territory_collect', $5::jsonb)
+                """,
+                user_id,
+                guild_id_int,
+                reward,
+                int(new_balance or 0),
+                json.dumps({"territory_id": int(payload.territory_id), "territory_name": str(territory.get("name") or "")}),
+            )
+
+    return {
+        "ok": True,
+        "reward": reward,
+        "balance": int(new_balance or 0),
+        "message": f"Coleta concluída: +{reward} Luma Coins.",
+    }
 
 
 @app.get("/api/dashboard/blog/posts")
