@@ -16,6 +16,53 @@
             <h1>Escolha Seu Campeão</h1>
             <p>Monte sua identidade inicial e entre no mapa com o bioma da sua preferência.</p>
 
+            <div class="creator-block">
+                <label class="creator-label" for="creatorName">Nome do personagem</label>
+                <input id="creatorName" class="creator-input" type="text" maxlength="18" placeholder="Ex: Guardião Luma" value="Sentinela" />
+
+                <div class="creator-row">
+                    <div>
+                        <label class="creator-label" for="creatorSkin">Pele</label>
+                        <select id="creatorSkin" class="creator-select">
+                            <option value="light">Clara</option>
+                            <option value="tan" selected>Morena</option>
+                            <option value="dark">Escura</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="creator-label" for="creatorHair">Cabelo</label>
+                        <select id="creatorHair" class="creator-select">
+                            <option value="black">Preto</option>
+                            <option value="brown" selected>Castanho</option>
+                            <option value="blonde">Loiro</option>
+                            <option value="white">Branco</option>
+                            <option value="red">Ruivo</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="creator-row">
+                    <div>
+                        <label class="creator-label" for="creatorOutfit">Roupa</label>
+                        <select id="creatorOutfit" class="creator-select">
+                            <option value="steel" selected>Aço</option>
+                            <option value="forest">Batedor</option>
+                            <option value="arcane">Arcana</option>
+                            <option value="desert">Nômade</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="creator-label" for="creatorBanner">Bandeira</label>
+                        <select id="creatorBanner" class="creator-select">
+                            <option value="gold" selected>Dourada</option>
+                            <option value="blue">Azul</option>
+                            <option value="red">Vermelha</option>
+                            <option value="green">Verde</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
             <div class="hub-character-list" id="hubCharacterList">
                 <button type="button" class="hub-character active" data-character="Sentinela">
                     <span class="hub-char-avatar">🛡️</span>
@@ -42,9 +89,12 @@
         </aside>
 
         <section class="hub-right">
+            <canvas id="hubPreviewCanvas" class="hub-preview-canvas" width="920" height="520"></canvas>
+
             <div class="hub-preview">
                 <h2>Pré-visualização da campanha</h2>
                 <p><strong id="hubSelectedCharacter">Sentinela</strong> em <strong id="hubSelectedBiome">Neve</strong></p>
+                <p><strong>Visual:</strong> <span id="hubVisualSummary">Morena • Castanho • Aço</span></p>
             </div>
 
             <div class="hub-biome-list" id="hubBiomeList">
@@ -69,6 +119,18 @@
             <button class="entry-button" id="enterGameButton">Entrar no Mundo</button>
         </section>
     </div>
+</div>
+
+<div class="world-overlay" id="worldOverlay" hidden>
+    <div class="world-head">
+        <div>
+            <strong id="worldPlayerName">Sentinela</strong>
+            <small id="worldBiomeLabel">Bioma: Neve</small>
+        </div>
+        <span class="world-help">WASD/Setas para andar • Shift para correr</span>
+        <button type="button" id="worldCloseButton" class="world-close">Voltar aos Territórios</button>
+    </div>
+    <canvas id="worldCanvas" width="1366" height="768"></canvas>
 </div>
 
 <a class="back-link" href="/dashboard/overview">&#8592; Voltar ao Dashboard</a>
