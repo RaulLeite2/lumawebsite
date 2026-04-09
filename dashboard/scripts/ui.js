@@ -749,66 +749,149 @@ function drawRoundedRect(ctx, x, y, width, height, radius) {
     ctx.closePath();
 }
 
-function drawInspectUnit(ctx, unit, x, y, scale) {
-    const bodyHeight = 20 * scale;
-    const headRadius = 6 * scale;
-    const offhand = 12 * scale;
+const SPRITE_CACHE = {};
 
-    ctx.save();
-    ctx.translate(x, y);
+const SPRITE_TEMPLATES_16 = {
+    knight: [
+        '................',
+        '......oooo......',
+        '.....oHHHHo.....',
+        '.....oHHHHo.....',
+        '......oSSo......',
+        '.....oAAAAo.....',
+        '....oAAAAAAo....',
+        '....oAAaaAAo....',
+        '....oAAAAAAo....',
+        '.....oAAAo......',
+        '.....oAAAo......',
+        '....oAooooAo....',
+        '....oAooooAo....',
+        '.....o....o.....',
+        '....oo....oo....',
+        '................',
+    ],
+    archer: [
+        '................',
+        '......oooo......',
+        '.....oSSSSo.....',
+        '......oSSo......',
+        '.....oGGGGo.....',
+        '....oGGGGGGo....',
+        '....oGGaaGGo....',
+        '....oGGGGGGo....',
+        '.....oGGGo..b...',
+        '.....oGGGo.bb...',
+        '.....oGGGo..b...',
+        '....ooGGGoo.b...',
+        '....o..G..o.....',
+        '....o..G..o.....',
+        '....oo....oo....',
+        '................',
+    ],
+    guard: [
+        '................',
+        '......oooo......',
+        '.....oSSSSo.....',
+        '......oSSo......',
+        '.....oCCCCo.....',
+        '....oCCCCCCo....',
+        '....oCCaaCCo....',
+        '....oCCCCCCo....',
+        '..s..oCCCCo.....',
+        '..ss.oCCCCo.....',
+        '..s..oCCCCo.....',
+        '....ooCCCCoo....',
+        '....o..CC..o....',
+        '....o..CC..o....',
+        '....oo....oo....',
+        '................',
+    ],
+    mage: [
+        '................',
+        '......oooo......',
+        '.....oSSSSo.....',
+        '......oSSo......',
+        '.....oMMMMo..r..',
+        '....oMMMMMMo.r..',
+        '....oMMaaMMo....',
+        '....oMMMMMMo....',
+        '.....oMMMMo.....',
+        '.....oMMMMo.....',
+        '.....oMMMMo..t..',
+        '....ooMMMMoo.t..',
+        '....o..MM..o....',
+        '....o..MM..o....',
+        '....oo....oo....',
+        '................',
+    ],
+};
 
-    ctx.fillStyle = unit.color;
-    ctx.beginPath();
-    ctx.arc(0, -bodyHeight - headRadius, headRadius, 0, Math.PI * 2);
-    ctx.fill();
+function buildSpritePalette(unit) {
+    return {
+        o: 'rgba(10, 14, 28, 0.95)',
+        S: '#ffdcb8',
+        A: unit.accent || '#70a2ff',
+        a: 'rgba(235, 244, 255, 0.8)',
+        H: '#dde7ff',
+        G: unit.accent || '#ffab4c',
+        C: unit.accent || '#35c58e',
+        M: unit.accent || '#d56aff',
+        b: '#ffc86f',
+        s: '#91f3c8',
+        r: '#f3ccff',
+        t: '#e8d3ff',
+    };
+}
 
-    ctx.fillStyle = unit.accent;
-    ctx.fillRect(-6 * scale, -bodyHeight, 12 * scale, bodyHeight);
-
-    ctx.strokeStyle = 'rgba(255,255,255,0.75)';
-    ctx.lineWidth = 2 * scale;
-    ctx.beginPath();
-    ctx.moveTo(0, -bodyHeight + 2 * scale);
-    ctx.lineTo(-8 * scale, -2 * scale);
-    ctx.moveTo(0, -bodyHeight + 2 * scale);
-    ctx.lineTo(8 * scale, -2 * scale);
-    ctx.moveTo(0, 0);
-    ctx.lineTo(-6 * scale, 14 * scale);
-    ctx.moveTo(0, 0);
-    ctx.lineTo(6 * scale, 14 * scale);
-    ctx.stroke();
-
-    if (unit.key === 'archer') {
-        ctx.strokeStyle = '#ffcf76';
-        ctx.beginPath();
-        ctx.arc(offhand, -bodyHeight * 0.65, 8 * scale, -Math.PI / 2, Math.PI / 2);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(offhand, -bodyHeight * 1.05);
-        ctx.lineTo(offhand, -bodyHeight * 0.25);
-        ctx.stroke();
-    } else if (unit.key === 'mage') {
-        ctx.fillStyle = 'rgba(213, 106, 255, 0.24)';
-        ctx.beginPath();
-        ctx.arc(offhand, -bodyHeight * 0.8, 7 * scale, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = '#f3ccff';
-        ctx.beginPath();
-        ctx.moveTo(offhand, -bodyHeight * 1.2);
-        ctx.lineTo(offhand, -bodyHeight * 0.2);
-        ctx.stroke();
-    } else if (unit.key === 'knight') {
-        ctx.fillStyle = 'rgba(112, 162, 255, 0.28)';
-        drawRoundedRect(ctx, -16 * scale, -bodyHeight * 0.95, 12 * scale, 18 * scale, 5 * scale);
-        ctx.fill();
-    } else {
-        ctx.strokeStyle = '#7ef0bf';
-        ctx.beginPath();
-        ctx.moveTo(-offhand, -bodyHeight * 0.95);
-        ctx.lineTo(-offhand, 8 * scale);
-        ctx.stroke();
+function renderAsciiSprite32(unit) {
+    const key = `${unit.key}:${unit.accent}`;
+    if (SPRITE_CACHE[key]) {
+        return SPRITE_CACHE[key];
     }
 
+    const template = SPRITE_TEMPLATES_16[unit.key] || SPRITE_TEMPLATES_16.guard;
+    const palette = buildSpritePalette(unit);
+    const sprite = document.createElement('canvas');
+    sprite.width = 32;
+    sprite.height = 32;
+
+    const sctx = sprite.getContext('2d');
+    sctx.imageSmoothingEnabled = false;
+
+    for (let y = 0; y < template.length; y += 1) {
+        const row = template[y];
+        for (let x = 0; x < row.length; x += 1) {
+            const token = row[x];
+            if (token === '.') {
+                continue;
+            }
+            const color = palette[token];
+            if (!color) {
+                continue;
+            }
+            sctx.fillStyle = color;
+            sctx.fillRect(x * 2, y * 2, 2, 2);
+        }
+    }
+
+    SPRITE_CACHE[key] = sprite;
+    return sprite;
+}
+
+function drawInspectUnit(ctx, unit, x, y, scale) {
+    const sprite = renderAsciiSprite32(unit);
+    const size = Math.max(20, Math.floor(32 * scale));
+    const px = Math.floor(x - size / 2);
+    const py = Math.floor(y - size);
+
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
+    drawRoundedRect(ctx, px + Math.floor(size * 0.2), py + size - 4, Math.floor(size * 0.6), 4, 2);
+    ctx.fill();
+
+    ctx.drawImage(sprite, px, py, size, size);
     ctx.restore();
 }
 
@@ -822,6 +905,7 @@ function drawInspectScene(territory, units) {
     const width = canvas.width;
     const height = canvas.height;
     const random = createSeededRandom(hashTerritorySeed(territory) ^ 0x9e3779b9);
+    ctx.imageSmoothingEnabled = false;
 
     ctx.clearRect(0, 0, width, height);
 
@@ -897,13 +981,13 @@ function drawInspectScene(territory, units) {
     }
 
     units.forEach((unit, unitIndex) => {
-        const rows = Math.min(3, Math.max(1, Math.ceil(unit.amount / 5)));
+        const rows = Math.min(4, Math.max(1, Math.ceil(unit.amount / 4)));
         for (let index = 0; index < unit.amount; index += 1) {
             const row = index % rows;
             const column = Math.floor(index / rows);
-            const x = width * 0.2 + unitIndex * 138 + column * 18 + random() * 8;
-            const y = height * 0.77 - row * 28 - unitIndex * 8 + random() * 6;
-            drawInspectUnit(ctx, unit, x, y, 0.8 + row * 0.06);
+            const x = width * 0.16 + unitIndex * 146 + column * 26 + random() * 2;
+            const y = height * 0.79 - row * 30 - unitIndex * 10 + random() * 2;
+            drawInspectUnit(ctx, unit, x, y, 0.92 + row * 0.03);
         }
     });
 
