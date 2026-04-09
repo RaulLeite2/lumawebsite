@@ -117,14 +117,54 @@
             <button class="tier-btn" data-upgrade-tier="2" type="button">+3 por 500</button>
             <button class="tier-btn" data-upgrade-tier="3" type="button">+5 por 1000</button>
         </div>
+        <button class="btn btn-inspect" id="btnInspect">🔎 Ampliar Território</button>
         <button class="btn btn-refresh" id="btnRefresh">↻ Atualizar Mapa</button>
     </div>
 </div>
 
-    <div class="flash" id="flash"></div>
+<div class="territory-inspect-modal" id="territoryInspectModal" hidden>
+    <div class="inspect-shell">
+        <div class="inspect-header">
+            <div>
+                <span class="inspect-kicker">Visão Tática</span>
+                <h2 id="inspectTitle">Território</h2>
+                <p id="inspectSubtitle">Guarnição procedural carregando...</p>
+            </div>
+            <button class="inspect-close" id="inspectClose" type="button">✕</button>
+        </div>
 
-    <script src="/dashboard/scripts/map.js"></script>
-    <script src="/dashboard/scripts/ui.js"></script>
+        <div class="inspect-layout">
+            <div class="inspect-canvas-wrap">
+                <canvas id="territoryInspectCanvas" width="960" height="560"></canvas>
+            </div>
+
+            <aside class="inspect-stats">
+                <div class="inspect-stat-card">
+                    <span>Composição</span>
+                    <strong id="inspectComposition">-</strong>
+                </div>
+                <div class="inspect-stat-card">
+                    <span>Pressão de defesa</span>
+                    <strong id="inspectDefensePressure">-</strong>
+                </div>
+                <div class="inspect-stat-card">
+                    <span>Presença local</span>
+                    <strong id="inspectPresence">-</strong>
+                </div>
+                <div class="inspect-stat-card">
+                    <span>Estado do território</span>
+                    <strong id="inspectSafety">-</strong>
+                </div>
+                <div class="inspect-unit-list" id="inspectUnitList"></div>
+            </aside>
+        </div>
+    </div>
+</div>
+
+<div class="flash" id="flash"></div>
+
+<script src="/dashboard/scripts/map.js"></script>
+<script src="/dashboard/scripts/ui.js"></script>
 </body>
 </html>
 

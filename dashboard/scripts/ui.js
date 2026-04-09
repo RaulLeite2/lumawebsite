@@ -8,6 +8,7 @@ let currentBalance = 0;
 let currentLeaderboard = [];
 let hudTickInterval = null;
 let territoryPresence = {};
+let inspectScene = null;
 
 // -- Init ---------------------------------------------------------------------
 document.addEventListener('DOMContentLoaded', async () => {
@@ -19,6 +20,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupNavigation();
     setupActionButtons();
     setupEntryTransition();
+    setupInspectModal();
     startPlayerSimulation();
     startTerritoryHudTick();
 
@@ -378,6 +380,7 @@ function setupEvents(canvas) {
             selectedTerritory = null;
             renderer.setSelected(null);
             document.getElementById('infoPanel').classList.remove('show');
+            closeInspectModal();
         }
         renderer.draw();
     });
@@ -413,6 +416,7 @@ function hideTooltip(el) {
 // -- Info Panel ----------------------------------------------------------------
 function openPanel(territory, withAnimation = true) {
     const panel = document.getElementById('infoPanel');
+    const inspectButton = document.getElementById('btnInspect');
 
     document.getElementById('panelDot').style.background = territory.color;
     document.getElementById('panelName').textContent = territory.name;
@@ -468,6 +472,10 @@ function openPanel(territory, withAnimation = true) {
     btnCollect.style.display = isOwner ? 'block' : 'none';
     btnDefend.style.display = isOwner ? 'block' : 'none';
     btnUpgrade.style.display = isOwner ? 'block' : 'none';
+    if (inspectButton) {
+        inspectButton.style.display = 'block';
+        inspectButton.disabled = false;
+    }
     upgradeBox.classList.remove('show');
 
     if (withAnimation) {
@@ -643,6 +651,9 @@ function startTerritoryHudTick() {
 
         if (selectedTerritory) {
             openPanel(selectedTerritory, false);
+            if (inspectScene && inspectScene.territoryId === (selectedTerritory.dbId || selectedTerritory.id)) {
+                openInspectModal();
+            }
         }
     }, 1000);
 }
@@ -660,6 +671,347 @@ function formatCooldownCompact(seconds) {
     const minutes = Math.floor(value / 60);
     const remainder = value % 60;
     return `${minutes}m ${remainder.toString().padStart(2, '0')}s`;
+}
+
+function createSeededRandom(seed) {
+    let state = seed >>> 0;
+    return () => {
+        state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+        return state / 4294967296;
+    };
+}
+
+function hashTerritorySeed(territory) {
+    const source = `${territory.dbId || territory.id}:${territory.ownerId || 0}:${territory.defense || 1}:${territory.attackCooldownRemaining || 0}`;
+    let hash = 2166136261;
+    for (const char of source) {
+        hash ^= char.charCodeAt(0);
+        hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+}
+
+function buildInspectUnits(territory) {
+    const presence = Number(territoryPresence[territory.dbId || territory.id] || 0);
+    const defense = Number(territory.defense || 1);
+    const cooldownActive = Number(territory.attackCooldownRemaining || 0) > 0;
+    const random = createSeededRandom(hashTerritorySeed(territory));
+    const force = 6 + defense * 2 + Math.floor(presence * 0.55);
+
+    return [
+        {
+            key: 'knight',
+            label: 'Cavaleiros',
+            amount: Math.max(2, Math.floor(force * 0.34 + random() * 3)),
+            color: '#dce5ff',
+            accent: '#70a2ff',
+            description: 'Linha pesada posicionada na frente da fortaleza.',
+        },
+        {
+            key: 'archer',
+            label: 'Arqueiros',
+            amount: Math.max(1, Math.floor(force * 0.24 + random() * 4)),
+            color: '#ffe0a5',
+            accent: '#ffab4c',
+            description: 'Cobertura de longo alcance entre torres e muralhas.',
+        },
+        {
+            key: 'guard',
+            label: 'Guardioes',
+            amount: Math.max(1, Math.floor(force * 0.18 + defense + random() * 2)),
+            color: '#c0ffdd',
+            accent: '#35c58e',
+            description: 'Patrulha interna reagindo a invasoes e brechas.',
+        },
+        {
+            key: 'mage',
+            label: 'Arcanistas',
+            amount: Math.max(0, Math.floor(defense / 2 + random() * 3 + (cooldownActive ? 1 : 0))),
+            color: '#f3ccff',
+            accent: '#d56aff',
+            description: 'Suporte magico focado em barreiras e sinais.',
+        },
+    ].filter((unit) => unit.amount > 0);
+}
+
+function drawRoundedRect(ctx, x, y, width, height, radius) {
+    const r = Math.min(radius, width / 2, height / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + width - r, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+    ctx.lineTo(x + width, y + height - r);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+    ctx.lineTo(x + r, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+}
+
+function drawInspectUnit(ctx, unit, x, y, scale) {
+    const bodyHeight = 20 * scale;
+    const headRadius = 6 * scale;
+    const offhand = 12 * scale;
+
+    ctx.save();
+    ctx.translate(x, y);
+
+    ctx.fillStyle = unit.color;
+    ctx.beginPath();
+    ctx.arc(0, -bodyHeight - headRadius, headRadius, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = unit.accent;
+    ctx.fillRect(-6 * scale, -bodyHeight, 12 * scale, bodyHeight);
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+    ctx.lineWidth = 2 * scale;
+    ctx.beginPath();
+    ctx.moveTo(0, -bodyHeight + 2 * scale);
+    ctx.lineTo(-8 * scale, -2 * scale);
+    ctx.moveTo(0, -bodyHeight + 2 * scale);
+    ctx.lineTo(8 * scale, -2 * scale);
+    ctx.moveTo(0, 0);
+    ctx.lineTo(-6 * scale, 14 * scale);
+    ctx.moveTo(0, 0);
+    ctx.lineTo(6 * scale, 14 * scale);
+    ctx.stroke();
+
+    if (unit.key === 'archer') {
+        ctx.strokeStyle = '#ffcf76';
+        ctx.beginPath();
+        ctx.arc(offhand, -bodyHeight * 0.65, 8 * scale, -Math.PI / 2, Math.PI / 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(offhand, -bodyHeight * 1.05);
+        ctx.lineTo(offhand, -bodyHeight * 0.25);
+        ctx.stroke();
+    } else if (unit.key === 'mage') {
+        ctx.fillStyle = 'rgba(213, 106, 255, 0.24)';
+        ctx.beginPath();
+        ctx.arc(offhand, -bodyHeight * 0.8, 7 * scale, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#f3ccff';
+        ctx.beginPath();
+        ctx.moveTo(offhand, -bodyHeight * 1.2);
+        ctx.lineTo(offhand, -bodyHeight * 0.2);
+        ctx.stroke();
+    } else if (unit.key === 'knight') {
+        ctx.fillStyle = 'rgba(112, 162, 255, 0.28)';
+        drawRoundedRect(ctx, -16 * scale, -bodyHeight * 0.95, 12 * scale, 18 * scale, 5 * scale);
+        ctx.fill();
+    } else {
+        ctx.strokeStyle = '#7ef0bf';
+        ctx.beginPath();
+        ctx.moveTo(-offhand, -bodyHeight * 0.95);
+        ctx.lineTo(-offhand, 8 * scale);
+        ctx.stroke();
+    }
+
+    ctx.restore();
+}
+
+function drawInspectScene(territory, units) {
+    const canvas = document.getElementById('territoryInspectCanvas');
+    if (!canvas) {
+        return;
+    }
+
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+    const random = createSeededRandom(hashTerritorySeed(territory) ^ 0x9e3779b9);
+
+    ctx.clearRect(0, 0, width, height);
+
+    const sky = ctx.createLinearGradient(0, 0, 0, height);
+    sky.addColorStop(0, '#111635');
+    sky.addColorStop(0.58, '#20315d');
+    sky.addColorStop(1, '#0a1020');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, width, height);
+
+    const glow = ctx.createRadialGradient(width * 0.72, height * 0.2, 10, width * 0.72, height * 0.2, 220);
+    glow.addColorStop(0, 'rgba(255, 214, 130, 0.55)');
+    glow.addColorStop(1, 'rgba(255, 214, 130, 0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, width, height);
+
+    ctx.fillStyle = 'rgba(255,255,255,0.03)';
+    for (let index = 0; index < 36; index += 1) {
+        ctx.beginPath();
+        ctx.arc(random() * width, random() * (height * 0.46), 0.5 + random() * 1.7, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    ctx.fillStyle = '#12182d';
+    ctx.beginPath();
+    ctx.moveTo(0, height * 0.56);
+    ctx.lineTo(width * 0.18, height * 0.4);
+    ctx.lineTo(width * 0.36, height * 0.54);
+    ctx.lineTo(width * 0.56, height * 0.34);
+    ctx.lineTo(width * 0.74, height * 0.5);
+    ctx.lineTo(width, height * 0.38);
+    ctx.lineTo(width, height);
+    ctx.lineTo(0, height);
+    ctx.closePath();
+    ctx.fill();
+
+    const ground = ctx.createLinearGradient(0, height * 0.42, 0, height);
+    ground.addColorStop(0, '#304c34');
+    ground.addColorStop(0.65, '#19241f');
+    ground.addColorStop(1, '#0e1513');
+    ctx.fillStyle = ground;
+    ctx.beginPath();
+    ctx.moveTo(0, height * 0.6);
+    ctx.quadraticCurveTo(width * 0.2, height * 0.5, width * 0.38, height * 0.62);
+    ctx.quadraticCurveTo(width * 0.56, height * 0.7, width * 0.72, height * 0.6);
+    ctx.quadraticCurveTo(width * 0.84, height * 0.52, width, height * 0.64);
+    ctx.lineTo(width, height);
+    ctx.lineTo(0, height);
+    ctx.closePath();
+    ctx.fill();
+
+    const wallBaseY = height * 0.55;
+    ctx.fillStyle = '#59647e';
+    ctx.fillRect(width * 0.22, wallBaseY - 70, width * 0.42, 82);
+    ctx.fillStyle = '#4a546c';
+    for (let tower = 0; tower < 4; tower += 1) {
+        const towerX = width * 0.21 + tower * (width * 0.14);
+        ctx.fillRect(towerX, wallBaseY - 112, 38, 124);
+        ctx.fillStyle = '#232e45';
+        ctx.fillRect(towerX - 4, wallBaseY - 122, 46, 12);
+        ctx.fillStyle = '#4a546c';
+    }
+
+    ctx.fillStyle = '#2f1d15';
+    ctx.fillRect(width * 0.4, wallBaseY - 26, 72, 38);
+
+    if (Number(territory.attackCooldownRemaining || 0) > 0) {
+        ctx.strokeStyle = 'rgba(255, 197, 90, 0.45)';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(width * 0.74, height * 0.28, 42, 0, Math.PI * 2);
+        ctx.stroke();
+    }
+
+    units.forEach((unit, unitIndex) => {
+        const rows = Math.min(3, Math.max(1, Math.ceil(unit.amount / 5)));
+        for (let index = 0; index < unit.amount; index += 1) {
+            const row = index % rows;
+            const column = Math.floor(index / rows);
+            const x = width * 0.2 + unitIndex * 138 + column * 18 + random() * 8;
+            const y = height * 0.77 - row * 28 - unitIndex * 8 + random() * 6;
+            drawInspectUnit(ctx, unit, x, y, 0.8 + row * 0.06);
+        }
+    });
+
+    for (let banner = 0; banner < 3; banner += 1) {
+        const x = width * (0.28 + banner * 0.12);
+        ctx.strokeStyle = '#c9d5ff';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(x, wallBaseY - 98);
+        ctx.lineTo(x, wallBaseY - 30);
+        ctx.stroke();
+        ctx.fillStyle = banner === 1 ? '#f0c847' : '#7da8ff';
+        ctx.beginPath();
+        ctx.moveTo(x, wallBaseY - 98);
+        ctx.lineTo(x + 36, wallBaseY - 86);
+        ctx.lineTo(x, wallBaseY - 74);
+        ctx.closePath();
+        ctx.fill();
+    }
+}
+
+function openInspectModal() {
+    const modal = document.getElementById('territoryInspectModal');
+    if (!selectedTerritory || !modal) {
+        return;
+    }
+
+    const units = buildInspectUnits(selectedTerritory);
+    inspectScene = { territoryId: selectedTerritory.dbId || selectedTerritory.id, units };
+
+    const title = document.getElementById('inspectTitle');
+    const subtitle = document.getElementById('inspectSubtitle');
+    const composition = document.getElementById('inspectComposition');
+    const defensePressure = document.getElementById('inspectDefensePressure');
+    const presence = document.getElementById('inspectPresence');
+    const safety = document.getElementById('inspectSafety');
+    const unitList = document.getElementById('inspectUnitList');
+    const totalUnits = units.reduce((sum, unit) => sum + unit.amount, 0);
+    const presenceCount = Number(territoryPresence[selectedTerritory.dbId || selectedTerritory.id] || 0);
+
+    if (title) {
+        title.textContent = selectedTerritory.name;
+    }
+    if (subtitle) {
+        subtitle.textContent = `${selectedTerritory.league || 'Abismo'} • Comandado por ${selectedTerritory.owner || 'Sem dono'}`;
+    }
+    if (composition) {
+        composition.textContent = `${totalUnits} unidades em campo`;
+    }
+    if (defensePressure) {
+        defensePressure.textContent = `Defesa ${selectedTerritory.defense || 1} • ${selectedTerritory.attackCooldownRemaining > 0 ? 'Pressao alta' : 'Pressao controlada'}`;
+    }
+    if (presence) {
+        presence.textContent = `${presenceCount} presencas ativas`;
+    }
+    if (safety) {
+        safety.textContent = selectedTerritory.attackCooldownRemaining > 0
+            ? `Protegido por ${formatCooldownCompact(selectedTerritory.attackCooldownRemaining)}`
+            : 'Setor pronto para combate';
+    }
+    if (unitList) {
+        unitList.innerHTML = units.map((unit) => `
+            <div class="inspect-unit-item">
+                <strong>${unit.label} • ${unit.amount}</strong>
+                <span>${unit.description}</span>
+            </div>
+        `).join('');
+    }
+
+    modal.hidden = false;
+    drawInspectScene(selectedTerritory, units);
+}
+
+function closeInspectModal() {
+    const modal = document.getElementById('territoryInspectModal');
+    if (!modal) {
+        return;
+    }
+    inspectScene = null;
+    modal.hidden = true;
+}
+
+function setupInspectModal() {
+    const button = document.getElementById('btnInspect');
+    const closeButton = document.getElementById('inspectClose');
+    const modal = document.getElementById('territoryInspectModal');
+
+    if (button) {
+        button.addEventListener('click', () => openInspectModal());
+    }
+
+    if (closeButton) {
+        closeButton.addEventListener('click', () => closeInspectModal());
+    }
+
+    if (modal) {
+        modal.addEventListener('click', (event) => {
+            if (event.target === modal) {
+                closeInspectModal();
+            }
+        });
+    }
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && modal && !modal.hidden) {
+            closeInspectModal();
+        }
+    });
 }
 
 // -- Resize --------------------------------------------------------------------
