@@ -61,6 +61,8 @@ TERRITORY_LEAGUES: list[tuple[str, int]] = [
     ("Abismo", 0),
 ]
 
+TERRITORY_ATTACK_COOLDOWN_SECONDS = 900
+
 PRESET_TEMPLATES: dict[str, dict[str, Any]] = {
     "gamer": {
         "automation": {"invite_filter": True, "link_filter": True, "caps_filter": True, "spam_threshold": 5},
@@ -3775,6 +3777,16 @@ async def dashboard_territories_list(request: Request) -> dict[str, Any]:
     if guild_id_str and owner_ids:
         owner_names = await _fetch_guild_member_display_names(guild_id_str, owner_ids)
 
+    now_utc = datetime.utcnow()
+
+    def _attack_cooldown_remaining_seconds(row: Any) -> int:
+        attack_time = row.get("attack_time")
+        if attack_time is None:
+            return 0
+        attack_dt = attack_time.replace(tzinfo=None) if getattr(attack_time, "tzinfo", None) else attack_time
+        elapsed = (now_utc - attack_dt).total_seconds()
+        return max(0, int(TERRITORY_ATTACK_COOLDOWN_SECONDS - elapsed))
+
     return {
         "ok": True,
         "current_user_id": str(user_id),
@@ -3790,6 +3802,8 @@ async def dashboard_territories_list(request: Request) -> dict[str, Any]:
                 "owner_reward_coins": int(row["owner_reward_coins"] or 25),
                 "called_at": row.get("called_at").isoformat() if row.get("called_at") else None,
                 "attack_time": row.get("attack_time").isoformat() if row.get("attack_time") else None,
+                "attack_cooldown_remaining_seconds": _attack_cooldown_remaining_seconds(row),
+                "attack_cooldown_total_seconds": TERRITORY_ATTACK_COOLDOWN_SECONDS,
                 "is_mine": row.get("owner_id") == user_id,
                 "league": _territory_league_for_score(
                     (int(row["defense_level"] or 1) * 35)
@@ -4123,7 +4137,7 @@ async def dashboard_territories_attack(payload: TerritoryActionPayload, request:
         async with connection.transaction():
             territory = await connection.fetchrow(
                 """
-                SELECT id, name, owner_id, defense_level, luma_coins
+                SELECT id, name, owner_id, defense_level, luma_coins, attack_time
                 FROM territories
                 WHERE id = $1
                 FOR UPDATE
@@ -4134,6 +4148,19 @@ async def dashboard_territories_attack(payload: TerritoryActionPayload, request:
                 raise HTTPException(status_code=404, detail="Territory not found")
             if territory.get("owner_id") == user_id:
                 return {"ok": False, "message": "Você não pode atacar seu próprio território."}
+
+            last_attack = territory.get("attack_time")
+            if last_attack is not None:
+                last_attack_dt = last_attack.replace(tzinfo=None) if getattr(last_attack, "tzinfo", None) else last_attack
+                elapsed = (datetime.utcnow() - last_attack_dt).total_seconds()
+                remaining = max(0, int(TERRITORY_ATTACK_COOLDOWN_SECONDS - elapsed))
+                if remaining > 0:
+                    return {
+                        "ok": False,
+                        "cooldown": True,
+                        "remaining_seconds": remaining,
+                        "message": "Esse território está em cooldown de ataque.",
+                    }
 
             await connection.execute(
                 """

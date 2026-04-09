@@ -80,6 +80,21 @@
 
     <!-- Info panel (shared, overlaid) -->
     <div class="info-panel" id="infoPanel">
+        <div class="territory-card">
+            <div class="territory-card-top">
+                <span class="territory-card-title">Território</span>
+                <span class="territory-state territory-state-safe" id="panelSafety">🛡 Seguro</span>
+            </div>
+
+            <div class="territory-health-head">
+                <span class="territory-health-label">Defesa</span>
+                <span class="territory-health-value" id="panelHealthPercent">0% de Saúde</span>
+            </div>
+            <div class="territory-health-track">
+                <div class="territory-health-fill" id="panelHealthFill"></div>
+            </div>
+        </div>
+
         <div class="panel-header">
             <div class="panel-dot" id="panelDot"></div>
             <span class="panel-name" id="panelName">—</span>
@@ -88,6 +103,8 @@
         <div class="panel-row"><span class="lbl">Defesa</span><span class="val" id="panelDefense">—</span></div>
         <div class="panel-row"><span class="lbl">Luma Coins</span><span class="val" id="panelCoins">—</span></div>
         <div class="panel-row"><span class="lbl">Status</span><span class="val" id="panelStatus">—</span></div>
+        <div class="panel-row"><span class="lbl">Timer de ataque</span><span class="val" id="panelAttackTimer">—</span></div>
+        <div class="panel-row"><span class="lbl">Presença</span><span class="val" id="panelPresence">—</span></div>
         <div class="panel-row"><span class="lbl">Liga</span><span class="val" id="panelLeague">—</span></div>
         <div class="panel-row"><span class="lbl">Ação do dono</span><span class="val" id="panelOwnerAction">—</span></div>
         <button class="btn btn-attack"  id="btnAttack">&#9876; Atacar Território</button>

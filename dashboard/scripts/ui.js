@@ -6,6 +6,8 @@ let selectedTerritory = null;
 let currentUserId = null;
 let currentBalance = 0;
 let currentLeaderboard = [];
+let hudTickInterval = null;
+let territoryPresence = {};
 
 // -- Init ---------------------------------------------------------------------
 document.addEventListener('DOMContentLoaded', async () => {
@@ -18,6 +20,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupActionButtons();
     setupEntryTransition();
     startPlayerSimulation();
+    startTerritoryHudTick();
 
     window.addEventListener('resize', onResize);
     onResize();
@@ -106,7 +109,14 @@ async function syncTerritoriesFromServer(showSuccessMessage = false) {
             slot.coins = Number(row.luma_coins || 100);
             slot.rewardCoins = Number(row.owner_reward_coins || 25);
             slot.league = String(row.league || 'Abismo');
+            slot.attackCooldownRemaining = Number(row.attack_cooldown_remaining_seconds || 0);
+            slot.attackCooldownTotal = Number(row.attack_cooldown_total_seconds || 900);
             slot.color = ownerName ? ownerColor(ownerId, ownerName) : '#2a2a4b';
+
+            if (!territoryPresence[slot.dbId || slot.id]) {
+                const base = ownerName ? (6 + (slot.defense * 2)) : (2 + slot.defense);
+                territoryPresence[slot.dbId || slot.id] = Math.max(1, base);
+            }
         });
 
         if (renderer) {
@@ -401,7 +411,7 @@ function hideTooltip(el) {
 }
 
 // -- Info Panel ----------------------------------------------------------------
-function openPanel(territory) {
+function openPanel(territory, withAnimation = true) {
     const panel = document.getElementById('infoPanel');
 
     document.getElementById('panelDot').style.background = territory.color;
@@ -412,17 +422,35 @@ function openPanel(territory) {
     ownerEl.className = `val${territory.owner ? '' : ' no-owner'}`;
 
     const defense = Number(territory.defense || 1);
+    const healthPercent = Math.max(10, Math.min(100, Math.round((defense / 5) * 100)));
     const isOwner = territory.ownerId && Number(territory.ownerId) === Number(currentUserId);
     const isFree = !territory.ownerId;
     const ownerLeaderboardEntry = currentLeaderboard.find((entry) => Number(entry.user_id) === Number(territory.ownerId));
+    const cooldownRemaining = Number(territory.attackCooldownRemaining || 0);
+    const presenceCount = Number(territoryPresence[territory.dbId || territory.id] || 0);
 
     document.getElementById('panelDefense').textContent = `${'★'.repeat(defense)}${'☆'.repeat(5 - defense)} (${defense}/5)`;
+    document.getElementById('panelHealthPercent').textContent = `${healthPercent}% de Saúde`;
+    document.getElementById('panelHealthFill').style.width = `${healthPercent}%`;
     document.getElementById('panelCoins').textContent = `🪙 ${Number(territory.coins || 0).toLocaleString('pt-BR')}`;
     document.getElementById('panelStatus').textContent = isFree ? '🟢 Disponível' : (isOwner ? '🏰 Seu território' : '🔒 Ocupado');
     document.getElementById('panelLeague').textContent = ownerLeaderboardEntry?.league || territory.league || 'Abismo';
+    document.getElementById('panelAttackTimer').textContent = formatCooldown(cooldownRemaining);
+    document.getElementById('panelPresence').textContent = `${presenceCount} players na área`;
     document.getElementById('panelOwnerAction').textContent = isOwner
         ? `Coleta: ${Number(territory.rewardCoins || 0)} coins`
         : 'Sem coleta';
+
+    const safety = document.getElementById('panelSafety');
+    if (cooldownRemaining > 0) {
+        safety.textContent = '🛡 Seguro';
+        safety.classList.remove('territory-state-hot');
+        safety.classList.add('territory-state-safe');
+    } else {
+        safety.textContent = '⚠ Exposto';
+        safety.classList.remove('territory-state-safe');
+        safety.classList.add('territory-state-hot');
+    }
 
     const btnAttack = document.getElementById('btnAttack');
     const btnCapture = document.getElementById('btnCapture');
@@ -432,15 +460,23 @@ function openPanel(territory) {
     const upgradeBox = document.getElementById('upgradeTierBox');
 
     btnAttack.style.display = (!isFree && !isOwner) ? 'block' : 'none';
+    btnAttack.disabled = cooldownRemaining > 0;
+    btnAttack.textContent = cooldownRemaining > 0
+        ? `⏳ Ataque em ${formatCooldownCompact(cooldownRemaining)}`
+        : '⚔ Atacar Território';
     btnCapture.style.display = isFree ? 'block' : 'none';
     btnCollect.style.display = isOwner ? 'block' : 'none';
     btnDefend.style.display = isOwner ? 'block' : 'none';
     btnUpgrade.style.display = isOwner ? 'block' : 'none';
     upgradeBox.classList.remove('show');
 
-    panel.classList.remove('show');
-    void panel.offsetWidth;
-    panel.classList.add('show');
+    if (withAnimation) {
+        panel.classList.remove('show');
+        void panel.offsetWidth;
+        panel.classList.add('show');
+    } else {
+        panel.classList.add('show');
+    }
 }
 
 function setupActionButtons() {
@@ -503,9 +539,7 @@ async function runTerritoryAction(action) {
 
         if (payload.ok === false && payload.cooldown) {
             const remaining = Math.max(0, Number(payload.remaining_seconds || 0));
-            const minutes = Math.floor(remaining / 60);
-            const seconds = remaining % 60;
-            flash(`Cooldown ativo: aguarde ${minutes}m ${seconds}s para coletar novamente.`, true);
+            flash(`Território protegido. Aguarde ${formatCooldownCompact(remaining)} para atacar novamente.`, true);
             return;
         }
 
@@ -585,6 +619,47 @@ function startPlayerSimulation() {
         const n = Math.max(1, Math.round(base + (Math.random() * 10 - 5)));
         el.textContent = n;
     }, 3000);
+}
+
+function startTerritoryHudTick() {
+    if (hudTickInterval) {
+        clearInterval(hudTickInterval);
+    }
+
+    hudTickInterval = setInterval(() => {
+        const slots = allTerritorySlots();
+        slots.forEach((slot) => {
+            if (Number(slot.attackCooldownRemaining || 0) > 0) {
+                slot.attackCooldownRemaining = Math.max(0, Number(slot.attackCooldownRemaining || 0) - 1);
+            }
+
+            const key = slot.dbId || slot.id;
+            const current = Number(territoryPresence[key] || 0);
+            const drift = Math.random() < 0.45 ? 1 : -1;
+            const minCount = slot.owner ? 2 : 0;
+            const maxCount = slot.owner ? 28 : 12;
+            territoryPresence[key] = Math.max(minCount, Math.min(maxCount, current + drift));
+        });
+
+        if (selectedTerritory) {
+            openPanel(selectedTerritory, false);
+        }
+    }, 1000);
+}
+
+function formatCooldown(seconds) {
+    const value = Number(seconds || 0);
+    if (value <= 0) {
+        return 'Pronto para atacar';
+    }
+    return formatCooldownCompact(value);
+}
+
+function formatCooldownCompact(seconds) {
+    const value = Math.max(0, Number(seconds || 0));
+    const minutes = Math.floor(value / 60);
+    const remainder = value % 60;
+    return `${minutes}m ${remainder.toString().padStart(2, '0')}s`;
 }
 
 // -- Resize --------------------------------------------------------------------

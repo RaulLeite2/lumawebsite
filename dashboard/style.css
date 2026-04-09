@@ -429,6 +429,75 @@ canvas { display: block; cursor: default; }
 .panel-dot  { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
 .panel-name { font-weight: 800; font-size: 15px; }
 
+.territory-card {
+    margin-bottom: 14px;
+    padding: 14px;
+    border-radius: 14px;
+    border: 1px solid rgba(72, 66, 138, 0.65);
+    background:
+        radial-gradient(circle at 18% 20%, rgba(130, 125, 255, 0.16), transparent 45%),
+        linear-gradient(180deg, rgba(15, 13, 44, 0.9), rgba(8, 8, 28, 0.9));
+}
+
+.territory-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+}
+
+.territory-card-title {
+    font-size: 15px;
+    font-weight: 800;
+    color: #b6b8ff;
+}
+
+.territory-state {
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.territory-state-safe {
+    color: #27ca82;
+}
+
+.territory-state-hot {
+    color: #ff6d7a;
+}
+
+.territory-health-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.territory-health-label {
+    color: var(--soft);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.territory-health-value {
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.territory-health-track {
+    height: 16px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.16);
+    overflow: hidden;
+}
+
+.territory-health-fill {
+    width: 0;
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #f7a52f, #ffcc5d);
+    transition: width 220ms ease;
+}
+
 .panel-row {
     display: flex;
     justify-content: space-between;
