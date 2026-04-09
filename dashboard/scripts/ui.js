@@ -909,103 +909,192 @@ function drawInspectScene(territory, units) {
 
     ctx.clearRect(0, 0, width, height);
 
-    const sky = ctx.createLinearGradient(0, 0, 0, height);
-    sky.addColorStop(0, '#111635');
-    sky.addColorStop(0.58, '#20315d');
-    sky.addColorStop(1, '#0a1020');
-    ctx.fillStyle = sky;
+    ctx.fillStyle = '#dce4f6';
     ctx.fillRect(0, 0, width, height);
 
-    const glow = ctx.createRadialGradient(width * 0.72, height * 0.2, 10, width * 0.72, height * 0.2, 220);
-    glow.addColorStop(0, 'rgba(255, 214, 130, 0.55)');
-    glow.addColorStop(1, 'rgba(255, 214, 130, 0)');
-    ctx.fillStyle = glow;
-    ctx.fillRect(0, 0, width, height);
-
-    ctx.fillStyle = 'rgba(255,255,255,0.03)';
-    for (let index = 0; index < 36; index += 1) {
-        ctx.beginPath();
-        ctx.arc(random() * width, random() * (height * 0.46), 0.5 + random() * 1.7, 0, Math.PI * 2);
-        ctx.fill();
+    for (let index = 0; index < 520; index += 1) {
+        const alpha = 0.12 + random() * 0.18;
+        ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+        const x = Math.floor(random() * width);
+        const y = Math.floor(random() * height);
+        const size = random() > 0.86 ? 3 : 2;
+        ctx.fillRect(x, y, size, size);
     }
 
-    ctx.fillStyle = '#12182d';
-    ctx.beginPath();
-    ctx.moveTo(0, height * 0.56);
-    ctx.lineTo(width * 0.18, height * 0.4);
-    ctx.lineTo(width * 0.36, height * 0.54);
-    ctx.lineTo(width * 0.56, height * 0.34);
-    ctx.lineTo(width * 0.74, height * 0.5);
-    ctx.lineTo(width, height * 0.38);
-    ctx.lineTo(width, height);
-    ctx.lineTo(0, height);
-    ctx.closePath();
-    ctx.fill();
-
-    const ground = ctx.createLinearGradient(0, height * 0.42, 0, height);
-    ground.addColorStop(0, '#304c34');
-    ground.addColorStop(0.65, '#19241f');
-    ground.addColorStop(1, '#0e1513');
-    ctx.fillStyle = ground;
-    ctx.beginPath();
-    ctx.moveTo(0, height * 0.6);
-    ctx.quadraticCurveTo(width * 0.2, height * 0.5, width * 0.38, height * 0.62);
-    ctx.quadraticCurveTo(width * 0.56, height * 0.7, width * 0.72, height * 0.6);
-    ctx.quadraticCurveTo(width * 0.84, height * 0.52, width, height * 0.64);
-    ctx.lineTo(width, height);
-    ctx.lineTo(0, height);
-    ctx.closePath();
-    ctx.fill();
-
-    const wallBaseY = height * 0.55;
-    ctx.fillStyle = '#59647e';
-    ctx.fillRect(width * 0.22, wallBaseY - 70, width * 0.42, 82);
-    ctx.fillStyle = '#4a546c';
-    for (let tower = 0; tower < 4; tower += 1) {
-        const towerX = width * 0.21 + tower * (width * 0.14);
-        ctx.fillRect(towerX, wallBaseY - 112, 38, 124);
-        ctx.fillStyle = '#232e45';
-        ctx.fillRect(towerX - 4, wallBaseY - 122, 46, 12);
-        ctx.fillStyle = '#4a546c';
-    }
-
-    ctx.fillStyle = '#2f1d15';
-    ctx.fillRect(width * 0.4, wallBaseY - 26, 72, 38);
-
-    if (Number(territory.attackCooldownRemaining || 0) > 0) {
-        ctx.strokeStyle = 'rgba(255, 197, 90, 0.45)';
-        ctx.lineWidth = 3;
+    const drawRoad = (color, thickness, seedOffset) => {
+        const r = createSeededRandom(hashTerritorySeed(territory) ^ seedOffset);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = thickness;
+        ctx.lineCap = 'round';
         ctx.beginPath();
-        ctx.arc(width * 0.74, height * 0.28, 42, 0, Math.PI * 2);
+        let x = -30;
+        let y = height * (0.18 + r() * 0.62);
+        ctx.moveTo(x, y);
+        while (x < width + 40) {
+            x += 44 + r() * 30;
+            y += (r() - 0.5) * 62;
+            y = Math.max(30, Math.min(height - 30, y));
+            ctx.lineTo(x, y);
+        }
         ctx.stroke();
+    };
+
+    drawRoad('rgba(98, 112, 142, 0.55)', 8, 0x12b7);
+    drawRoad('rgba(219, 145, 39, 0.68)', 6, 0x8ab1);
+
+    const cx = width * 0.5;
+    const cy = height * 0.5;
+    const halfW = width * 0.5;
+    const halfH = height * 0.42;
+
+    const drawDiamond = () => {
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - halfH);
+        ctx.lineTo(cx + halfW, cy);
+        ctx.lineTo(cx, cy + halfH);
+        ctx.lineTo(cx - halfW, cy);
+        ctx.closePath();
+    };
+
+    drawDiamond();
+    ctx.fillStyle = 'rgba(217, 136, 152, 0.36)';
+    ctx.fill();
+
+    drawDiamond();
+    ctx.strokeStyle = 'rgba(177, 32, 40, 0.95)';
+    ctx.lineWidth = 4;
+    ctx.stroke();
+
+    drawDiamond();
+    ctx.save();
+    ctx.clip();
+
+    const iso = (u, v) => ({
+        x: cx + (u - v) * (halfW * 0.5),
+        y: cy + (u + v) * (halfH * 0.5),
+    });
+
+    const drawIsoPoly = (points, fill, stroke = null, lineWidth = 1) => {
+        ctx.beginPath();
+        points.forEach((point, index) => {
+            const p = iso(point[0], point[1]);
+            if (index === 0) {
+                ctx.moveTo(p.x, p.y);
+            } else {
+                ctx.lineTo(p.x, p.y);
+            }
+        });
+        ctx.closePath();
+        ctx.fillStyle = fill;
+        ctx.fill();
+        if (stroke) {
+            ctx.strokeStyle = stroke;
+            ctx.lineWidth = lineWidth;
+            ctx.stroke();
+        }
+    };
+
+    drawIsoPoly([
+        [0.19, 0.12],
+        [0.81, 0.12],
+        [0.88, 0.52],
+        [0.12, 0.52],
+    ], 'rgba(178, 125, 126, 0.42)');
+
+    drawIsoPoly([
+        [0.34, 0.26],
+        [0.66, 0.26],
+        [0.66, 0.52],
+        [0.34, 0.52],
+    ], 'rgba(167, 110, 112, 0.55)', 'rgba(145, 93, 97, 0.9)', 2);
+
+    drawIsoPoly([
+        [0.05, 0.22],
+        [0.25, 0.22],
+        [0.3, 0.47],
+        [0.04, 0.47],
+    ], 'rgba(169, 114, 118, 0.52)');
+    drawIsoPoly([
+        [0.75, 0.22],
+        [0.95, 0.22],
+        [0.96, 0.47],
+        [0.7, 0.47],
+    ], 'rgba(169, 114, 118, 0.52)');
+
+    drawIsoPoly([
+        [0.43, 0.38],
+        [0.57, 0.38],
+        [0.57, 0.52],
+        [0.43, 0.52],
+    ], 'rgba(191, 137, 138, 0.6)');
+
+    const center = iso(0.5, 0.46);
+    ctx.fillStyle = 'rgba(130, 86, 89, 0.56)';
+    ctx.beginPath();
+    ctx.arc(center.x, center.y, 9, 0, Math.PI * 2);
+    ctx.fill();
+
+    drawIsoPoly([
+        [0.28, 0.62],
+        [0.72, 0.62],
+        [0.72, 0.93],
+        [0.28, 0.93],
+    ], 'rgba(121, 79, 73, 0.7)', 'rgba(99, 60, 57, 0.85)', 2);
+
+    const rows = 2;
+    const cols = 3;
+    for (let row = 0; row < rows; row += 1) {
+        for (let col = 0; col < cols; col += 1) {
+            const u0 = 0.33 + col * 0.13;
+            const v0 = 0.67 + row * 0.12;
+            const u1 = u0 + 0.1;
+            const v1 = v0 + 0.1;
+            drawIsoPoly([
+                [u0, v0],
+                [u1, v0],
+                [u1, v1],
+                [u0, v1],
+            ], 'rgba(92, 52, 33, 0.85)', 'rgba(150, 108, 70, 0.7)', 1.5);
+            const crop = iso((u0 + u1) * 0.5, (v0 + v1) * 0.5);
+            ctx.fillStyle = '#ad662e';
+            ctx.beginPath();
+            ctx.arc(crop.x, crop.y - 3, 4, 0, Math.PI * 2);
+            ctx.fill();
+        }
     }
 
-    units.forEach((unit, unitIndex) => {
-        const rows = Math.min(4, Math.max(1, Math.ceil(unit.amount / 4)));
-        for (let index = 0; index < unit.amount; index += 1) {
-            const row = index % rows;
-            const column = Math.floor(index / rows);
-            const x = width * 0.16 + unitIndex * 146 + column * 26 + random() * 2;
-            const y = height * 0.79 - row * 30 - unitIndex * 10 + random() * 2;
-            drawInspectUnit(ctx, unit, x, y, 0.92 + row * 0.03);
+    const topMark = iso(0.5, 0.09);
+    ctx.fillStyle = '#b85b64';
+    drawRoundedRect(ctx, topMark.x - 6, topMark.y - 5, 12, 10, 2);
+    ctx.fill();
+
+    const presence = Number(territoryPresence[territory.dbId || territory.id] || 0);
+    const maxDraw = Math.min(18, 4 + Math.floor(presence * 0.5));
+    const unitPool = [];
+    units.forEach((unit) => {
+        const count = Math.min(unit.amount, 8);
+        for (let i = 0; i < count; i += 1) {
+            unitPool.push(unit);
         }
     });
 
-    for (let banner = 0; banner < 3; banner += 1) {
-        const x = width * (0.28 + banner * 0.12);
-        ctx.strokeStyle = '#c9d5ff';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.moveTo(x, wallBaseY - 98);
-        ctx.lineTo(x, wallBaseY - 30);
+    for (let index = 0; index < maxDraw && unitPool.length; index += 1) {
+        const unit = unitPool[index % unitPool.length];
+        const col = index % 6;
+        const row = Math.floor(index / 6);
+        const pos = iso(0.35 + col * 0.055 + random() * 0.01, 0.79 + row * 0.045 + random() * 0.01);
+        drawInspectUnit(ctx, unit, pos.x, pos.y + 8, 0.78);
+    }
+
+    ctx.restore();
+
+    if (Number(territory.attackCooldownRemaining || 0) > 0) {
+        drawDiamond();
+        ctx.strokeStyle = 'rgba(255, 209, 111, 0.75)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([8, 6]);
         ctx.stroke();
-        ctx.fillStyle = banner === 1 ? '#f0c847' : '#7da8ff';
-        ctx.beginPath();
-        ctx.moveTo(x, wallBaseY - 98);
-        ctx.lineTo(x + 36, wallBaseY - 86);
-        ctx.lineTo(x, wallBaseY - 74);
-        ctx.closePath();
-        ctx.fill();
+        ctx.setLineDash([]);
     }
 }
 
