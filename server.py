@@ -54,6 +54,13 @@ LOCKED_COGS = {"events", "mod", "setup"}
 
 ROLE_LEVELS = {"viewer": 1, "moderator": 2, "admin": 3, "owner": 4}
 
+TERRITORY_LEAGUES: list[tuple[str, int]] = [
+    ("Celestial", 1000),
+    ("Eclipse", 550),
+    ("Tempestade", 220),
+    ("Abismo", 0),
+]
+
 PRESET_TEMPLATES: dict[str, dict[str, Any]] = {
     "gamer": {
         "automation": {"invite_filter": True, "link_filter": True, "caps_filter": True, "spam_threshold": 5},
@@ -301,6 +308,11 @@ class EconomyUsePayload(BaseModel):
 
 class TerritoryActionPayload(BaseModel):
     territory_id: int = Field(ge=1)
+
+
+class TerritoryUpgradePayload(BaseModel):
+    territory_id: int = Field(ge=1)
+    tier: int = Field(ge=1, le=3)
 
 
 class BlogPostCreatePayload(BaseModel):
@@ -1166,6 +1178,21 @@ def _is_dev_user(request: Request) -> bool:
     user = request.session.get("user")
     session_user_id = _extract_discord_id(user.get("id") if isinstance(user, dict) else None)
     return session_user_id == configured
+
+
+def _territory_score(row: dict[str, Any]) -> int:
+    owned_count = int(row.get("owned_count") or 0)
+    total_defense = int(row.get("total_defense") or 0)
+    reward_rate = int(row.get("reward_rate") or 0)
+    conquest_pot = int(row.get("conquest_pot") or 0)
+    return (owned_count * 180) + (total_defense * 35) + (reward_rate * 4) + (conquest_pot // 10)
+
+
+def _territory_league_for_score(score: int) -> str:
+    for league_name, minimum_score in TERRITORY_LEAGUES:
+        if score >= minimum_score:
+            return league_name
+    return "Abismo"
 
 
 async def _fetch_guild_resources(guild_id: str) -> dict[str, Any]:
@@ -3764,9 +3791,236 @@ async def dashboard_territories_list(request: Request) -> dict[str, Any]:
                 "called_at": row.get("called_at").isoformat() if row.get("called_at") else None,
                 "attack_time": row.get("attack_time").isoformat() if row.get("attack_time") else None,
                 "is_mine": row.get("owner_id") == user_id,
+                "league": _territory_league_for_score(
+                    (int(row["defense_level"] or 1) * 35)
+                    + (int(row["owner_reward_coins"] or 25) * 4)
+                    + (int(row["luma_coins"] or 100) // 10)
+                ) if row.get("owner_id") is not None else "Abismo",
             }
             for row in rows
         ],
+    }
+
+
+@app.post("/api/dashboard/territories/defend")
+async def dashboard_territories_defend(payload: TerritoryActionPayload, request: Request) -> dict[str, Any]:
+    _require_auth(request)
+    user_id = _require_session_user_id(request)
+    pool = _db_pool()
+    if pool is None:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
+    async with pool.acquire() as connection:
+        async with connection.transaction():
+            territory = await connection.fetchrow(
+                """
+                SELECT id, name, owner_id, defense_level
+                FROM territories
+                WHERE id = $1
+                FOR UPDATE
+                """,
+                payload.territory_id,
+            )
+            if territory is None:
+                raise HTTPException(status_code=404, detail="Territory not found")
+            if territory.get("owner_id") != user_id:
+                return {"ok": False, "message": "Somente o dono pode reforçar esse território."}
+
+            current_defense = int(territory.get("defense_level") or 1)
+            if current_defense >= 5:
+                return {"ok": False, "message": "Esse território já está no nível máximo de defesa."}
+
+            new_defense = await connection.fetchval(
+                """
+                UPDATE territories
+                SET defense_level = LEAST(defense_level + 1, 5)
+                WHERE id = $1
+                RETURNING defense_level
+                """,
+                payload.territory_id,
+            )
+
+    return {
+        "ok": True,
+        "defense_level": int(new_defense or current_defense),
+        "message": f"Defesa reforçada para nível {int(new_defense or current_defense)}.",
+    }
+
+
+@app.post("/api/dashboard/territories/upgrade")
+async def dashboard_territories_upgrade(payload: TerritoryUpgradePayload, request: Request) -> dict[str, Any]:
+    _require_auth(request)
+    user_id = _require_session_user_id(request)
+    active_guild = _active_guild_from_session(request)
+    guild_id_int = _extract_discord_id(active_guild.get("id")) if isinstance(active_guild, dict) else None
+    pool = _db_pool()
+    if pool is None:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
+    tier_map = {
+        1: {"cost": 200, "defense": 1},
+        2: {"cost": 500, "defense": 3},
+        3: {"cost": 1000, "defense": 5},
+    }
+    tier_info = tier_map[payload.tier]
+
+    async with pool.acquire() as connection:
+        async with connection.transaction():
+            territory = await connection.fetchrow(
+                """
+                SELECT id, name, owner_id, defense_level
+                FROM territories
+                WHERE id = $1
+                FOR UPDATE
+                """,
+                payload.territory_id,
+            )
+            if territory is None:
+                raise HTTPException(status_code=404, detail="Territory not found")
+            if territory.get("owner_id") != user_id:
+                return {"ok": False, "message": "Somente o dono pode evoluir esse território."}
+
+            current_defense = int(territory.get("defense_level") or 1)
+            if current_defense >= 5:
+                return {"ok": False, "message": "Esse território já está no nível máximo de defesa."}
+
+            await connection.execute(
+                """
+                INSERT INTO economy (user_id, balance)
+                VALUES ($1, 0)
+                ON CONFLICT (user_id) DO NOTHING
+                """,
+                user_id,
+            )
+            current_balance = await connection.fetchval(
+                "SELECT balance FROM economy WHERE user_id = $1 FOR UPDATE",
+                user_id,
+            )
+            current_balance = int(current_balance or 0)
+            if current_balance < int(tier_info["cost"]):
+                return {
+                    "ok": False,
+                    "message": f"Saldo insuficiente para esse upgrade ({tier_info['cost']} coins).",
+                    "balance": current_balance,
+                }
+
+            new_balance = await connection.fetchval(
+                """
+                UPDATE economy
+                SET balance = balance - $1,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE user_id = $2
+                RETURNING balance
+                """,
+                int(tier_info["cost"]),
+                user_id,
+            )
+            new_defense = await connection.fetchval(
+                """
+                UPDATE territories
+                SET defense_level = LEAST(defense_level + $1, 5)
+                WHERE id = $2
+                RETURNING defense_level
+                """,
+                int(tier_info["defense"]),
+                payload.territory_id,
+            )
+            await connection.execute(
+                """
+                INSERT INTO economy_transactions (user_id, guild_id, delta, balance_after, tx_type, metadata)
+                VALUES ($1, $2, $3, $4, 'territory_upgrade', $5::jsonb)
+                """,
+                user_id,
+                guild_id_int,
+                -int(tier_info["cost"]),
+                int(new_balance or 0),
+                json.dumps({
+                    "territory_id": int(payload.territory_id),
+                    "tier": int(payload.tier),
+                    "defense_added": int(tier_info["defense"]),
+                }),
+            )
+
+    return {
+        "ok": True,
+        "balance": int(new_balance or 0),
+        "defense_level": int(new_defense or current_defense),
+        "message": f"Upgrade aplicado. Defesa agora no nível {int(new_defense or current_defense)}.",
+    }
+
+
+@app.get("/api/dashboard/territories/leaderboard")
+async def dashboard_territories_leaderboard(request: Request) -> dict[str, Any]:
+    _require_auth(request)
+    user_id = _require_session_user_id(request)
+    pool = _db_pool()
+    if pool is None:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
+    active_guild = _active_guild_from_session(request)
+    guild_id_str = str(active_guild.get("id")) if isinstance(active_guild, dict) and active_guild.get("id") else None
+
+    async with pool.acquire() as connection:
+        rows = await connection.fetch(
+            """
+            SELECT
+                owner_id,
+                COUNT(*) AS owned_count,
+                COALESCE(SUM(defense_level), 0) AS total_defense,
+                COALESCE(SUM(owner_reward_coins), 0) AS reward_rate,
+                COALESCE(SUM(luma_coins), 0) AS conquest_pot
+            FROM territories
+            WHERE owner_id IS NOT NULL
+            GROUP BY owner_id
+            ORDER BY owned_count DESC, total_defense DESC, conquest_pot DESC
+            """
+        )
+
+    owner_ids = [int(row["owner_id"]) for row in rows if row.get("owner_id") is not None]
+    owner_names: dict[str, str] = {}
+    if guild_id_str and owner_ids:
+        owner_names = await _fetch_guild_member_display_names(guild_id_str, owner_ids)
+
+    leaderboard = []
+    my_profile = None
+    for index, row in enumerate(rows, start=1):
+        score = _territory_score(dict(row))
+        entry = {
+            "rank": index,
+            "user_id": str(row["owner_id"]),
+            "display_name": owner_names.get(str(row["owner_id"])) or f"User {row['owner_id']}",
+            "owned_count": int(row["owned_count"] or 0),
+            "total_defense": int(row["total_defense"] or 0),
+            "reward_rate": int(row["reward_rate"] or 0),
+            "conquest_pot": int(row["conquest_pot"] or 0),
+            "score": score,
+            "league": _territory_league_for_score(score),
+        }
+        leaderboard.append(entry)
+        if int(row["owner_id"]) == user_id:
+            my_profile = entry
+
+    if my_profile is None:
+        my_profile = {
+            "rank": None,
+            "user_id": str(user_id),
+            "display_name": owner_names.get(str(user_id)) or "Você",
+            "owned_count": 0,
+            "total_defense": 0,
+            "reward_rate": 0,
+            "conquest_pot": 0,
+            "score": 0,
+            "league": _territory_league_for_score(0),
+        }
+
+    return {
+        "ok": True,
+        "leagues": [
+            {"name": league_name, "minimum_score": minimum_score}
+            for league_name, minimum_score in TERRITORY_LEAGUES[::-1]
+        ],
+        "me": my_profile,
+        "leaderboard": leaderboard[:10],
     }
 
 

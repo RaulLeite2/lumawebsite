@@ -5,6 +5,7 @@ let playerInterval = null;
 let selectedTerritory = null;
 let currentUserId = null;
 let currentBalance = 0;
+let currentLeaderboard = [];
 
 // -- Init ---------------------------------------------------------------------
 document.addEventListener('DOMContentLoaded', async () => {
@@ -15,12 +16,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupEvents(canvas);
     setupNavigation();
     setupActionButtons();
+    setupEntryTransition();
     startPlayerSimulation();
 
     window.addEventListener('resize', onResize);
     onResize();
 
-    await syncTerritoriesFromServer();
+    await Promise.all([
+        syncTerritoriesFromServer(),
+        loadLeaderboard(),
+    ]);
 });
 
 // -- API ----------------------------------------------------------------------
@@ -85,7 +90,6 @@ async function syncTerritoriesFromServer(showSuccessMessage = false) {
 
         const slots = allTerritorySlots();
         const rows = Array.isArray(payload.territories) ? payload.territories : [];
-
         rows.forEach((row, index) => {
             const slot = slots[index];
             if (!slot) {
@@ -101,6 +105,7 @@ async function syncTerritoriesFromServer(showSuccessMessage = false) {
             slot.defense = Math.max(1, Math.min(5, Number(row.defense_level || 1)));
             slot.coins = Number(row.luma_coins || 100);
             slot.rewardCoins = Number(row.owner_reward_coins || 25);
+            slot.league = String(row.league || 'Abismo');
             slot.color = ownerName ? ownerColor(ownerId, ownerName) : '#2a2a4b';
         });
 
@@ -118,6 +123,69 @@ async function syncTerritoriesFromServer(showSuccessMessage = false) {
     } catch (error) {
         flash(`Não foi possível carregar territórios: ${error.message}`, true);
     }
+}
+
+async function loadLeaderboard() {
+    try {
+        const payload = await apiRequest('/api/dashboard/territories/leaderboard');
+        currentLeaderboard = Array.isArray(payload.leaderboard) ? payload.leaderboard : [];
+        renderLeagueScale(Array.isArray(payload.leagues) ? payload.leagues : [], payload.me || null);
+        renderLeaderboard(currentLeaderboard, payload.me || null);
+    } catch (error) {
+        flash(`Não foi possível carregar o leaderboard: ${error.message}`, true);
+    }
+}
+
+function renderLeagueScale(leagues, me) {
+    const scale = document.getElementById('leagueScale');
+    const banner = document.getElementById('myLeagueBanner');
+    const meta = document.getElementById('myLeagueMeta');
+    if (!scale || !banner || !meta) {
+        return;
+    }
+
+    const myLeague = me?.league || 'Abismo';
+    const myScore = Number(me?.score || 0);
+    const myRank = me?.rank ? `#${me.rank}` : 'sem ranking';
+    banner.textContent = myLeague;
+    meta.textContent = `Score ${myScore.toLocaleString('pt-BR')} • ${myRank} • ${Number(me?.owned_count || 0)} territórios`;
+
+    scale.innerHTML = '';
+    leagues.forEach((league) => {
+        const item = document.createElement('div');
+        item.className = `league-pill${league.name === myLeague ? ' active' : ''}`;
+        item.innerHTML = `<span>${league.name}</span><strong>${Number(league.minimum_score || 0).toLocaleString('pt-BR')}+</strong>`;
+        scale.appendChild(item);
+    });
+}
+
+function renderLeaderboard(entries, me) {
+    const list = document.getElementById('leaderboardList');
+    if (!list) {
+        return;
+    }
+    list.innerHTML = '';
+
+    if (!entries.length) {
+        list.innerHTML = '<div class="leaderboard-entry">Ainda não há dominadores suficientes para formar uma ladder.</div>';
+        return;
+    }
+
+    entries.forEach((entry) => {
+        const item = document.createElement('div');
+        item.className = `leaderboard-entry${String(entry.user_id) === String(me?.user_id || '') ? ' me' : ''}`;
+        item.innerHTML = `
+            <div class="leaderboard-entry-head">
+                <span>#${entry.rank} ${entry.display_name}</span>
+                <span>${entry.league}</span>
+            </div>
+            <div class="leaderboard-entry-meta">
+                <span>${entry.owned_count} territórios • ${entry.total_defense} defesa</span>
+                <span>${Number(entry.score || 0).toLocaleString('pt-BR')} pts</span>
+            </div>
+        `;
+        list.appendChild(item);
+    });
 }
 
 // -- Map loading + slide transition -------------------------------------------
@@ -213,6 +281,11 @@ function setupNavigation() {
         });
         dotsEl.appendChild(dot);
     });
+
+    const refreshLeaderboardButton = document.getElementById('leaderboardRefresh');
+    if (refreshLeaderboardButton) {
+        refreshLeaderboardButton.addEventListener('click', () => loadLeaderboard());
+    }
 
     updateNavArrows(0);
 }
@@ -339,13 +412,14 @@ function openPanel(territory) {
     ownerEl.className = `val${territory.owner ? '' : ' no-owner'}`;
 
     const defense = Number(territory.defense || 1);
-    document.getElementById('panelDefense').textContent = `${'★'.repeat(defense)}${'☆'.repeat(5 - defense)} (${defense}/5)`;
-    document.getElementById('panelCoins').textContent = `🪙 ${Number(territory.coins || 0).toLocaleString('pt-BR')}`;
-
     const isOwner = territory.ownerId && Number(territory.ownerId) === Number(currentUserId);
     const isFree = !territory.ownerId;
+    const ownerLeaderboardEntry = currentLeaderboard.find((entry) => Number(entry.user_id) === Number(territory.ownerId));
 
+    document.getElementById('panelDefense').textContent = `${'★'.repeat(defense)}${'☆'.repeat(5 - defense)} (${defense}/5)`;
+    document.getElementById('panelCoins').textContent = `🪙 ${Number(territory.coins || 0).toLocaleString('pt-BR')}`;
     document.getElementById('panelStatus').textContent = isFree ? '🟢 Disponível' : (isOwner ? '🏰 Seu território' : '🔒 Ocupado');
+    document.getElementById('panelLeague').textContent = ownerLeaderboardEntry?.league || territory.league || 'Abismo';
     document.getElementById('panelOwnerAction').textContent = isOwner
         ? `Coleta: ${Number(territory.rewardCoins || 0)} coins`
         : 'Sem coleta';
@@ -353,10 +427,16 @@ function openPanel(territory) {
     const btnAttack = document.getElementById('btnAttack');
     const btnCapture = document.getElementById('btnCapture');
     const btnCollect = document.getElementById('btnCollect');
+    const btnDefend = document.getElementById('btnDefend');
+    const btnUpgrade = document.getElementById('btnUpgrade');
+    const upgradeBox = document.getElementById('upgradeTierBox');
 
     btnAttack.style.display = (!isFree && !isOwner) ? 'block' : 'none';
     btnCapture.style.display = isFree ? 'block' : 'none';
     btnCollect.style.display = isOwner ? 'block' : 'none';
+    btnDefend.style.display = isOwner ? 'block' : 'none';
+    btnUpgrade.style.display = isOwner ? 'block' : 'none';
+    upgradeBox.classList.remove('show');
 
     panel.classList.remove('show');
     void panel.offsetWidth;
@@ -367,16 +447,44 @@ function setupActionButtons() {
     document.getElementById('btnAttack').addEventListener('click', () => runTerritoryAction('attack'));
     document.getElementById('btnCapture').addEventListener('click', () => runTerritoryAction('claim'));
     document.getElementById('btnCollect').addEventListener('click', () => runTerritoryAction('collect'));
-    document.getElementById('btnRefresh').addEventListener('click', () => syncTerritoriesFromServer(true));
+    document.getElementById('btnDefend').addEventListener('click', () => runTerritoryAction('defend'));
+    document.getElementById('btnUpgrade').addEventListener('click', () => {
+        document.getElementById('upgradeTierBox').classList.toggle('show');
+    });
+    document.getElementById('btnRefresh').addEventListener('click', async () => {
+        await Promise.all([syncTerritoriesFromServer(true), loadLeaderboard()]);
+    });
+
+    document.querySelectorAll('[data-upgrade-tier]').forEach((button) => {
+        button.addEventListener('click', async () => {
+            const tier = Number(button.getAttribute('data-upgrade-tier') || 1);
+            await runTerritoryUpgrade(tier);
+        });
+    });
+}
+
+function setupEntryTransition() {
+    const button = document.getElementById('enterGameButton');
+    if (!button) {
+        return;
+    }
+    button.addEventListener('click', () => {
+        document.body.classList.add('game-entered');
+    });
 }
 
 function setButtonsBusy(busy) {
-    ['btnAttack', 'btnCapture', 'btnCollect', 'btnRefresh'].forEach((id) => {
+    ['btnAttack', 'btnCapture', 'btnCollect', 'btnDefend', 'btnUpgrade', 'btnRefresh'].forEach((id) => {
         const btn = document.getElementById(id);
         if (btn) {
             btn.disabled = busy;
             btn.style.opacity = busy ? '0.6' : '';
         }
+    });
+
+    document.querySelectorAll('[data-upgrade-tier]').forEach((button) => {
+        button.disabled = busy;
+        button.style.opacity = busy ? '0.6' : '';
     });
 }
 
@@ -415,13 +523,51 @@ async function runTerritoryAction(action) {
         }
 
         flash(payload.message || 'Ação executada com sucesso.');
-        await syncTerritoriesFromServer(false);
-
+        await Promise.all([syncTerritoriesFromServer(false), loadLeaderboard()]);
         if (selectedTerritory) {
             openPanel(selectedTerritory);
         }
     } catch (error) {
         flash(`Falha na ação: ${error.message}`, true);
+    } finally {
+        setButtonsBusy(false);
+    }
+}
+
+async function runTerritoryUpgrade(tier) {
+    if (!selectedTerritory || !selectedTerritory.dbId) {
+        flash('Selecione um território válido para o upgrade.', true);
+        return;
+    }
+
+    try {
+        setButtonsBusy(true);
+        const payload = await apiRequest('/api/dashboard/territories/upgrade', {
+            method: 'POST',
+            body: JSON.stringify({ territory_id: Number(selectedTerritory.dbId), tier: Number(tier) }),
+        });
+
+        if (payload.ok === false) {
+            flash(payload.message || 'Upgrade não permitido.', true);
+            return;
+        }
+
+        if (typeof payload.balance === 'number') {
+            currentBalance = payload.balance;
+            const wallet = document.getElementById('walletBalance');
+            if (wallet) {
+                wallet.textContent = currentBalance.toLocaleString('pt-BR');
+            }
+        }
+
+        document.getElementById('upgradeTierBox').classList.remove('show');
+        flash(payload.message || 'Upgrade aplicado com sucesso.');
+        await Promise.all([syncTerritoriesFromServer(false), loadLeaderboard()]);
+        if (selectedTerritory) {
+            openPanel(selectedTerritory);
+        }
+    } catch (error) {
+        flash(`Falha no upgrade: ${error.message}`, true);
     } finally {
         setButtonsBusy(false);
     }

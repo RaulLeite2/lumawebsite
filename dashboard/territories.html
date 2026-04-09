@@ -9,6 +9,15 @@
 </head>
 <body>
 
+<div class="entry-overlay" id="entryOverlay">
+    <div class="entry-card">
+        <span class="entry-kicker">Luma Territories</span>
+        <h1>Entre no front de guerra</h1>
+        <p>Conquiste, fortaleça, suba de liga e dispute o topo entre Abismo, Tempestade, Eclipse e Celestial.</p>
+        <button class="entry-button" id="enterGameButton">Entrar no Jogo</button>
+    </div>
+</div>
+
 <a class="back-link" href="/dashboard/overview">&#8592; Voltar ao Dashboard</a>
 
 <!-- HUD -->
@@ -42,6 +51,19 @@
 
 <!-- Map viewport with navigation -->
 <div class="map-viewport">
+    <aside class="leaderboard-panel" id="leaderboardPanel">
+        <div class="leaderboard-header">
+            <div>
+                <span class="leaderboard-kicker">Ligas</span>
+                <h2>Territory Ladder</h2>
+            </div>
+            <button class="leaderboard-refresh" id="leaderboardRefresh" type="button">↻</button>
+        </div>
+        <div class="league-banner" id="myLeagueBanner">Abismo</div>
+        <div class="league-meta" id="myLeagueMeta">Sem territórios conquistados ainda.</div>
+        <div class="league-scale" id="leagueScale"></div>
+        <div class="leaderboard-list" id="leaderboardList"></div>
+    </aside>
 
     <!-- Nav arrows -->
     <div class="map-nav left disabled" id="navLeft">&#8592;</div>
@@ -66,10 +88,18 @@
         <div class="panel-row"><span class="lbl">Defesa</span><span class="val" id="panelDefense">—</span></div>
         <div class="panel-row"><span class="lbl">Luma Coins</span><span class="val" id="panelCoins">—</span></div>
         <div class="panel-row"><span class="lbl">Status</span><span class="val" id="panelStatus">—</span></div>
+        <div class="panel-row"><span class="lbl">Liga</span><span class="val" id="panelLeague">—</span></div>
         <div class="panel-row"><span class="lbl">Ação do dono</span><span class="val" id="panelOwnerAction">—</span></div>
         <button class="btn btn-attack"  id="btnAttack">&#9876; Atacar Território</button>
         <button class="btn btn-capture" id="btnCapture">&#127988; Capturar</button>
         <button class="btn btn-collect" id="btnCollect">💰 Coletar Recompensa</button>
+        <button class="btn btn-defend" id="btnDefend">🛡️ Defender Território</button>
+        <button class="btn btn-upgrade" id="btnUpgrade">⚙️ Upgrade de Defesa</button>
+        <div class="upgrade-tier-box" id="upgradeTierBox">
+            <button class="tier-btn" data-upgrade-tier="1" type="button">+1 por 200</button>
+            <button class="tier-btn" data-upgrade-tier="2" type="button">+3 por 500</button>
+            <button class="tier-btn" data-upgrade-tier="3" type="button">+5 por 1000</button>
+        </div>
         <button class="btn btn-refresh" id="btnRefresh">↻ Atualizar Mapa</button>
     </div>
 </div>
