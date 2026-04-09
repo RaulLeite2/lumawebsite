@@ -179,39 +179,39 @@ body.game-entered .entry-overlay {
 }
 
 .creator-block {
-    margin-bottom: 14px;
-    padding: 10px;
-    border-radius: 14px;
-    border: 1px solid rgba(220, 171, 116, 0.26);
+    margin-bottom: 10px;
+    padding: 7px 8px;
+    border-radius: 10px;
+    border: 1px solid rgba(220, 171, 116, 0.22);
     background: rgba(20, 7, 9, 0.45);
 }
 
 .creator-label {
     display: block;
-    font-size: 10px;
+    font-size: 9px;
     text-transform: uppercase;
     letter-spacing: 0.09em;
     color: #efcd98;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
 }
 
 .creator-input,
 .creator-select {
     width: 100%;
-    border-radius: 10px;
-    border: 1px solid rgba(206, 157, 97, 0.28);
+    border-radius: 7px;
+    border: 1px solid rgba(206, 157, 97, 0.25);
     background: rgba(8, 6, 12, 0.72);
     color: var(--text);
     font: inherit;
-    font-size: 13px;
-    padding: 8px 9px;
-    margin-bottom: 8px;
+    font-size: 11px;
+    padding: 4px 7px;
+    margin-bottom: 5px;
 }
 
 .creator-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 8px;
+    gap: 6px;
 }
 
 .world-overlay {
