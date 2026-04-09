@@ -1069,22 +1069,54 @@ function drawInspectScene(territory, units) {
     ctx.fill();
 
     const presence = Number(territoryPresence[territory.dbId || territory.id] || 0);
-    const maxDraw = Math.min(18, 4 + Math.floor(presence * 0.5));
-    const unitPool = [];
+    const maxDraw = Math.min(22, 6 + Math.floor(presence * 0.55));
+    const perTypeCap = { knight: 8, archer: 8, guard: 10, mage: 6 };
+    const drawList = [];
     units.forEach((unit) => {
-        const count = Math.min(unit.amount, 8);
+        const count = Math.min(unit.amount, perTypeCap[unit.key] || 6);
         for (let i = 0; i < count; i += 1) {
-            unitPool.push(unit);
+            drawList.push(unit);
         }
     });
 
-    for (let index = 0; index < maxDraw && unitPool.length; index += 1) {
-        const unit = unitPool[index % unitPool.length];
-        const col = index % 6;
-        const row = Math.floor(index / 6);
-        const pos = iso(0.35 + col * 0.055 + random() * 0.01, 0.79 + row * 0.045 + random() * 0.01);
-        drawInspectUnit(ctx, unit, pos.x, pos.y + 8, 0.78);
+    const patrolZones = {
+        north: { uMin: 0.4, uMax: 0.6, vMin: 0.2, vMax: 0.33 },
+        west: { uMin: 0.16, uMax: 0.34, vMin: 0.36, vMax: 0.56 },
+        east: { uMin: 0.66, uMax: 0.84, vMin: 0.36, vMax: 0.56 },
+        center: { uMin: 0.44, uMax: 0.58, vMin: 0.42, vMax: 0.58 },
+        farm: { uMin: 0.34, uMax: 0.68, vMin: 0.72, vMax: 0.9 },
+    };
+
+    const zoneByType = {
+        guard: ['west', 'east', 'north', 'center'],
+        knight: ['center', 'north', 'west', 'east'],
+        archer: ['north', 'west', 'east', 'center'],
+        mage: ['center', 'farm', 'north'],
+    };
+
+    const placedPerZone = { north: 0, west: 0, east: 0, center: 0, farm: 0 };
+
+    for (let index = 0; index < maxDraw && drawList.length; index += 1) {
+        const unit = drawList[index % drawList.length];
+        const preferences = zoneByType[unit.key] || ['center', 'farm'];
+        const zoneName = preferences[index % preferences.length];
+        const zone = patrolZones[zoneName];
+        placedPerZone[zoneName] += 1;
+
+        const spread = Math.min(0.06, placedPerZone[zoneName] * 0.004);
+        const u = zone.uMin + (zone.uMax - zone.uMin) * random() + spread * (random() - 0.5);
+        const v = zone.vMin + (zone.vMax - zone.vMin) * random() + spread * (random() - 0.5);
+        const pos = iso(u, v);
+        const scale = zoneName === 'north' ? 0.72 : (zoneName === 'farm' ? 0.82 : 0.78);
+        drawInspectUnit(ctx, unit, pos.x, pos.y + 8, scale);
     }
+
+    const beaconPoints = [iso(0.22, 0.42), iso(0.78, 0.42), iso(0.5, 0.25), iso(0.5, 0.83)];
+    beaconPoints.forEach((point, index) => {
+        ctx.fillStyle = index === 3 ? '#d48c3e' : '#b2867e';
+        drawRoundedRect(ctx, point.x - 4, point.y - 4, 8, 8, 2);
+        ctx.fill();
+    });
 
     ctx.restore();
 
