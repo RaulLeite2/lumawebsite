@@ -710,9 +710,6 @@ function startHubPreviewLoop() {
         ctx.fillStyle = 'rgba(22, 28, 49, 0.45)';
         ctx.fillRect(0, horizon, width, height - horizon);
 
-        const bob = Math.sin(tick / 16) * 2;
-        drawPlayerPixel(ctx, width * 0.54, horizon - 4 + bob, 1.4, selectedCharacter);
-
         const bannerColor = BANNER_COLORS[playerConfig.banner] || BANNER_COLORS.gold;
         ctx.fillStyle = '#2f3658';
         ctx.fillRect(width * 0.64, horizon - 54, 5, 54);
@@ -890,8 +887,6 @@ function startWorldMode() {
 
         player.x = Math.max(20, Math.min(canvas.width - 20, player.x));
         player.y = Math.max(60, Math.min(canvas.height - 20, player.y));
-
-        drawPlayerPixel(ctx, player.x, player.y, 1.8, selectedCharacter);
 
         const bannerColor = BANNER_COLORS[playerConfig.banner] || BANNER_COLORS.gold;
         ctx.fillStyle = 'rgba(10, 12, 24, 0.65)';
