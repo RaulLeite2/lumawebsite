@@ -349,10 +349,12 @@ const STATIC_TRANSLATIONS = {
     "Title": { pt: "Titulo", en: "Title", es: "Titulo" },
     "Description": { pt: "Descricao", en: "Description", es: "Descripcion" },
     "Preview Welcome Embed": { pt: "Preview da Embed de Boas-vindas", en: "Preview Welcome Embed", es: "Preview de Embed de Bienvenida" },
+    "Send Welcome Test": { pt: "Enviar Teste de Boas-vindas", en: "Send Welcome Test", es: "Enviar Prueba de Bienvenida" },
     "Leave Embed": { pt: "Embed de Saida", en: "Leave Embed", es: "Embed de Salida" },
     "Enable leave embed": { pt: "Ativar embed de saida", en: "Enable leave embed", es: "Activar embed de salida" },
     "Leave channel": { pt: "Canal de saida", en: "Leave channel", es: "Canal de salida" },
     "Preview Leave Embed": { pt: "Preview da Embed de Saida", en: "Preview Leave Embed", es: "Preview de Embed de Salida" },
+    "Send Leave Test": { pt: "Enviar Teste de Saida", en: "Send Leave Test", es: "Enviar Prueba de Salida" },
     "Variaveis disponiveis:": { pt: "Variaveis disponiveis:", en: "Available variables:", es: "Variables disponibles:" },
     "Available variables sentence": {
         pt: "Variaveis disponiveis: <strong>{member}</strong> e <strong>{guild}</strong>.",
@@ -435,6 +437,9 @@ const STATIC_TRANSLATIONS = {
     "Choose welcome channel": { pt: "Escolha um canal de boas-vindas", en: "Choose welcome channel", es: "Elige un canal de bienvenida" },
     "Choose leave channel": { pt: "Escolha um canal de saida", en: "Choose leave channel", es: "Elige un canal de salida" },
     "Choose auto role": { pt: "Escolha o cargo automatico", en: "Choose auto role", es: "Elige el rol automatico" },
+    "Welcome test sent": { pt: "Teste de boas-vindas enviado", en: "Welcome test sent", es: "Prueba de bienvenida enviada" },
+    "Leave test sent": { pt: "Teste de saida enviado", en: "Leave test sent", es: "Prueba de salida enviada" },
+    "Failed to send Entry / Exit test": { pt: "Falha ao enviar teste de Entrada / Saida", en: "Failed to send Entry / Exit test", es: "Error al enviar prueba de Entrada / Salida" },
     "Module controls for this guild.": { pt: "Controles do modulo para esta guild.", en: "Module controls for this guild.", es: "Controles del modulo para este servidor." },
     "Language": { pt: "Idioma", en: "Language", es: "Idioma" },
     "AutoMod invite filter": { pt: "Filtro de convite do AutoMod", en: "AutoMod invite filter", es: "Filtro de invitacion de AutoMod" },
@@ -2585,6 +2590,28 @@ function bindEntryExitPreviewButtons() {
     if (leaveBtn) {
         leaveBtn.addEventListener("click", () => renderEntryExitPreview("leave"));
     }
+
+    const bindTestButton = (buttonId, kind) => {
+        const button = document.getElementById(buttonId);
+        if (!button) return;
+        button.addEventListener("click", async () => {
+            try {
+                await api("/api/dashboard/entry-exit/test", {
+                    method: "POST",
+                    body: JSON.stringify({
+                        kind,
+                        settings: buildEntryExitPayloadFromForm(),
+                    }),
+                });
+                flash(kind === "welcome" ? "Welcome test sent" : "Leave test sent", "success");
+            } catch (error) {
+                flash(error instanceof Error && error.message ? error.message : "Failed to send Entry / Exit test", "error");
+            }
+        });
+    };
+
+    bindTestButton("send-welcome-test", "welcome");
+    bindTestButton("send-leave-test", "leave");
 }
 
 async function loadConfigLogs() {

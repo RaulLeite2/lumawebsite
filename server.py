@@ -358,6 +358,11 @@ class EntryExitEmbedSettings(BaseModel):
     leave_color: str = "#ef476f"
 
 
+class EntryExitTestPayload(BaseModel):
+    kind: str = Field(pattern="^(welcome|leave)$")
+    settings: EntryExitEmbedSettings
+
+
 class VoiceDropsSettings(BaseModel):
     enabled: bool = False
     announce_channel: str = ""
@@ -2826,6 +2831,89 @@ def _discord_request(url: str, *, method: str, headers: dict[str, str], data: di
     with urllib.request.urlopen(req, timeout=20) as response:
         payload = response.read().decode("utf-8")
         return json.loads(payload)
+
+
+def _discord_json_request(url: str, *, method: str, headers: dict[str, str], json_body: dict[str, Any] | None = None) -> dict[str, Any]:
+    encoded_data = None
+    if json_body is not None:
+        encoded_data = json.dumps(json_body).encode("utf-8")
+
+    merged_headers = {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "User-Agent": HTTP_USER_AGENT,
+        **headers,
+    }
+    req = urllib.request.Request(url, data=encoded_data, headers=merged_headers, method=method)
+    with urllib.request.urlopen(req, timeout=20) as response:
+        payload = response.read().decode("utf-8")
+        return json.loads(payload) if payload else {}
+
+
+def _render_entry_exit_template(template: str, *, guild_name: str) -> str:
+    return (
+        str(template or "")
+        .replace("{member}", "@PreviewMember")
+        .replace("{guild}", guild_name)
+        .replace("{user}", "PreviewMember")
+        .replace("{username}", "PreviewMember")
+    )
+
+
+def _normalize_embed_hex(raw_color: str, fallback: int) -> int:
+    normalized = str(raw_color or "").strip().lstrip("#")
+    if len(normalized) == 3:
+        normalized = "".join(ch * 2 for ch in normalized)
+    if len(normalized) == 6:
+        try:
+            return int(normalized, 16)
+        except ValueError:
+            return fallback
+    return fallback
+
+
+async def _send_entry_exit_test_message(guild_id: str, guild_name: str, *, kind: str, settings: EntryExitEmbedSettings) -> None:
+    token = os.getenv("DISCORD_BOT_TOKEN", "").strip()
+    if not token:
+        raise HTTPException(status_code=503, detail="DISCORD_BOT_TOKEN is not configured")
+
+    if kind == "welcome":
+        channel_id = _extract_discord_id(settings.welcome_channel)
+        title = _render_entry_exit_template(settings.welcome_title, guild_name=guild_name)[:256]
+        description = _render_entry_exit_template(settings.welcome_description, guild_name=guild_name)[:4096]
+        color = _normalize_embed_hex(settings.welcome_color, 0x57CC99)
+        label = "Welcome"
+    else:
+        channel_id = _extract_discord_id(settings.leave_channel)
+        title = _render_entry_exit_template(settings.leave_title, guild_name=guild_name)[:256]
+        description = _render_entry_exit_template(settings.leave_description, guild_name=guild_name)[:4096]
+        color = _normalize_embed_hex(settings.leave_color, 0xEF476F)
+        label = "Leave"
+
+    if channel_id is None:
+        raise HTTPException(status_code=400, detail="Select a valid channel first")
+
+    auth_header = {"Authorization": f"Bot {token}"}
+    embed_payload = {
+        "title": title or f"{label} Preview",
+        "description": description or f"{label} preview for {guild_name}",
+        "color": color,
+        "footer": {"text": "Dashboard test message"},
+    }
+
+    try:
+        await asyncio.to_thread(
+            _discord_json_request,
+            f"{DISCORD_API_BASE}/channels/{channel_id}/messages",
+            method="POST",
+            headers=auth_header,
+            json_body={"embeds": [embed_payload]},
+        )
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise HTTPException(status_code=400, detail=f"Discord rejected the test message: {detail[:300]}") from exc
+    except urllib.error.URLError as exc:
+        raise HTTPException(status_code=502, detail="Discord is unavailable for test messages") from exc
 
 
 async def _fetch_discord_token(code: str, config: dict[str, str]) -> dict[str, Any]:
@@ -6160,6 +6248,17 @@ async def update_entry_exit_settings(payload: EntryExitEmbedSettings, request: R
         "state": _state_with_metrics(state),
         "applied_changes": changes,
     }
+
+
+@app.post("/api/dashboard/entry-exit/test")
+async def test_entry_exit_settings(payload: EntryExitTestPayload, request: Request) -> dict[str, Any]:
+    _require_auth(request)
+    active_guild = await _require_dashboard_role(request, "admin")
+    guild_id = str(active_guild.get("id"))
+    guild_name = str(active_guild.get("name", f"Guild {guild_id}"))
+
+    await _send_entry_exit_test_message(guild_id, guild_name, kind=payload.kind, settings=payload.settings)
+    return {"ok": True, "kind": payload.kind, "guild_id": guild_id}
 
 
 @app.put("/api/dashboard/cogs")
