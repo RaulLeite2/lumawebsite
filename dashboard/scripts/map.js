@@ -611,9 +611,11 @@ class MapRenderer {
     _drawTerritories() {
         const c = this.ctx;
         const w = this.canvas.width;
-        const r_base = w * 0.029;
+        const r_base = w * 0.021;
+        const cityKeys = new Set(this._cityList().map(ct => `${ct.gx},${ct.gy}`));
 
         this.mapDef.territories.forEach(t => {
+            if (cityKeys.has(`${t.gx},${t.gy}`)) return;
             const [sx, sy] = this._screenTerritoryCenter(t);
             const r = r_base * t.r;
             const active = this._hovered === t.id || this._selected === t.id;
@@ -883,8 +885,10 @@ class MapRenderer {
     // ── Hit test ──
     hitTerritory(mx, my) {
         const w = this.canvas.width;
-        const r_base = w * 0.029;
+        const r_base = w * 0.021;
+        const cityKeys = new Set(this._cityList().map(ct => `${ct.gx},${ct.gy}`));
         for (const t of this.mapDef.territories) {
+            if (cityKeys.has(`${t.gx},${t.gy}`)) continue;
             const [sx, sy] = this._screenTerritoryCenter(t);
             const r = r_base * t.r * 1.2;
             const dx = mx - sx, dy = my - sy;
