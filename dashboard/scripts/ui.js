@@ -230,6 +230,10 @@ function stylizeGuildName(ownerName) {
 }
 
 function getMapDefByTerritory(territory) {
+    const byReference = MAPS.find((mapDef) => Array.isArray(mapDef?.territories) && mapDef.territories.includes(territory));
+    if (byReference) {
+        return byReference;
+    }
     return MAPS.find((mapDef) => mapDef.territories.some((slot) => Number(slot.id) === Number(territory?.id)));
 }
 
@@ -1398,7 +1402,10 @@ async function runTerritoryAction(action) {
         setButtonsBusy(true);
         const payload = await apiRequest(`/api/dashboard/territories/${action}`, {
             method: 'POST',
-            body: JSON.stringify({ territory_id: Number(selectedTerritory.dbId) }),
+            body: JSON.stringify({
+                territory_id: Number(selectedTerritory.dbId),
+                map_id: Number((getMapDefByTerritory(selectedTerritory) || MAPS[currentMapIndex])?.id || 0),
+            }),
         });
 
         if (payload.ok === false && payload.cooldown) {

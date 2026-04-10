@@ -499,6 +499,7 @@ class EconomyUsePayload(BaseModel):
 
 class TerritoryActionPayload(BaseModel):
     territory_id: int = Field(ge=1)
+    map_id: int | None = Field(default=None, ge=0)
 
 
 class TerritoryUpgradePayload(BaseModel):
@@ -1262,6 +1263,7 @@ async def _ensure_dashboard_tables(pool: Any) -> None:
                     id SERIAL PRIMARY KEY,
                     name VARCHAR(255) NOT NULL,
                     owner_id BIGINT,
+                    map_id INT NOT NULL DEFAULT 0,
                     called_at TIMESTAMP,
                     attack_time TIMESTAMP,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -1365,6 +1367,7 @@ async def _ensure_dashboard_tables(pool: Any) -> None:
             await connection.execute("ALTER TABLE territories ADD COLUMN IF NOT EXISTS owner_reward_coins INT NOT NULL DEFAULT 25")
             await connection.execute("ALTER TABLE territories ADD COLUMN IF NOT EXISTS luma_coins INT NOT NULL DEFAULT 100")
             await connection.execute("ALTER TABLE territories ADD COLUMN IF NOT EXISTS defense_level INT NOT NULL DEFAULT 1")
+            await connection.execute("ALTER TABLE territories ADD COLUMN IF NOT EXISTS map_id INT NOT NULL DEFAULT 0")
             await connection.execute("ALTER TABLE territories ADD COLUMN IF NOT EXISTS owner_faction VARCHAR(80)")
             await connection.execute("ALTER TABLE territories ADD COLUMN IF NOT EXISTS faction_attack_active BOOLEAN NOT NULL DEFAULT FALSE")
             await connection.execute("ALTER TABLE territories ADD COLUMN IF NOT EXISTS faction_name VARCHAR(80)")
@@ -4385,6 +4388,7 @@ async def dashboard_territories_list(request: Request) -> dict[str, Any]:
                     id,
                     name,
                     owner_id,
+                    map_id,
                     owner_faction,
                     called_at,
                     attack_time,
@@ -4495,7 +4499,7 @@ async def dashboard_territories_list(request: Request) -> dict[str, Any]:
                     if row.get("owner_id") is not None
                     else (f"⚔ {str(row.get('owner_faction') or '')}" if row.get("owner_faction") else None)
                 ),
-                "map_id": _territory_map_id_from_db_id(int(row["id"])),
+                "map_id": int(row.get("map_id") or 0),
                 "owner_faction": str(row.get("owner_faction") or "") or None,
                 "owner_faction_flag": (
                     TERRITORY_FACTION_BY_NAME.get(str(row.get("owner_faction") or ""), {}).get("flag")
@@ -4585,7 +4589,7 @@ async def dashboard_territories_season_claim(payload: TerritorySeasonClaimPayloa
 
             holdings = await connection.fetch(
                 """
-                SELECT id, defense_level
+                SELECT id, map_id, defense_level
                 FROM territories
                 WHERE owner_id = $1
                 """,
@@ -4595,7 +4599,7 @@ async def dashboard_territories_season_claim(payload: TerritorySeasonClaimPayloa
             holdings_in_map = [
                 item
                 for item in holdings
-                if _territory_map_id_from_db_id(int(item.get("id") or 0)) == map_id
+                if int(item.get("map_id") or 0) == map_id
             ]
             owned_count = len(holdings_in_map)
             defense_sum = sum(int(item.get("defense_level") or 1) for item in holdings_in_map)
@@ -5214,7 +5218,7 @@ async def dashboard_territories_claim(payload: TerritoryActionPayload, request: 
         async with connection.transaction():
             territory = await connection.fetchrow(
                 """
-                SELECT id, name, owner_id, owner_faction
+                SELECT id, name, owner_id, owner_faction, map_id
                 FROM territories
                 WHERE id = $1
                 FOR UPDATE
@@ -5226,7 +5230,11 @@ async def dashboard_territories_claim(payload: TerritoryActionPayload, request: 
             if territory.get("owner_id") == user_id:
                 return {"ok": False, "message": "Você já é dono desse território."}
 
-            map_id = _territory_map_id_from_db_id(int(territory.get("id") or 0))
+            map_id = (
+                int(payload.map_id)
+                if payload.map_id is not None
+                else int(territory.get("map_id") or 0)
+            )
             if not _territory_is_prime_window(map_id, datetime.utcnow()):
                 return {"ok": False, "message": "Captura liberada apenas durante o prime time do mapa."}
 
@@ -5266,15 +5274,17 @@ async def dashboard_territories_claim(payload: TerritoryActionPayload, request: 
                 UPDATE territories
                 SET
                     owner_id = $1,
+                    map_id = $2,
                     owner_faction = NULL,
                     called_at = CURRENT_TIMESTAMP,
                     faction_attack_active = FALSE,
                     faction_name = NULL,
                     faction_attack_started_at = NULL,
                     faction_attack_ends_at = NULL
-                WHERE id = $2
+                WHERE id = $3
                 """,
                 user_id,
+                map_id,
                 payload.territory_id,
             )
             await connection.execute(
@@ -5312,7 +5322,7 @@ async def dashboard_territories_attack(payload: TerritoryActionPayload, request:
         async with connection.transaction():
             territory = await connection.fetchrow(
                 """
-                SELECT id, name, owner_id, owner_faction, defense_level, luma_coins, attack_time
+                SELECT id, name, owner_id, owner_faction, map_id, defense_level, luma_coins, attack_time
                 FROM territories
                 WHERE id = $1
                 FOR UPDATE
@@ -5323,6 +5333,14 @@ async def dashboard_territories_attack(payload: TerritoryActionPayload, request:
                 raise HTTPException(status_code=404, detail="Territory not found")
             if territory.get("owner_id") == user_id:
                 return {"ok": False, "message": "Você não pode atacar seu próprio território."}
+
+            map_id = (
+                int(payload.map_id)
+                if payload.map_id is not None
+                else int(territory.get("map_id") or 0)
+            )
+            if not _territory_is_prime_window(map_id, datetime.utcnow()):
+                return {"ok": False, "message": "Ataque liberado apenas durante o prime time do mapa."}
 
             last_attack = territory.get("attack_time")
             if last_attack is not None:
@@ -5412,6 +5430,7 @@ async def dashboard_territories_attack(payload: TerritoryActionPayload, request:
                 """
                 UPDATE territories
                 SET owner_id = $1,
+                    map_id = $2,
                     owner_faction = NULL,
                     called_at = CURRENT_TIMESTAMP,
                     attack_time = CURRENT_TIMESTAMP,
@@ -5420,9 +5439,10 @@ async def dashboard_territories_attack(payload: TerritoryActionPayload, request:
                     faction_name = NULL,
                     faction_attack_started_at = NULL,
                     faction_attack_ends_at = NULL
-                WHERE id = $2
+                WHERE id = $3
                 """,
                 user_id,
+                map_id,
                 payload.territory_id,
             )
             await connection.execute(
