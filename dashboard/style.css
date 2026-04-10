@@ -688,9 +688,27 @@ canvas { display: block; cursor: default; }
 .btn-collect { background: linear-gradient(135deg, #f4c430, #ca9510); }
 .btn-defend { background: linear-gradient(135deg, #47d7ac, #218f73); }
 .btn-upgrade { background: linear-gradient(135deg, #f08bff, #8e4dff); }
+.btn-faction { background: linear-gradient(135deg, #ffb86b, #e47a32); color: #1f1306; }
+.btn-faction-map { background: linear-gradient(135deg, #90d3ff, #4a7dff); }
 .btn-inspect { background: linear-gradient(135deg, #8cc7ff, #487dff); }
 .btn-refresh { background: linear-gradient(135deg, #4ea0ff, #2f6bd8); }
 .btn-sell { background: linear-gradient(135deg, #ffcf66, #ff9f43); color: #1b1307; }
+
+.faction-row {
+    display: block;
+}
+
+.faction-input {
+    width: 100%;
+    margin-top: 6px;
+    border: 1px solid rgba(146, 165, 255, 0.28);
+    background: rgba(11, 15, 34, 0.72);
+    border-radius: 10px;
+    color: var(--text);
+    padding: 8px 10px;
+    font: inherit;
+    font-size: 12px;
+}
 
 .upgrade-tier-box {
     display: none;
@@ -778,6 +796,10 @@ canvas { display: block; cursor: default; }
         radial-gradient(circle at top left, rgba(142, 77, 255, 0.14), transparent 35%),
         linear-gradient(180deg, rgba(12, 12, 30, 0.98), rgba(8, 8, 24, 0.98));
     box-shadow: 0 30px 90px rgba(0, 0, 0, 0.5);
+}
+
+.faction-shell {
+    width: min(1080px, calc(100vw - 24px));
 }
 
 .inspect-header {
@@ -884,7 +906,70 @@ canvas { display: block; cursor: default; }
     font-size: 12px;
 }
 
+.faction-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: 16px;
+}
+
+.faction-grid {
+    display: grid;
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    gap: 8px;
+    padding: 14px;
+    border-radius: 16px;
+    border: 1px solid rgba(76, 97, 190, 0.45);
+    background: rgba(10, 12, 28, 0.78);
+}
+
+.faction-grid-item {
+    min-height: 42px;
+    border-radius: 10px;
+    border: 1px solid rgba(130, 150, 255, 0.22);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 700;
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.faction-grid-item.is-under-attack {
+    border-color: rgba(255, 112, 134, 0.75);
+    box-shadow: 0 0 0 1px rgba(255, 112, 134, 0.4), 0 0 14px rgba(255, 66, 98, 0.3);
+}
+
+.faction-list {
+    display: grid;
+    gap: 10px;
+    align-content: start;
+}
+
+.faction-card {
+    border-radius: 14px;
+    border: 1px solid rgba(84, 98, 184, 0.45);
+    background: rgba(14, 17, 37, 0.86);
+    padding: 11px 12px;
+}
+
+.faction-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+    font-weight: 700;
+}
+
+.faction-card-meta {
+    color: var(--soft);
+    font-size: 12px;
+}
+
 @media (max-width: 860px) {
+    .faction-layout {
+        grid-template-columns: 1fr;
+    }
+
     .hud {
         flex-wrap: wrap;
         gap: 6px;
@@ -913,6 +998,14 @@ canvas { display: block; cursor: default; }
 
     .inspect-layout {
         grid-template-columns: 1fr;
+    }
+
+    .faction-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .faction-grid {
+        grid-template-columns: repeat(6, minmax(0, 1fr));
     }
 
     .territory-inspect-modal {

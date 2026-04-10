@@ -17,6 +17,8 @@ let selectedCity = null;
 let gatheredInventory = [];
 let leaderboardVisible = false;
 let seasonPoints = 0;
+let factionProfiles = [];
+let territoryRowsCache = [];
 const seenFactionAlerts = new Set();
 
 const TERRITORY_GLYPHS = ['✦', '◈', '✶', '⬡', '✹', '✷', '◉'];
@@ -102,6 +104,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupActionButtons();
     setupImpactFeedback();
     setupInspectModal();
+    setupFactionCapitalModal();
     startPlayerSimulation();
     startTerritoryHudTick();
 
@@ -163,6 +166,43 @@ function territoryGlyph(territory) {
 function territoryDisplayName(territory) {
     const baseName = territory?.displayName || territory?.name || 'Território';
     return `${territoryGlyph(territory)} ${baseName}`;
+}
+
+function factionProfileByName(name) {
+    const normalized = String(name || '').trim();
+    return factionProfiles.find((profile) => String(profile?.name || '').trim() === normalized) || null;
+}
+
+function factionFlag(name) {
+    return factionProfileByName(name)?.flag || '⚑';
+}
+
+function populateFactionSelector() {
+    const select = document.getElementById('factionSelect');
+    if (!select) {
+        return;
+    }
+    const current = String(select.value || '').trim();
+    const options = factionProfiles.length
+        ? factionProfiles
+        : [
+            { name: 'Legiao Rubra', flag: '🟥' },
+            { name: 'Ordem do Eclipse', flag: '🌘' },
+            { name: 'Coroa de Cinzas', flag: '👑' },
+            { name: 'Pacto do Abismo', flag: '🕳️' },
+        ];
+
+    select.innerHTML = '';
+    options.forEach((profile) => {
+        const option = document.createElement('option');
+        option.value = String(profile.name || 'Facção');
+        option.textContent = `${String(profile.flag || '⚑')} ${String(profile.name || 'Facção')}`;
+        select.appendChild(option);
+    });
+
+    if (current && options.some((profile) => String(profile.name) === current)) {
+        select.value = current;
+    }
 }
 
 function stylizeGuildName(ownerName) {
@@ -410,6 +450,15 @@ async function claimSeasonPoints() {
 
 function applyWorldConfig(world) {
     const maps = Array.isArray(world?.maps) ? world.maps : [];
+    factionProfiles = Array.isArray(world?.factions)
+        ? world.factions.map((profile) => ({
+            name: String(profile?.name || 'Facção'),
+            flag: String(profile?.flag || '⚑'),
+            bannerPrompt: String(profile?.banner_prompt || ''),
+        }))
+        : [];
+    populateFactionSelector();
+
     if (!maps.length) {
         return;
     }
@@ -597,6 +646,29 @@ function allTerritorySlots() {
     return slots;
 }
 
+function updateAtlasFactionIntel(rows) {
+    const atlasMap = MAPS.find((mapDef) => Boolean(mapDef?.isAtlas));
+    if (!atlasMap || !Array.isArray(atlasMap.atlasNodes)) {
+        return;
+    }
+
+    const byTerritoryId = new Map((rows || []).map((row) => [Number(row?.id || 0), row]));
+    atlasMap.atlasNodes.forEach((node) => {
+        const territoryRow = byTerritoryId.get(Number(node?.targetIndex || 0));
+        if (!territoryRow) {
+            node.factionFlag = null;
+            node.factionName = null;
+            node.underAttack = false;
+            return;
+        }
+
+        const factionName = String(territoryRow.faction_name || territoryRow.owner_faction || '').trim();
+        node.factionName = factionName || null;
+        node.factionFlag = factionName ? factionFlag(factionName) : null;
+        node.underAttack = Boolean(territoryRow.faction_attack_active);
+    });
+}
+
 async function syncTerritoriesFromServer(showSuccessMessage = false) {
     try {
         const payload = await apiRequest('/api/dashboard/territories/list');
@@ -615,6 +687,7 @@ async function syncTerritoriesFromServer(showSuccessMessage = false) {
 
         const slots = allTerritorySlots();
         const rows = Array.isArray(payload.territories) ? payload.territories : [];
+        territoryRowsCache = rows;
         rows.forEach((row, index) => {
             const slot = slots[index];
             if (!slot) {
@@ -634,8 +707,10 @@ async function syncTerritoriesFromServer(showSuccessMessage = false) {
             slot.rewardCoins = Number(row.owner_reward_coins || 25);
             slot.league = String(row.league || 'Abismo');
             slot.factionOwner = row.owner_faction ? String(row.owner_faction) : null;
+            slot.factionOwnerFlag = row.owner_faction_flag ? String(row.owner_faction_flag) : (slot.factionOwner ? factionFlag(slot.factionOwner) : null);
             slot.factionAttackActive = Boolean(row.faction_attack_active);
             slot.factionName = row.faction_name ? String(row.faction_name) : null;
+            slot.factionFlag = row.faction_flag ? String(row.faction_flag) : (slot.factionName ? factionFlag(slot.factionName) : null);
             slot.factionAttackRemaining = Number(row.faction_attack_remaining_seconds || 0);
             slot.attackCooldownRemaining = Number(row.attack_cooldown_remaining_seconds || 0);
             slot.attackCooldownTotal = Number(row.attack_cooldown_total_seconds || 900);
@@ -649,6 +724,8 @@ async function syncTerritoriesFromServer(showSuccessMessage = false) {
                 territoryPresence[slot.dbId || slot.id] = Math.max(1, base);
             }
         });
+
+        updateAtlasFactionIntel(rows);
 
         if (renderer) {
             renderer.draw();
@@ -972,6 +1049,10 @@ function setupEvents(canvas) {
                 selectedCity = null;
                 openLeaderboardPanel();
                 flash('Liga aberta: confira o ranking da guerra.');
+            } else if (city.kind === 'factions') {
+                selectedCity = city;
+                openFactionMapModal();
+                flash('Cidade central aberta: panorama das facções.');
             } else {
                 selectedCity = city;
                 await sellInventoryAtCity(city);
@@ -1185,10 +1266,24 @@ function setupActionButtons() {
             await runTerritoryUpgrade(tier);
         });
     });
+
+    const factionButton = document.getElementById('btnSetFactionAttack');
+    if (factionButton) {
+        factionButton.addEventListener('click', async () => {
+            await setFactionAttackOnSelectedTerritory();
+        });
+    }
+
+    const factionMapButton = document.getElementById('btnOpenFactionMap');
+    if (factionMapButton) {
+        factionMapButton.addEventListener('click', () => {
+            openFactionMapModal();
+        });
+    }
 }
 
 function setButtonsBusy(busy) {
-    ['btnAttack', 'btnCapture', 'btnCollect', 'btnDefend', 'btnUpgrade', 'btnRefresh', 'btnSellCity', 'btnSeasonClaim'].forEach((id) => {
+    ['btnAttack', 'btnCapture', 'btnCollect', 'btnDefend', 'btnUpgrade', 'btnRefresh', 'btnSellCity', 'btnSeasonClaim', 'btnSetFactionAttack', 'btnOpenFactionMap'].forEach((id) => {
         const btn = document.getElementById(id);
         if (btn) {
             btn.disabled = busy;
@@ -1200,6 +1295,50 @@ function setButtonsBusy(busy) {
         button.disabled = busy;
         button.style.opacity = busy ? '0.6' : '';
     });
+}
+
+async function setFactionAttackOnSelectedTerritory() {
+    if (!selectedTerritory || !selectedTerritory.dbId) {
+        flash('Selecione um território sincronizado para setar o ataque.', true);
+        return;
+    }
+
+    const factionSelect = document.getElementById('factionSelect');
+    const durationInput = document.getElementById('factionDuration');
+    const factionName = String(factionSelect?.value || '').trim();
+    const durationMinutes = Math.max(5, Math.min(180, Number(durationInput?.value || 15)));
+
+    if (!factionName) {
+        flash('Escolha uma facção atacante.', true);
+        return;
+    }
+
+    try {
+        setButtonsBusy(true);
+        const payload = await apiRequest('/api/dashboard/territories/faction/set-attack', {
+            method: 'POST',
+            body: JSON.stringify({
+                territory_id: Number(selectedTerritory.dbId),
+                faction_name: factionName,
+                duration_minutes: durationMinutes,
+            }),
+        });
+
+        if (payload.ok === false) {
+            flash(payload.message || 'Não foi possível setar o ataque de facção.', true);
+            return;
+        }
+
+        flash(payload.message || `Ataque da ${factionName} iniciado.`);
+        await syncTerritoriesFromServer(false);
+        if (selectedTerritory) {
+            openPanel(selectedTerritory, false);
+        }
+    } catch (error) {
+        flash(`Falha ao setar ataque de facção: ${error.message}`, true);
+    } finally {
+        setButtonsBusy(false);
+    }
 }
 
 async function runTerritoryAction(action) {
@@ -1929,6 +2068,92 @@ function closeInspectModal() {
     }
     inspectScene = null;
     modal.hidden = true;
+}
+
+function renderFactionCapital() {
+    const list = document.getElementById('factionList');
+    const grid = document.getElementById('factionMapGrid');
+    if (!list || !grid) {
+        return;
+    }
+
+    const rows = Array.isArray(territoryRowsCache) ? [...territoryRowsCache] : [];
+    const profiles = factionProfiles.length
+        ? factionProfiles
+        : [
+            { name: 'Legiao Rubra', flag: '🟥' },
+            { name: 'Ordem do Eclipse', flag: '🌘' },
+            { name: 'Coroa de Cinzas', flag: '👑' },
+            { name: 'Pacto do Abismo', flag: '🕳️' },
+        ];
+
+    const summary = profiles.map((profile) => {
+        const controls = rows.filter((row) => String(row.owner_faction || '') === profile.name).length;
+        const sieges = rows.filter((row) => Boolean(row.faction_attack_active) && String(row.faction_name || '') === profile.name).length;
+        return {
+            ...profile,
+            controls,
+            sieges,
+        };
+    });
+
+    list.innerHTML = summary.map((entry) => `
+        <article class="faction-card">
+            <div class="faction-card-head">
+                <span>${entry.flag || '⚑'} ${entry.name}</span>
+                <strong>${entry.controls}</strong>
+            </div>
+            <div class="faction-card-meta">Territórios: ${entry.controls} • Cercos ativos: ${entry.sieges}</div>
+        </article>
+    `).join('');
+
+    const orderedRows = rows.sort((a, b) => Number(a.id || 0) - Number(b.id || 0));
+    grid.innerHTML = orderedRows.map((row) => {
+        const flag = row.faction_flag || row.owner_faction_flag || factionFlag(row.faction_name || row.owner_faction || '');
+        const underAttack = Boolean(row.faction_attack_active);
+        const title = `${row.name || 'Território'} • ${row.faction_name || row.owner_faction || 'Sem facção'}`;
+        return `<div class="faction-grid-item${underAttack ? ' is-under-attack' : ''}" title="${title}">${flag || '·'}</div>`;
+    }).join('');
+}
+
+function openFactionMapModal() {
+    const modal = document.getElementById('factionMapModal');
+    if (!modal) {
+        return;
+    }
+    renderFactionCapital();
+    modal.hidden = false;
+}
+
+function closeFactionMapModal() {
+    const modal = document.getElementById('factionMapModal');
+    if (!modal) {
+        return;
+    }
+    modal.hidden = true;
+}
+
+function setupFactionCapitalModal() {
+    const closeButton = document.getElementById('factionClose');
+    const modal = document.getElementById('factionMapModal');
+
+    if (closeButton) {
+        closeButton.addEventListener('click', () => closeFactionMapModal());
+    }
+
+    if (modal) {
+        modal.addEventListener('click', (event) => {
+            if (event.target === modal) {
+                closeFactionMapModal();
+            }
+        });
+    }
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && modal && !modal.hidden) {
+            closeFactionMapModal();
+        }
+    });
 }
 
 function setupInspectModal() {

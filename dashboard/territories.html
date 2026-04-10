@@ -114,6 +114,14 @@
         <div class="panel-row"><span class="lbl">Prime Time</span><span class="val" id="panelPrimeTime">—</span></div>
         <div class="panel-row"><span class="lbl">Fase da guerra</span><span class="val" id="panelWarPhase">—</span></div>
         <div class="panel-row"><span class="lbl">Ameaça de facção</span><span class="val" id="panelFactionThreat">—</span></div>
+        <div class="panel-row faction-row">
+            <label class="lbl" for="factionSelect">Facção atacante</label>
+            <select id="factionSelect" class="faction-input"></select>
+        </div>
+        <div class="panel-row faction-row">
+            <label class="lbl" for="factionDuration">Duração (min)</label>
+            <input id="factionDuration" class="faction-input" type="number" min="5" max="180" value="15">
+        </div>
         <div class="panel-row"><span class="lbl">Presença</span><span class="val" id="panelPresence">—</span></div>
         <div class="panel-row"><span class="lbl">Liga</span><span class="val" id="panelLeague">—</span></div>
         <div class="panel-row"><span class="lbl">Ação do dono</span><span class="val" id="panelOwnerAction">—</span></div>
@@ -122,6 +130,8 @@
         <button class="btn btn-collect" id="btnCollect">💰 Coletar Recompensa</button>
         <button class="btn btn-defend" id="btnDefend">🛡️ Defender Território</button>
         <button class="btn btn-upgrade" id="btnUpgrade">⚙️ Upgrade de Defesa</button>
+        <button class="btn btn-faction" id="btnSetFactionAttack">🏴 Setar Ataque de Facção</button>
+        <button class="btn btn-faction-map" id="btnOpenFactionMap">🗺 Cidade Central das Facções</button>
         <button class="btn btn-refresh" id="btnSeasonClaim">🏁 Resgatar Pontos da Temporada</button>
         <div class="upgrade-tier-box" id="upgradeTierBox">
             <button class="tier-btn" data-upgrade-tier="1" type="button">+1 por 200</button>
@@ -169,6 +179,24 @@
                 </div>
                 <div class="inspect-unit-list" id="inspectUnitList"></div>
             </aside>
+        </div>
+    </div>
+</div>
+
+<div class="territory-inspect-modal" id="factionMapModal" hidden>
+    <div class="inspect-shell faction-shell">
+        <div class="inspect-header">
+            <div>
+                <span class="inspect-kicker">Cidade Central</span>
+                <h2>Mapa das Facções</h2>
+                <p>Bandeiras, territórios dominados e áreas sob cerco em tempo real.</p>
+            </div>
+            <button class="inspect-close" id="factionClose" type="button">✕</button>
+        </div>
+
+        <div class="faction-layout">
+            <div class="faction-grid" id="factionMapGrid"></div>
+            <aside class="faction-list" id="factionList"></aside>
         </div>
     </div>
 </div>

@@ -680,6 +680,15 @@ class MapRenderer {
             kind: 'league',
         });
 
+        cities.push({
+            id: `faction-hall-${this.mapDef.id}`,
+            name: 'Faccoes',
+            gx: 10,
+            gy: 1,
+            taxRate: 0,
+            kind: 'factions',
+        });
+
         return cities;
     }
 
@@ -690,15 +699,18 @@ class MapRenderer {
             const cx = sx;
             const cy = sy + TILE_H * 0.35;
             const isLeague = city.kind === 'league';
-            const icon = isLeague ? '🏆' : '🏙';
+            const isFactions = city.kind === 'factions';
+            const icon = isLeague ? '🏆' : (isFactions ? '🏴' : '🏙');
 
             c.save();
             c.beginPath();
-            c.arc(cx, cy, isLeague ? 14 : 13, 0, Math.PI * 2);
+            c.arc(cx, cy, isLeague ? 14 : (isFactions ? 14 : 13), 0, Math.PI * 2);
             c.fillStyle = 'rgba(16, 23, 48, 0.82)';
             c.fill();
-            c.strokeStyle = isLeague ? 'rgba(244, 196, 48, 0.92)' : 'rgba(136, 192, 255, 0.9)';
-            c.lineWidth = isLeague ? 2.1 : 1.6;
+            c.strokeStyle = isLeague
+                ? 'rgba(244, 196, 48, 0.92)'
+                : (isFactions ? 'rgba(255, 121, 141, 0.9)' : 'rgba(136, 192, 255, 0.9)');
+            c.lineWidth = isLeague || isFactions ? 2.1 : 1.6;
             c.stroke();
 
             c.font = '12px "Plus Jakarta Sans", sans-serif';
@@ -708,7 +720,7 @@ class MapRenderer {
             c.fillText(icon, cx, cy);
 
             c.font = '700 9px "Plus Jakarta Sans", sans-serif';
-            c.fillStyle = isLeague ? '#f4c430' : '#9fc3ff';
+            c.fillStyle = isLeague ? '#f4c430' : (isFactions ? '#ffb7c4' : '#9fc3ff');
             c.fillText(city.name, cx, cy + 20);
             c.restore();
         });
@@ -722,8 +734,6 @@ class MapRenderer {
         if (!active.length) {
             return;
         }
-
-                isAtlas: true,
         active.forEach((territory) => {
             const [tx, ty] = this._screenTerritoryCenter(territory);
             const lane = Math.abs(Number(territory.id || 0)) % 4;
@@ -826,6 +836,12 @@ class MapRenderer {
             c.font = '700 8px "Plus Jakarta Sans", sans-serif';
             c.fillStyle = '#8fd0ff';
             c.fillText(node.name.replace(/\s\d+$/, ''), cx, cy + 16);
+
+            if (node.factionFlag) {
+                c.font = '11px "Plus Jakarta Sans", sans-serif';
+                c.fillStyle = node.underAttack ? '#ff8b97' : '#ffd37f';
+                c.fillText(String(node.factionFlag), cx, cy - 16);
+            }
             c.restore();
         });
     }
@@ -927,6 +943,13 @@ class MapRenderer {
             c.textBaseline = 'middle';
             c.fillStyle = '#f7f8ff';
             c.fillText(this._territoryMarker(t), 0, -r*.12);
+
+            const factionFlag = t.factionFlag || t.factionOwnerFlag;
+            if (factionFlag) {
+                c.font = `${Math.max(10, r * 0.28)}px "Plus Jakarta Sans", sans-serif`;
+                c.fillStyle = t.factionAttackActive ? '#ffadb8' : '#ffe4a3';
+                c.fillText(String(factionFlag), r * 0.58, -r * 0.56);
+            }
 
             c.font = `bold ${r*.21}px "Plus Jakarta Sans",sans-serif`;
             c.fillStyle = '#fff';

@@ -67,12 +67,31 @@ TERRITORY_FACTION_ATTACK_MIN_INTERVAL_SECONDS = 1800
 TERRITORY_FACTION_ATTACK_DURATION_MINUTES = 15
 TERRITORY_TOTAL_MAPS = 48
 
-TERRITORY_FACTIONS = [
-    "Legiao Rubra",
-    "Ordem do Eclipse",
-    "Coroa de Cinzas",
-    "Pacto do Abismo",
+TERRITORY_FACTION_PROFILES: list[dict[str, str]] = [
+    {
+        "name": "Legiao Rubra",
+        "flag": "🟥",
+        "banner_prompt": "Epic faction banner for 'Legiao Rubra', crimson silk war flag, phoenix emblem in black steel, high contrast, dramatic lighting, medieval fantasy, clean symbol, no text",
+    },
+    {
+        "name": "Ordem do Eclipse",
+        "flag": "🌘",
+        "banner_prompt": "Epic faction banner for 'Ordem do Eclipse', obsidian and silver cloth, crescent eclipse sigil with arcane geometry, mystical glow, medieval fantasy, detailed fabric, no text",
+    },
+    {
+        "name": "Coroa de Cinzas",
+        "flag": "👑",
+        "banner_prompt": "Epic faction banner for 'Coroa de Cinzas', charcoal banner with molten gold crown icon, ash particles, royal war aesthetic, medieval fantasy realism, no text",
+    },
+    {
+        "name": "Pacto do Abismo",
+        "flag": "🕳️",
+        "banner_prompt": "Epic faction banner for 'Pacto do Abismo', deep navy and violet war standard, abyssal spiral sigil, eerie rim light, dark fantasy faction emblem, no text",
+    },
 ]
+
+TERRITORY_FACTIONS = [profile["name"] for profile in TERRITORY_FACTION_PROFILES]
+TERRITORY_FACTION_BY_NAME = {profile["name"]: profile for profile in TERRITORY_FACTION_PROFILES}
 
 def _build_territory_prime_schedule(total_maps: int) -> dict[int, dict[str, int]]:
     schedule: dict[int, dict[str, int]] = {}
@@ -496,6 +515,12 @@ class TerritorySellPayload(BaseModel):
 
 class TerritorySeasonClaimPayload(BaseModel):
     map_id: int = Field(ge=0)
+
+
+class TerritoryFactionAttackSetPayload(BaseModel):
+    territory_id: int = Field(ge=1)
+    faction_name: str = Field(min_length=2, max_length=80)
+    duration_minutes: int = Field(default=TERRITORY_FACTION_ATTACK_DURATION_MINUTES, ge=5, le=180)
 
 
 class BlogPostCreatePayload(BaseModel):
@@ -1472,6 +1497,14 @@ def _territory_world_payload() -> dict[str, Any]:
                 ],
             }
             for map_item in TERRITORY_WORLD_MAPS
+        ],
+        "factions": [
+            {
+                "name": str(profile["name"]),
+                "flag": str(profile.get("flag") or "⚑"),
+                "banner_prompt": str(profile.get("banner_prompt") or ""),
+            }
+            for profile in TERRITORY_FACTION_PROFILES
         ],
         "gather_cooldown_seconds": TERRITORY_RESOURCE_GATHER_COOLDOWN_SECONDS,
     }
@@ -4388,6 +4421,11 @@ async def dashboard_territories_list(request: Request) -> dict[str, Any]:
                     else (f"⚔ {str(row.get('owner_faction') or '')}" if row.get("owner_faction") else None)
                 ),
                 "owner_faction": str(row.get("owner_faction") or "") or None,
+                "owner_faction_flag": (
+                    TERRITORY_FACTION_BY_NAME.get(str(row.get("owner_faction") or ""), {}).get("flag")
+                    if row.get("owner_faction")
+                    else None
+                ),
                 "defense_level": int(row["defense_level"] or 1),
                 "luma_coins": int(row["luma_coins"] or 100),
                 "owner_reward_coins": int(row["owner_reward_coins"] or 25),
@@ -4395,6 +4433,11 @@ async def dashboard_territories_list(request: Request) -> dict[str, Any]:
                 "attack_time": row.get("attack_time").isoformat() if row.get("attack_time") else None,
                 "faction_attack_active": bool(row.get("faction_attack_active")),
                 "faction_name": str(row.get("faction_name") or "") or None,
+                "faction_flag": (
+                    TERRITORY_FACTION_BY_NAME.get(str(row.get("faction_name") or ""), {}).get("flag")
+                    if row.get("faction_name")
+                    else None
+                ),
                 "faction_attack_started_at": row.get("faction_attack_started_at").isoformat() if row.get("faction_attack_started_at") else None,
                 "faction_attack_ends_at": row.get("faction_attack_ends_at").isoformat() if row.get("faction_attack_ends_at") else None,
                 "faction_attack_remaining_seconds": _faction_attack_remaining_seconds(row),
@@ -5298,6 +5341,65 @@ async def dashboard_territories_attack(payload: TerritoryActionPayload, request:
         "message": f"Você conquistou {territory['name']} e ganhou {conquest_reward} Luma Coins.",
         "balance": int(balance_after_win or 0),
         "reward": int(conquest_reward),
+    }
+
+
+@app.post("/api/dashboard/territories/faction/set-attack")
+async def dashboard_set_faction_attack(payload: TerritoryFactionAttackSetPayload, request: Request) -> dict[str, Any]:
+    _require_auth(request)
+    await _require_dashboard_role(request, "admin")
+    pool = _db_pool()
+    if pool is None:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
+    faction_name = str(payload.faction_name or "").strip()
+    if not faction_name:
+        return {"ok": False, "message": "Escolha uma facção válida."}
+
+    now = datetime.utcnow()
+    ends_at = now + timedelta(minutes=int(payload.duration_minutes))
+
+    async with pool.acquire() as connection:
+        async with connection.transaction():
+            territory = await connection.fetchrow(
+                """
+                SELECT id, name
+                FROM territories
+                WHERE id = $1
+                FOR UPDATE
+                """,
+                int(payload.territory_id),
+            )
+            if territory is None:
+                raise HTTPException(status_code=404, detail="Territory not found")
+
+            await connection.execute(
+                """
+                UPDATE territories
+                SET
+                    faction_attack_active = TRUE,
+                    faction_name = $1,
+                    faction_attack_started_at = CURRENT_TIMESTAMP,
+                    faction_attack_ends_at = $2,
+                    last_faction_attack_at = CURRENT_TIMESTAMP,
+                    last_faction_result = 'invasion_started',
+                    last_faction_result_at = CURRENT_TIMESTAMP
+                WHERE id = $3
+                """,
+                faction_name,
+                ends_at,
+                int(payload.territory_id),
+            )
+
+    return {
+        "ok": True,
+        "territory_id": int(payload.territory_id),
+        "territory_name": str(territory.get("name") or "Território"),
+        "faction_name": faction_name,
+        "faction_flag": str(TERRITORY_FACTION_BY_NAME.get(faction_name, {}).get("flag") or "⚑"),
+        "duration_minutes": int(payload.duration_minutes),
+        "ends_at": ends_at.isoformat(),
+        "message": f"Ataque da {faction_name} setado em {str(territory.get('name') or 'Território')}.",
     }
 
 
