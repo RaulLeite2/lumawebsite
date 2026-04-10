@@ -48,9 +48,11 @@ function isoProject(gx, gy, elev, tileW, tileH, originX, originY) {
 const MAPS = [
     {
         id: 0,
-        name: "Smoothfloor Cleft",
-        sub: "⚔ Zona de combate livre",
+        name: "Valoria Crown",
+        sub: "⚔ Coração imperial sob tensão constante",
         seed: 42,
+        primeTime: { declareHour: 18, startHour: 19, endHour: 21 },
+        atmosphere: { mode: 'embers', glow: 'rgba(126, 92, 255, 0.16)', fogColor: '255, 202, 150', particleColor: '255, 180, 112' },
         palette: {
             low:  { base:'#1c1005', side:'#110a03', path:'rgba(100,60,10,0.5)'  },
             mid:  { base:'#2e1d08', side:'#1a0f04'                              },
@@ -58,37 +60,39 @@ const MAPS = [
             water:{ base:'#0d1a2a', side:'#091221'                              },
         },
         resources: [
-            { gx:4,  gy:3,  icon:"🪨", tier:"T3" },
-            { gx:9,  gy:3,  icon:"🪵", tier:"T4" },
-            { gx:10, gy:8,  icon:"🌿", tier:"T3" },
-            { gx:3,  gy:8,  icon:"⛏",  tier:"T4" },
-            { gx:7,  gy:7,  icon:"🐾", tier:"T2" },
+            { gx:4,  gy:3,  icon:'🪨', tier:'T3' },
+            { gx:9,  gy:3,  icon:'🪵', tier:'T4' },
+            { gx:10, gy:8,  icon:'🌿', tier:'T3' },
+            { gx:3,  gy:8,  icon:'⛏',  tier:'T4' },
+            { gx:7,  gy:7,  icon:'🐾', tier:'T2' },
         ],
         territories: [
-            { id:1, name:"Bastião Central", gx:7, gy:6,  r:1.1, owner:"LumaGuard",  defense:4, coins:1200, color:"#8e4dff" },
-            { id:2, name:"Posto Norte",     gx:7, gy:2,  r:0.85,owner:null,          defense:1, coins:100,  color:"#2a2a4b" },
-            { id:3, name:"Bastião Leste",   gx:11,gy:6,  r:0.85,owner:"DarkOrder",   defense:3, coins:640,  color:"#ff6d7a" },
-            { id:4, name:"Ruínas Oeste",    gx:3, gy:6,  r:0.85,owner:null,          defense:1, coins:100,  color:"#2a2a4b" },
-            { id:5, name:"Santuário Sul",   gx:7, gy:10, r:0.85,owner:"GuildAlpha",  defense:2, coins:380,  color:"#5865f2" },
+            { id:1, glyph:'✦', featured:true, name:'Valoria', gx:7, gy:6,  r:1.12, owner:'LumaGuard', ownerDisplay:'✦ Casa Luma', defense:4, coins:1200, color:'#8e4dff' },
+            { id:2, glyph:'⬡', name:'Porta Seraph', gx:7, gy:2,  r:0.86, owner:null, defense:1, coins:100, color:'#2a2a4b' },
+            { id:3, glyph:'☽', name:'Muralha Vesper', gx:11, gy:6, r:0.88, owner:'DarkOrder', ownerDisplay:'☽ Ordem Umbral', defense:3, coins:640, color:'#ff6d7a' },
+            { id:4, glyph:'✶', name:'Vau Myren', gx:3, gy:6,  r:0.86, owner:null, defense:1, coins:100, color:'#2a2a4b' },
+            { id:5, glyph:'◈', name:'Claustro Solari', gx:7, gy:10, r:0.86, owner:'GuildAlpha', ownerDisplay:'✶ Vanguarda Alpha', defense:2, coins:380, color:'#5865f2' },
         ],
         exits: [
-            { gx:7, gy:0,  dir:"N", target:1 },
-            { gx:13,gy:6,  dir:"E", target:2 },
-            { gx:7, gy:13, dir:"S", target:3 },
-            { gx:0, gy:6,  dir:"W", target:4 },
+            { gx:7, gy:0,  dir:'N', target:1 },
+            { gx:13,gy:6,  dir:'E', target:2 },
+            { gx:7, gy:13, dir:'S', target:3 },
+            { gx:0, gy:6,  dir:'W', target:4 },
         ],
         playerCount: 67,
         hudResources: [
-            { icon:"🪨", tier:"T III" }, { icon:"🪵", tier:"T IV" },
-            { icon:"🌿", tier:"T III" }, { icon:"⛏",  tier:"T II-IV" },
-            { icon:"🐾", tier:"T II"  },
+            { icon:'🪨', tier:'T III' }, { icon:'🪵', tier:'T IV' },
+            { icon:'🌿', tier:'T III' }, { icon:'⛏', tier:'T II-IV' },
+            { icon:'🐾', tier:'T II' },
         ],
     },
     {
         id: 1,
-        name: "Ashveil Highlands",
-        sub: "🛡 Zona de controle de guilda",
+        name: 'Ashveil Bastion',
+        sub: '🛡 Mata de vigília e guerra de atrito',
         seed: 99,
+        primeTime: { declareHour: 19, startHour: 20, endHour: 22 },
+        atmosphere: { mode: 'spores', glow: 'rgba(77, 180, 122, 0.18)', fogColor: '180, 235, 198', particleColor: '138, 255, 186' },
         palette: {
             low:  { base:'#0d1a0e', side:'#071009', path:'rgba(30,90,20,0.4)'  },
             mid:  { base:'#163818', side:'#0d2410'                              },
@@ -96,34 +100,36 @@ const MAPS = [
             water:{ base:'#091221', side:'#050c16'                              },
         },
         resources: [
-            { gx:5,  gy:4,  icon:"🌿", tier:"T5" },
-            { gx:9,  gy:2,  icon:"🪵", tier:"T5" },
-            { gx:11, gy:9,  icon:"🪨", tier:"T4" },
-            { gx:3,  gy:9,  icon:"🌾", tier:"T3" },
+            { gx:5, gy:4, icon:'🌿', tier:'T5' },
+            { gx:9, gy:2, icon:'🪵', tier:'T5' },
+            { gx:11, gy:9, icon:'🪨', tier:'T4' },
+            { gx:3, gy:9, icon:'🌾', tier:'T3' },
         ],
         territories: [
-            { id:10, name:"Torre Esmeralda", gx:7, gy:5,  r:1.1, owner:"GreenPact",  defense:3, coins:900,  color:"#47d7ac" },
-            { id:11, name:"Vigia do Norte",  gx:7, gy:2,  r:0.85,owner:null,          defense:1, coins:100,  color:"#2a2a4b" },
-            { id:12, name:"Colina Leste",    gx:11,gy:6,  r:0.85,owner:"GreenPact",   defense:2, coins:450,  color:"#47d7ac" },
-            { id:13, name:"Ruínas Oeste",    gx:3, gy:6,  r:0.85,owner:"DarkOrder",   defense:3, coins:560,  color:"#ff6d7a" },
+            { id:10, glyph:'⬢', name:'Trono Esmeral', gx:7, gy:5, r:1.08, owner:'GreenPact', ownerDisplay:'⬢ Pacto Esmeral', defense:3, coins:900, color:'#47d7ac' },
+            { id:11, glyph:'✧', name:'Flecha do Norte', gx:7, gy:2, r:0.85, owner:null, defense:1, coins:100, color:'#2a2a4b' },
+            { id:12, glyph:'✶', name:'Terraço Viridian', gx:11, gy:6, r:0.85, owner:'GreenPact', ownerDisplay:'⬢ Pacto Esmeral', defense:2, coins:450, color:'#47d7ac' },
+            { id:13, glyph:'☽', name:'Bosque da Ferrugem', gx:3, gy:6, r:0.85, owner:'DarkOrder', ownerDisplay:'☽ Ordem Umbral', defense:3, coins:560, color:'#ff6d7a' },
         ],
         exits: [
-            { gx:7, gy:0,  dir:"N", target:null },
-            { gx:13,gy:6,  dir:"E", target:null },
-            { gx:7, gy:13, dir:"S", target:0    },
-            { gx:0, gy:6,  dir:"W", target:null },
+            { gx:7, gy:0, dir:'N', target:null },
+            { gx:13, gy:6, dir:'E', target:2 },
+            { gx:7, gy:13, dir:'S', target:0 },
+            { gx:0, gy:6, dir:'W', target:null },
         ],
         playerCount: 34,
         hudResources: [
-            { icon:"🌿", tier:"T V" }, { icon:"🪵", tier:"T V" },
-            { icon:"🪨", tier:"T IV" }, { icon:"🌾", tier:"T III" },
+            { icon:'🌿', tier:'T V' }, { icon:'🪵', tier:'T V' },
+            { icon:'🪨', tier:'T IV' }, { icon:'🌾', tier:'T III' },
         ],
     },
     {
         id: 2,
-        name: "Cinderstone Wastes",
-        sub: "💀 Terra de ninguém",
+        name: 'Nhal-Kor Scar',
+        sub: '💀 Falha vulcânica aberta pelo caos',
         seed: 777,
+        primeTime: { declareHour: 20, startHour: 21, endHour: 23 },
+        atmosphere: { mode: 'ash', glow: 'rgba(255, 110, 71, 0.16)', fogColor: '190, 150, 145', particleColor: '255, 134, 88' },
         palette: {
             low:  { base:'#1a0a0a', side:'#100505', path:'rgba(120,40,10,0.45)' },
             mid:  { base:'#2d1010', side:'#1c0808'                               },
@@ -131,26 +137,101 @@ const MAPS = [
             water:{ base:'#100505', side:'#0a0303'                               },
         },
         resources: [
-            { gx:4, gy:4,  icon:"⛏",  tier:"T5" },
-            { gx:9, gy:3,  icon:"🪨", tier:"T6" },
-            { gx:10,gy:9,  icon:"💎", tier:"T6" },
-            { gx:3, gy:8,  icon:"🦴", tier:"T4" },
+            { gx:4, gy:4, icon:'⛏', tier:'T5' },
+            { gx:9, gy:3, icon:'🪨', tier:'T6' },
+            { gx:10, gy:9, icon:'💎', tier:'T6' },
+            { gx:3, gy:8, icon:'🦴', tier:'T4' },
         ],
         territories: [
-            { id:20, name:"Fortaleza de Cinzas", gx:7, gy:6,  r:1.1, owner:null,        defense:1, coins:100,  color:"#2a2a4b" },
-            { id:21, name:"Necrópole",           gx:4, gy:9,  r:0.85,owner:"DarkOrder",  defense:5, coins:2000, color:"#ff6d7a" },
-            { id:22, name:"Espiral do Caos",     gx:10,gy:3,  r:0.85,owner:null,          defense:1, coins:100,  color:"#2a2a4b" },
+            { id:20, glyph:'◉', name:'Forja de Nhal-Kor', gx:7, gy:6, r:1.1, owner:null, defense:1, coins:100, color:'#2a2a4b' },
+            { id:21, glyph:'☽', name:'Sepulcro Carbono', gx:4, gy:9, r:0.86, owner:'DarkOrder', ownerDisplay:'☽ Ordem Umbral', defense:5, coins:2000, color:'#ff6d7a' },
+            { id:22, glyph:'⬡', name:'Espiral Suturada', gx:10, gy:3, r:0.86, owner:null, defense:1, coins:100, color:'#2a2a4b' },
+            { id:23, glyph:'✷', name:'Pilar Magma-Sul', gx:10, gy:9, r:0.82, owner:'GuildAlpha', ownerDisplay:'✶ Vanguarda Alpha', defense:2, coins:520, color:'#5865f2' },
         ],
         exits: [
-            { gx:7, gy:0,  dir:"N", target:null },
-            { gx:13,gy:6,  dir:"E", target:null },
-            { gx:7, gy:13, dir:"S", target:null },
-            { gx:0, gy:6,  dir:"W", target:0    },
+            { gx:7, gy:0, dir:'N', target:null },
+            { gx:13, gy:6, dir:'E', target:null },
+            { gx:7, gy:13, dir:'S', target:4 },
+            { gx:0, gy:6, dir:'W', target:0 },
         ],
         playerCount: 12,
         hudResources: [
-            { icon:"⛏",  tier:"T V" }, { icon:"🪨", tier:"T VI" },
-            { icon:"💎", tier:"T VI" }, { icon:"🦴", tier:"T IV" },
+            { icon:'⛏', tier:'T V' }, { icon:'🪨', tier:'T VI' },
+            { icon:'💎', tier:'T VI' }, { icon:'🦴', tier:'T IV' },
+        ],
+    },
+    {
+        id: 3,
+        name: 'Myriath Bloom',
+        sub: '🌸 Pântano luminoso e defesa orgânica',
+        seed: 314,
+        primeTime: { declareHour: 17, startHour: 18, endHour: 20 },
+        atmosphere: { mode: 'fireflies', glow: 'rgba(110, 200, 255, 0.15)', fogColor: '170, 224, 255', particleColor: '255, 240, 140' },
+        palette: {
+            low:  { base:'#122019', side:'#09120d', path:'rgba(80,140,90,0.42)' },
+            mid:  { base:'#224233', side:'#132a1f'                               },
+            high: { base:'#31614c', side:'#1d382b'                               },
+            water:{ base:'#112338', side:'#0b1624'                               },
+        },
+        resources: [
+            { gx:4, gy:4, icon:'🪷', tier:'T4' },
+            { gx:9, gy:4, icon:'🌿', tier:'T5' },
+            { gx:11, gy:8, icon:'🐚', tier:'T4' },
+            { gx:2, gy:9, icon:'🧪', tier:'T5' },
+        ],
+        territories: [
+            { id:30, glyph:'✧', name:'Jardim Doura-Noite', gx:7, gy:6, r:1.08, owner:'GreenPact', ownerDisplay:'⬢ Pacto Esmeral', defense:4, coins:980, color:'#47d7ac' },
+            { id:31, glyph:'◈', name:'Ancoradouro Sussurro', gx:7, gy:2, r:0.84, owner:null, defense:1, coins:100, color:'#2a2a4b' },
+            { id:32, glyph:'✦', name:'Arco Telúrico', gx:11, gy:6, r:0.84, owner:'LumaGuard', ownerDisplay:'✦ Casa Luma', defense:3, coins:670, color:'#8e4dff' },
+            { id:33, glyph:'☽', name:'Campina Hollowmere', gx:3, gy:7, r:0.84, owner:null, defense:1, coins:100, color:'#2a2a4b' },
+        ],
+        exits: [
+            { gx:7, gy:0, dir:'N', target:0 },
+            { gx:13, gy:6, dir:'E', target:null },
+            { gx:7, gy:13, dir:'S', target:null },
+            { gx:0, gy:6, dir:'W', target:4 },
+        ],
+        playerCount: 41,
+        hudResources: [
+            { icon:'🪷', tier:'T IV' }, { icon:'🌿', tier:'T V' },
+            { icon:'🐚', tier:'T IV' }, { icon:'🧪', tier:'T V' },
+        ],
+    },
+    {
+        id: 4,
+        name: 'Astreon Shelf',
+        sub: '❄ Platô astral cortado por gelo azul',
+        seed: 512,
+        primeTime: { declareHour: 16, startHour: 17, endHour: 19 },
+        atmosphere: { mode: 'snow', glow: 'rgba(126, 190, 255, 0.16)', fogColor: '220, 238, 255', particleColor: '235, 244, 255' },
+        palette: {
+            low:  { base:'#18253a', side:'#0f1625', path:'rgba(110,150,220,0.42)' },
+            mid:  { base:'#24405f', side:'#162842'                               },
+            high: { base:'#355c89', side:'#213858'                               },
+            water:{ base:'#0a1730', side:'#07101f'                               },
+        },
+        resources: [
+            { gx:4, gy:3, icon:'🧊', tier:'T5' },
+            { gx:9, gy:3, icon:'💠', tier:'T6' },
+            { gx:10, gy:8, icon:'🪨', tier:'T4' },
+            { gx:3, gy:8, icon:'🐺', tier:'T5' },
+        ],
+        territories: [
+            { id:40, glyph:'✹', name:'Astreon Spire', gx:7, gy:6, r:1.08, owner:'LumaGuard', ownerDisplay:'✦ Casa Luma', defense:4, coins:1400, color:'#8e4dff' },
+            { id:41, glyph:'⬢', name:'Ponte Rimefall', gx:7, gy:2, r:0.84, owner:null, defense:1, coins:100, color:'#2a2a4b' },
+            { id:42, glyph:'☽', name:'Fenda Bluewake', gx:11, gy:6, r:0.84, owner:'DarkOrder', ownerDisplay:'☽ Ordem Umbral', defense:4, coins:840, color:'#ff6d7a' },
+            { id:43, glyph:'✶', name:'Bastilha Celsia', gx:3, gy:6, r:0.84, owner:'GreenPact', ownerDisplay:'⬢ Pacto Esmeral', defense:2, coins:420, color:'#47d7ac' },
+        ],
+        exits: [
+            { gx:7, gy:0, dir:'N', target:2 },
+            { gx:13, gy:6, dir:'E', target:0 },
+            { gx:7, gy:13, dir:'S', target:null },
+            { gx:0, gy:6, dir:'W', target:3 },
+        ],
+        playerCount: 29,
+        hudResources: [
+            { icon:'🧊', tier:'T V' }, { icon:'💠', tier:'T VI' },
+            { icon:'🪨', tier:'T IV' }, { icon:'🐺', tier:'T V' },
         ],
     },
 ];
@@ -168,6 +249,7 @@ class MapRenderer {
         this.heightMap = null;
         this.mapDef    = null;
         this._time = 0;
+        this._signals = [];
         // Pre-computed per tile: screen x/y of top vertex
         this._tileCache = [];
     }
@@ -240,6 +322,7 @@ class MapRenderer {
         this._drawPaths();
         this._drawFog();
         this._drawTerritories();
+        this._drawActionSignals();
         this._drawExits();
         this._drawAmbientParticles();
         this._drawCardinals();
@@ -352,8 +435,15 @@ class MapRenderer {
         return this._tilePos(t.gx, t.gy);
     }
 
+    setSignals(signals) {
+        this._signals = Array.isArray(signals) ? signals : [];
+    }
+
     _territoryMarker(t) {
         const marks = ['✦', '◈', '✶', '⬡', '✹', '✷', '◉'];
+        if (t.glyph) {
+            return t.glyph;
+        }
         if (/valoria/i.test(t.name || '')) {
             return '✦';
         }
@@ -391,7 +481,7 @@ class MapRenderer {
     }
 
     _isFeaturedTerritory(t) {
-        return this._selected === t.id || /valoria/i.test(t.name || '');
+        return this._selected === t.id || t.featured || /valoria/i.test(t.name || '');
     }
 
     _drawPaths() {
@@ -496,6 +586,18 @@ class MapRenderer {
                 c.restore();
             }
 
+            if (t.attackDeclared) {
+                c.save();
+                c.rotate(-this._time * 0.55);
+                c.strokeStyle = 'rgba(255, 170, 86, 0.92)';
+                c.lineWidth = 1.9;
+                c.setLineDash([5, 4]);
+                c.beginPath();
+                c.arc(0, 0, r * 1.72, 0, Math.PI * 2);
+                c.stroke();
+                c.restore();
+            }
+
             const bg = c.createRadialGradient(-r*.2,-r*.2,0, 0,0,r);
             bg.addColorStop(0, aura.edge + 'ee');
             bg.addColorStop(0.45, t.color + 'cc');
@@ -537,7 +639,7 @@ class MapRenderer {
             if (t.owner) {
                 c.font = `${fs*.85}px "Plus Jakarta Sans",sans-serif`;
                 c.fillStyle = aura.edge;
-                c.fillText(t.owner, sx, sy + r*sc + 4 + fs + 2);
+                c.fillText(t.ownerDisplay || t.owner, sx, sy + r*sc + 4 + fs + 2);
             }
             c.shadowBlur = 0;
         });
@@ -548,14 +650,15 @@ class MapRenderer {
         const w = this.canvas.width;
         const h = this.canvas.height;
         const pulse = 0.12 + Math.sin(this._time * 0.8) * 0.03;
+        const atmosphere = this.mapDef.atmosphere || {};
 
         c.save();
-        c.fillStyle = `rgba(84, 95, 180, ${pulse})`;
+        c.fillStyle = atmosphere.glow || `rgba(84, 95, 180, ${pulse})`;
         c.beginPath();
         c.ellipse(w * 0.52, h * 0.24, w * 0.32, h * 0.18, 0, 0, Math.PI * 2);
         c.fill();
 
-        c.fillStyle = 'rgba(23, 15, 42, 0.22)';
+        c.fillStyle = atmosphere.overlay || 'rgba(23, 15, 42, 0.22)';
         c.fillRect(0, 0, w, h);
         c.restore();
     }
@@ -564,16 +667,19 @@ class MapRenderer {
         const c = this.ctx;
         const w = this.canvas.width;
         const h = this.canvas.height;
+        const atmosphere = this.mapDef.atmosphere || {};
+        const fogColor = atmosphere.fogColor || '168, 196, 255';
+        const density = atmosphere.mode === 'ash' ? 5 : 4;
 
         c.save();
         c.globalCompositeOperation = 'screen';
-        for (let i = 0; i < 4; i += 1) {
+        for (let i = 0; i < density; i += 1) {
             const drift = ((this._time * (8 + i * 2)) + i * 80) % (w + 260);
             const x = drift - 130;
-            const y = h * (0.34 + i * 0.11) + Math.sin(this._time * 0.55 + i) * 18;
+            const y = h * (0.34 + i * 0.1) + Math.sin(this._time * 0.55 + i) * 18;
             const grad = c.createRadialGradient(x, y, 18, x, y, 150 + i * 24);
-            grad.addColorStop(0, `rgba(168, 196, 255, ${0.048 - i * 0.007})`);
-            grad.addColorStop(1, 'rgba(168, 196, 255, 0)');
+            grad.addColorStop(0, `rgba(${fogColor}, ${0.05 - i * 0.006})`);
+            grad.addColorStop(1, `rgba(${fogColor}, 0)`);
             c.fillStyle = grad;
             c.beginPath();
             c.ellipse(x, y, 180 + i * 24, 54 + i * 10, -0.12, 0, Math.PI * 2);
@@ -586,15 +692,20 @@ class MapRenderer {
         const c = this.ctx;
         const w = this.canvas.width;
         const h = this.canvas.height;
+        const atmosphere = this.mapDef.atmosphere || {};
+        const mode = atmosphere.mode || 'snow';
+        const particleColor = atmosphere.particleColor || '255,255,255';
 
         c.save();
-        for (let i = 0; i < 26; i += 1) {
+        for (let i = 0; i < 30; i += 1) {
             const x = (i * 57 + this._time * (10 + (i % 5) * 4)) % w;
-            const y = (i * 37 + Math.sin(this._time * 0.8 + i) * 22 + h * 0.18) % h;
-            const alpha = 0.06 + (Math.sin(this._time * 1.8 + i) + 1) * 0.025;
-            c.fillStyle = `rgba(255,255,255,${alpha})`;
+            const flow = mode === 'embers' ? -1 : 1;
+            const y = (i * 37 + Math.sin(this._time * 0.8 + i) * 22 + h * 0.18 + this._time * flow * (mode === 'embers' ? 18 : 6)) % h;
+            const alpha = 0.05 + (Math.sin(this._time * 1.8 + i) + 1) * 0.03;
+            const radius = mode === 'embers' ? 1.6 : (mode === 'fireflies' ? 1.8 : 1.25);
+            c.fillStyle = `rgba(${particleColor},${alpha})`;
             c.beginPath();
-            c.arc(x, y, 1.2 + (i % 3) * 0.45, 0, Math.PI * 2);
+            c.arc(x, y, radius + (i % 3) * 0.35, 0, Math.PI * 2);
             c.fill();
         }
         c.restore();
@@ -610,6 +721,49 @@ class MapRenderer {
         vignette.addColorStop(1, 'rgba(0,0,0,0.42)');
         c.fillStyle = vignette;
         c.fillRect(0, 0, w, h);
+    }
+
+    _drawActionSignals() {
+        const c = this.ctx;
+        const now = performance.now();
+        const activeSignals = this._signals.filter((signal) => (now - signal.createdAt) < signal.duration);
+
+        activeSignals.forEach((signal) => {
+            const territory = this.mapDef.territories.find((slot) => Number(slot.id) === Number(signal.territoryId));
+            if (!territory) {
+                return;
+            }
+
+            const [sx, sy] = this._screenTerritoryCenter(territory);
+            const progress = (now - signal.createdAt) / signal.duration;
+            const rise = progress * 34;
+            const alpha = 1 - progress;
+            const palette = {
+                declare: '255, 174, 92',
+                attack: '255, 106, 122',
+                defend: '88, 228, 176',
+                claim: '255, 228, 129',
+                collect: '255, 212, 98',
+            };
+            const color = palette[signal.type] || '255,255,255';
+
+            c.save();
+            c.globalAlpha = alpha;
+            c.strokeStyle = `rgba(${color}, ${0.7 * alpha})`;
+            c.lineWidth = 2;
+            c.beginPath();
+            c.arc(sx, sy, 20 + progress * 22, 0, Math.PI * 2);
+            c.stroke();
+
+            c.font = '700 12px "Plus Jakarta Sans", sans-serif';
+            c.textAlign = 'center';
+            c.textBaseline = 'middle';
+            c.shadowColor = `rgba(${color}, ${0.65 * alpha})`;
+            c.shadowBlur = 14;
+            c.fillStyle = `rgba(255,255,255,${alpha})`;
+            c.fillText(signal.label, sx, sy - 34 - rise);
+            c.restore();
+        });
     }
 
     _drawExits() {

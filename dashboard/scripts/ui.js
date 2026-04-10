@@ -12,8 +12,15 @@ let inspectScene = null;
 let selectedBiome = 'snow';
 let mapAmbientFrame = null;
 let uiAudioContext = null;
+let territorySignals = [];
 
 const TERRITORY_GLYPHS = ['✦', '◈', '✶', '⬡', '✹', '✷', '◉'];
+const GUILD_SIGILS = ['✦', '☽', '✶', '⬢', '✹', '✧'];
+const PRIME_TIME_PHASE_META = {
+    locked: { label: 'Blindado', shortLabel: 'Fechado', icon: '🕯', actionLabel: 'Fora da janela de guerra' },
+    declaration: { label: 'Janela de declaração', shortLabel: 'Declaração', icon: '⚑', actionLabel: 'Declarações abertas' },
+    prime: { label: 'Prime Time ativo', shortLabel: 'Prime Time', icon: '🔥', actionLabel: 'Cerco liberado' },
+};
 
 const BIOME_PRESETS = {
     snow: {
@@ -141,11 +148,162 @@ function territoryGlyph(territory) {
 }
 
 function territoryDisplayName(territory) {
-    return `${territoryGlyph(territory)} ${territory?.name || 'Território'}`;
+    const baseName = territory?.displayName || territory?.name || 'Território';
+    return `${territoryGlyph(territory)} ${baseName}`;
+}
+
+function stylizeGuildName(ownerName) {
+    if (!ownerName) {
+        return null;
+    }
+
+    const normalized = String(ownerName).trim();
+    const preset = {
+        LumaGuard: '✦ Casa Luma',
+        DarkOrder: '☽ Ordem Umbral',
+        GuildAlpha: '✶ Vanguarda Alpha',
+        GreenPact: '⬢ Pacto Esmeral',
+    };
+    if (preset[normalized]) {
+        return preset[normalized];
+    }
+
+    let seed = 0;
+    for (const ch of normalized) {
+        seed += ch.charCodeAt(0);
+    }
+    const sigil = GUILD_SIGILS[Math.abs(seed) % GUILD_SIGILS.length];
+    return `${sigil} ${normalized}`;
+}
+
+function getMapDefByTerritory(territory) {
+    return MAPS.find((mapDef) => mapDef.territories.some((slot) => Number(slot.id) === Number(territory?.id)));
+}
+
+function formatClockLabel(hour, minute = 0) {
+    return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
+function formatCountdown(ms) {
+    const total = Math.max(0, Math.floor(ms / 1000));
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    const seconds = total % 60;
+    if (hours > 0) {
+        return `${hours}h ${String(minutes).padStart(2, '0')}m`;
+    }
+    return `${minutes}m ${String(seconds).padStart(2, '0')}s`;
+}
+
+function getPrimeTimeState(mapDef, now = new Date()) {
+    const schedule = mapDef?.primeTime || { declareHour: 19, declareMinute: 0, startHour: 20, startMinute: 0, endHour: 22, endMinute: 0 };
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    const declareMinutes = schedule.declareHour * 60 + (schedule.declareMinute || 0);
+    const startMinutes = schedule.startHour * 60 + (schedule.startMinute || 0);
+    const endMinutes = schedule.endHour * 60 + (schedule.endMinute || 0);
+
+    let phase = 'locked';
+    let nextBoundaryMinutes = declareMinutes;
+
+    if (currentMinutes >= declareMinutes && currentMinutes < startMinutes) {
+        phase = 'declaration';
+        nextBoundaryMinutes = startMinutes;
+    } else if (currentMinutes >= startMinutes && currentMinutes < endMinutes) {
+        phase = 'prime';
+        nextBoundaryMinutes = endMinutes;
+    } else if (currentMinutes >= endMinutes) {
+        nextBoundaryMinutes = declareMinutes + 24 * 60;
+    }
+
+    const boundary = new Date(now);
+    boundary.setHours(0, 0, 0, 0);
+    boundary.setMinutes(nextBoundaryMinutes);
+
+    const meta = PRIME_TIME_PHASE_META[phase];
+    return {
+        phase,
+        meta,
+        declareLabel: `${formatClockLabel(schedule.declareHour, schedule.declareMinute || 0)} abre declaração`,
+        windowLabel: `${formatClockLabel(schedule.startHour, schedule.startMinute || 0)}–${formatClockLabel(schedule.endHour, schedule.endMinute || 0)}`,
+        countdownLabel: formatCountdown(boundary.getTime() - now.getTime()),
+        isPrime: phase === 'prime',
+        isDeclaration: phase === 'declaration',
+    };
+}
+
+function syncPrimeTimeHud(mapDef = MAPS[currentMapIndex]) {
+    const phase = document.getElementById('hudPrimePhase');
+    const clock = document.getElementById('hudPrimeClock');
+    const badge = document.getElementById('hudPrimeTime');
+    if (!phase || !clock || !badge || !mapDef) {
+        return;
+    }
+
+    const state = getPrimeTimeState(mapDef);
+    phase.textContent = `${state.meta.icon} ${state.meta.shortLabel}`;
+    clock.textContent = state.isPrime || state.isDeclaration
+        ? `${state.meta.actionLabel} • ${state.countdownLabel}`
+        : `${state.windowLabel} • ${state.countdownLabel}`;
+    badge.classList.toggle('is-prime', state.isPrime);
+    badge.classList.toggle('is-declaration', state.isDeclaration);
+}
+
+function syncRendererSignals() {
+    territorySignals = territorySignals.filter((signal) => (performance.now() - signal.createdAt) < signal.duration);
+    if (renderer && typeof renderer.setSignals === 'function') {
+        renderer.setSignals(territorySignals);
+    }
+}
+
+function pushTerritorySignal(territory, type, label) {
+    if (!territory) {
+        return;
+    }
+    territorySignals.push({
+        territoryId: Number(territory.id),
+        type,
+        label,
+        createdAt: performance.now(),
+        duration: 2200,
+    });
+    syncRendererSignals();
+}
+
+function markTerritoryDeclared(territory, declared = true) {
+    const key = territory?.dbId || territory?.id;
+    if (!key) {
+        return;
+    }
+    territory.attackDeclared = declared;
+}
+
+function getActionGate(action, territory) {
+    const mapDef = getMapDefByTerritory(territory) || MAPS[currentMapIndex];
+    const state = getPrimeTimeState(mapDef);
+
+    if (action === 'attack') {
+        if (state.isDeclaration) {
+            return { allowed: true, mode: 'declare', state };
+        }
+        if (state.isPrime) {
+            return { allowed: true, mode: 'attack', state };
+        }
+        return { allowed: false, reason: `Declarações em ${state.declareLabel}.`, state };
+    }
+
+    if (action === 'defend' || action === 'claim') {
+        if (!state.isPrime) {
+            return { allowed: false, reason: `Ação liberada apenas no prime time ${state.windowLabel}.`, state };
+        }
+        return { allowed: true, mode: action, state };
+    }
+
+    return { allowed: true, mode: action, state };
 }
 
 function startMapAmbientLoop() {
     const render = (time) => {
+        syncRendererSignals();
         if (renderer) {
             renderer.draw(time);
         }
@@ -234,9 +392,11 @@ async function syncTerritoriesFromServer(showSuccessMessage = false) {
             const ownerName = row.owner_display || (row.owner_id ? `User ${row.owner_id}` : null);
 
             slot.dbId = Number(row.id || 0) || null;
-            slot.name = String(row.name || slot.name);
+            slot.baseName = slot.baseName || slot.name;
+            slot.name = String(row.name || slot.baseName);
             slot.ownerId = ownerId;
             slot.owner = ownerName;
+            slot.ownerDisplay = ownerName ? stylizeGuildName(ownerName) : null;
             slot.defense = Math.max(1, Math.min(5, Number(row.defense_level || 1)));
             slot.coins = Number(row.luma_coins || 100);
             slot.rewardCoins = Number(row.owner_reward_coins || 25);
@@ -449,8 +609,9 @@ function updateNavArrows(index) {
 // -- HUD -----------------------------------------------------------------------
 function updateHUD(mapDef) {
     document.querySelector('.zone-name').textContent = mapDef.name;
-    document.querySelector('.zone-sub').textContent = mapDef.sub;
+    document.querySelector('.zone-sub').textContent = `${mapDef.sub} • Prime ${getPrimeTimeState(mapDef).windowLabel}`;
     document.getElementById('playerCount').textContent = mapDef.playerCount;
+    syncPrimeTimeHud(mapDef);
 
     const resContainer = document.querySelector('.hud-resources');
     resContainer.innerHTML = '';
@@ -487,7 +648,8 @@ function setupEvents(canvas) {
         fresh.style.cursor = (territory || exit) ? 'pointer' : 'default';
 
         if (territory) {
-            showTooltip(tooltip, territory.owner ? `${territoryDisplayName(territory)} · ${territory.owner}` : `${territoryDisplayName(territory)} · Sem dono`, ox, oy);
+            const ownerLabel = territory.ownerDisplay || territory.owner || 'Sem dono';
+            showTooltip(tooltip, `${territoryDisplayName(territory)} · ${ownerLabel}`, ox, oy);
         } else if (exit) {
             const destination = exit.target !== null ? MAPS[exit.target]?.name ?? '?' : 'Sem saída';
             showTooltip(tooltip, `Saída ${exit.dir} -> ${destination}`, ox, oy);
@@ -560,9 +722,11 @@ function openPanel(territory, withAnimation = true) {
     document.getElementById('panelName').textContent = territoryDisplayName(territory);
 
     const ownerEl = document.getElementById('panelOwner');
-    ownerEl.textContent = territory.owner ?? '—';
+    ownerEl.textContent = territory.ownerDisplay || territory.owner || '—';
     ownerEl.className = `val${territory.owner ? '' : ' no-owner'}`;
 
+    const mapDef = getMapDefByTerritory(territory) || MAPS[currentMapIndex];
+    const primeState = getPrimeTimeState(mapDef);
     const defense = Number(territory.defense || 1);
     const healthPercent = Math.max(10, Math.min(100, Math.round((defense / 5) * 100)));
     const isOwner = territory.ownerId && Number(territory.ownerId) === Number(currentUserId);
@@ -585,12 +749,16 @@ function openPanel(territory, withAnimation = true) {
     document.getElementById('panelStatus').textContent = isFree ? '◌ Disponível para tomada' : (isOwner ? '◈ Domínio ativo da sua guilda' : '⬡ Fortaleza hostil');
     document.getElementById('panelLeague').textContent = ownerLeaderboardEntry?.league || territory.league || 'Abismo';
     document.getElementById('panelAttackTimer').textContent = formatCooldown(cooldownRemaining);
+    document.getElementById('panelPrimeTime').textContent = `${primeState.windowLabel}`;
+    document.getElementById('panelWarPhase').textContent = territory.attackDeclared
+        ? `${primeState.meta.icon} ${primeState.meta.label} • ataque declarado`
+        : `${primeState.meta.icon} ${primeState.meta.label}`;
     document.getElementById('panelPresence').textContent = isFeatured
         ? `${presenceCount} players na área • epicentro em ebulição`
         : `${presenceCount} players na área`;
     document.getElementById('panelOwnerAction').textContent = isOwner
         ? `Coleta: ${Number(territory.rewardCoins || 0)} coins`
-        : 'Sem coleta';
+        : (territory.attackDeclared ? 'Ataque sinalizado no mapa' : 'Sem coleta');
 
     const safety = document.getElementById('panelSafety');
     if (cooldownRemaining > 0) {
@@ -620,13 +788,15 @@ function openPanel(territory, withAnimation = true) {
     const upgradeBox = document.getElementById('upgradeTierBox');
 
     btnAttack.style.display = (!isFree && !isOwner) ? 'block' : 'none';
-    btnAttack.disabled = cooldownRemaining > 0;
+    btnAttack.disabled = cooldownRemaining > 0 || (primeState.isDeclaration ? territory.attackDeclared : (!primeState.isDeclaration && !primeState.isPrime));
     btnAttack.textContent = cooldownRemaining > 0
         ? `⏳ Ataque em ${formatCooldownCompact(cooldownRemaining)}`
-        : '⚔ Romper Defesas';
+        : (primeState.isDeclaration ? (territory.attackDeclared ? '⚑ Ataque Declarado' : '⚑ Declarar Ataque') : '⚔ Romper Defesas');
     btnCapture.style.display = isFree ? 'block' : 'none';
+    btnCapture.disabled = !primeState.isPrime;
     btnCollect.style.display = isOwner ? 'block' : 'none';
     btnDefend.style.display = isOwner ? 'block' : 'none';
+    btnDefend.disabled = !primeState.isPrime;
     btnUpgrade.style.display = isOwner ? 'block' : 'none';
     if (inspectButton) {
         inspectButton.style.display = 'block';
@@ -679,8 +849,53 @@ function setButtonsBusy(busy) {
 }
 
 async function runTerritoryAction(action) {
-    if (!selectedTerritory || !selectedTerritory.dbId) {
+    if (!selectedTerritory) {
         flash('Selecione um território válido no mapa.', true);
+        return;
+    }
+
+    const gate = getActionGate(action, selectedTerritory);
+    if (!gate.allowed) {
+        flash(gate.reason || 'Ação indisponível agora.', true);
+        return;
+    }
+
+    if (gate.mode === 'declare') {
+        markTerritoryDeclared(selectedTerritory, true);
+        pushTerritorySignal(selectedTerritory, 'declare', 'ATAQUE DECLARADO');
+        flash(`Ataque declarado para ${territoryDisplayName(selectedTerritory)}.`);
+        openPanel(selectedTerritory, false);
+        return;
+    }
+
+    if (!selectedTerritory.dbId) {
+        if (action === 'attack') {
+            selectedTerritory.attackCooldownRemaining = 180;
+            markTerritoryDeclared(selectedTerritory, false);
+            pushTerritorySignal(selectedTerritory, 'attack', 'CERCO INICIADO');
+            flash(`Cerco aberto em ${territoryDisplayName(selectedTerritory)}.`);
+        } else if (action === 'defend') {
+            selectedTerritory.defense = Math.min(5, Number(selectedTerritory.defense || 1) + 1);
+            pushTerritorySignal(selectedTerritory, 'defend', 'DEFESA REFORÇADA');
+            flash(`Defesa reforçada em ${territoryDisplayName(selectedTerritory)}.`);
+        } else if (action === 'claim') {
+            selectedTerritory.ownerId = currentUserId || -1;
+            selectedTerritory.owner = 'LumaGuard';
+            selectedTerritory.ownerDisplay = stylizeGuildName('LumaGuard');
+            selectedTerritory.relation = 'mine';
+            selectedTerritory.color = ownerColor(currentUserId || 1, 'LumaGuard');
+            pushTerritorySignal(selectedTerritory, 'claim', 'TERRITÓRIO TOMADO');
+            flash(`${territoryDisplayName(selectedTerritory)} agora responde à Casa Luma.`);
+        } else if (action === 'collect') {
+            currentBalance += Number(selectedTerritory.rewardCoins || 25);
+            const wallet = document.getElementById('walletBalance');
+            if (wallet) {
+                wallet.textContent = currentBalance.toLocaleString('pt-BR');
+            }
+            pushTerritorySignal(selectedTerritory, 'collect', '+ COLETA');
+            flash('Coleta local registrada.');
+        }
+        openPanel(selectedTerritory, false);
         return;
     }
 
@@ -708,6 +923,17 @@ async function runTerritoryAction(action) {
             if (wallet) {
                 wallet.textContent = currentBalance.toLocaleString('pt-BR');
             }
+        }
+
+        if (action === 'attack') {
+            markTerritoryDeclared(selectedTerritory, false);
+            pushTerritorySignal(selectedTerritory, 'attack', 'CERCO ATIVO');
+        } else if (action === 'defend') {
+            pushTerritorySignal(selectedTerritory, 'defend', 'LINHA SEGURA');
+        } else if (action === 'claim') {
+            pushTerritorySignal(selectedTerritory, 'claim', 'CONQUISTA');
+        } else if (action === 'collect') {
+            pushTerritorySignal(selectedTerritory, 'collect', '+ COLETA');
         }
 
         flash(payload.message || 'Ação executada com sucesso.');
@@ -787,6 +1013,12 @@ function startTerritoryHudTick() {
                 slot.attackCooldownRemaining = Math.max(0, Number(slot.attackCooldownRemaining || 0) - 1);
             }
 
+            const slotMap = getMapDefByTerritory(slot) || MAPS[currentMapIndex];
+            const slotPrimeState = getPrimeTimeState(slotMap);
+            if (!slotPrimeState.isPrime && !slotPrimeState.isDeclaration && slot.attackDeclared) {
+                slot.attackDeclared = false;
+            }
+
             const key = slot.dbId || slot.id;
             const current = Number(territoryPresence[key] || 0);
             const drift = Math.random() < 0.45 ? 1 : -1;
@@ -795,7 +1027,13 @@ function startTerritoryHudTick() {
             territoryPresence[key] = Math.max(minCount, Math.min(maxCount, current + drift));
         });
 
+        syncPrimeTimeHud(MAPS[currentMapIndex]);
         if (selectedTerritory) {
+            const mapDef = getMapDefByTerritory(selectedTerritory) || MAPS[currentMapIndex];
+            const state = getPrimeTimeState(mapDef);
+            if (!state.isPrime && !state.isDeclaration && selectedTerritory.attackDeclared) {
+                markTerritoryDeclared(selectedTerritory, false);
+            }
             openPanel(selectedTerritory, false);
             if (inspectScene && inspectScene.territoryId === (selectedTerritory.dbId || selectedTerritory.id)) {
                 openInspectModal();

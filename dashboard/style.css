@@ -117,6 +117,44 @@ body {
     color: var(--gold);
 }
 
+.hud-prime {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 236px;
+    padding: 6px 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(118, 96, 214, 0.45);
+    background: linear-gradient(135deg, rgba(37, 23, 73, 0.9), rgba(17, 14, 40, 0.92));
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+    transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.hud-prime.is-declaration {
+    border-color: rgba(255, 181, 88, 0.65);
+    box-shadow: 0 0 0 1px rgba(255, 181, 88, 0.12) inset, 0 12px 24px rgba(0, 0, 0, 0.24);
+}
+
+.hud-prime.is-prime {
+    border-color: rgba(255, 106, 122, 0.72);
+    box-shadow: 0 0 0 1px rgba(255, 106, 122, 0.14) inset, 0 0 22px rgba(255, 106, 122, 0.18);
+    transform: translateY(-1px);
+}
+
+.hud-prime-icon {
+    font-size: 18px;
+}
+
+.hud-prime-phase {
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.hud-prime-clock {
+    font-size: 11px;
+    color: #c5d3ff;
+}
+
 .wallet-icon {
     font-size: 16px;
 }
@@ -539,7 +577,20 @@ canvas { display: block; cursor: default; }
 }
 .panel-row:last-of-type { border-bottom: none; }
 .panel-row .lbl { color: var(--soft); }
-.panel-row .val { font-weight: 600; }
+.panel-row .val { font-weight: 600; text-align: right; }
+#panelPrimeTime,
+#panelWarPhase {
+    color: #c9d4ff;
+}
+
+.info-panel.is-exposed #panelWarPhase {
+    color: #ff8d96;
+}
+
+.info-panel.is-featured #panelPrimeTime {
+    color: #ffd98e;
+}
+
 .no-owner { color: var(--soft); font-style: italic; }
 
 .info-panel.show .territory-card,
