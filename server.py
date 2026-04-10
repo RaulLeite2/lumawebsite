@@ -350,6 +350,7 @@ class EntryExitEmbedSettings(BaseModel):
     welcome_title: str = "Bem-vindo(a), {member}!"
     welcome_description: str = "Aproveite sua estadia em **{guild}**."
     welcome_color: str = "#57cc99"
+    auto_role: str = ""
     leave_enabled: bool = False
     leave_channel: str = ""
     leave_title: str = "Ate logo, {member}."
@@ -695,6 +696,7 @@ def _collect_setup_changes(previous_state: dict[str, Any], updated_state: dict[s
         "entry_exit.welcome_title": "Welcome title",
         "entry_exit.welcome_description": "Welcome description",
         "entry_exit.welcome_color": "Welcome color",
+        "entry_exit.auto_role": "Join auto-role",
         "entry_exit.leave_enabled": "Leave embed",
         "entry_exit.leave_channel": "Leave channel",
         "entry_exit.leave_title": "Leave title",
@@ -1100,6 +1102,7 @@ async def _ensure_dashboard_tables(pool: Any) -> None:
                     welcome_title VARCHAR(256),
                     welcome_description TEXT,
                     welcome_color VARCHAR(16),
+                    auto_role_id BIGINT,
                     leave_enabled BOOLEAN NOT NULL DEFAULT FALSE,
                     leave_channel_id BIGINT,
                     leave_title VARCHAR(256),
@@ -1109,6 +1112,7 @@ async def _ensure_dashboard_tables(pool: Any) -> None:
                 )
                 """
             )
+            await connection.execute("ALTER TABLE guild_entry_exit_embeds ADD COLUMN IF NOT EXISTS auto_role_id BIGINT")
             await connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS guild_dashboard_roles (
@@ -1749,6 +1753,7 @@ async def _fetch_guild_db_row(guild_id: str) -> dict[str, Any] | None:
                     welcome_title,
                     welcome_description,
                     welcome_color,
+                    auto_role_id,
                     leave_enabled,
                     leave_channel_id,
                     leave_title,
@@ -1934,6 +1939,7 @@ def _merge_db_row_into_state(state: dict[str, Any], row: dict[str, Any]) -> dict
         state["entry_exit"]["welcome_title"] = str(entry_exit_embed.get("welcome_title") or state["entry_exit"].get("welcome_title", ""))
         state["entry_exit"]["welcome_description"] = str(entry_exit_embed.get("welcome_description") or state["entry_exit"].get("welcome_description", ""))
         state["entry_exit"]["welcome_color"] = str(entry_exit_embed.get("welcome_color") or state["entry_exit"].get("welcome_color", "#57cc99"))
+        state["entry_exit"]["auto_role"] = _id_to_input_value(entry_exit_embed.get("auto_role_id"), state["entry_exit"].get("auto_role", ""))
         state["entry_exit"]["leave_enabled"] = bool(entry_exit_embed.get("leave_enabled"))
         state["entry_exit"]["leave_channel"] = _id_to_input_value(entry_exit_embed.get("leave_channel_id"), state["entry_exit"].get("leave_channel", ""))
         state["entry_exit"]["leave_title"] = str(entry_exit_embed.get("leave_title") or state["entry_exit"].get("leave_title", ""))
@@ -1980,6 +1986,7 @@ async def _sync_state_to_database(guild_id: str, state: dict[str, Any]) -> bool:
     modmail_alert_role_id = alert_role_ids[0] if alert_role_ids else _extract_discord_id(state["modmail"].get("alert_role"))
     entry_exit = state.get("entry_exit", {})
     welcome_channel_id = _extract_discord_id(entry_exit.get("welcome_channel"))
+    auto_role_id = _extract_discord_id(entry_exit.get("auto_role"))
     leave_channel_id = _extract_discord_id(entry_exit.get("leave_channel"))
     voice_drops = state.get("voice_drops", {})
     reward_min = max(1, int(voice_drops.get("reward_min") or 20))
@@ -2157,6 +2164,7 @@ async def _sync_state_to_database(guild_id: str, state: dict[str, Any]) -> bool:
                     welcome_title,
                     welcome_description,
                     welcome_color,
+                    auto_role_id,
                     leave_enabled,
                     leave_channel_id,
                     leave_title,
@@ -2164,7 +2172,7 @@ async def _sync_state_to_database(guild_id: str, state: dict[str, Any]) -> bool:
                     leave_color,
                     updated_at
                 )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, CURRENT_TIMESTAMP)
                 ON CONFLICT (guild_id)
                 DO UPDATE SET
                     welcome_enabled = EXCLUDED.welcome_enabled,
@@ -2172,6 +2180,7 @@ async def _sync_state_to_database(guild_id: str, state: dict[str, Any]) -> bool:
                     welcome_title = EXCLUDED.welcome_title,
                     welcome_description = EXCLUDED.welcome_description,
                     welcome_color = EXCLUDED.welcome_color,
+                    auto_role_id = EXCLUDED.auto_role_id,
                     leave_enabled = EXCLUDED.leave_enabled,
                     leave_channel_id = EXCLUDED.leave_channel_id,
                     leave_title = EXCLUDED.leave_title,
@@ -2185,6 +2194,7 @@ async def _sync_state_to_database(guild_id: str, state: dict[str, Any]) -> bool:
                 str(entry_exit.get("welcome_title") or "Bem-vindo(a), {member}!"),
                 str(entry_exit.get("welcome_description") or "Aproveite sua estadia em **{guild}**."),
                 str(entry_exit.get("welcome_color") or "#57cc99"),
+                auto_role_id,
                 bool(entry_exit.get("leave_enabled")),
                 leave_channel_id,
                 str(entry_exit.get("leave_title") or "Ate logo, {member}."),

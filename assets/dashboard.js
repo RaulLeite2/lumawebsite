@@ -344,6 +344,7 @@ const STATIC_TRANSLATIONS = {
     "Welcome Embed": { pt: "Embed de Boas-vindas", en: "Welcome Embed", es: "Embed de Bienvenida" },
     "Enable welcome embed": { pt: "Ativar embed de boas-vindas", en: "Enable welcome embed", es: "Activar embed de bienvenida" },
     "Welcome channel": { pt: "Canal de boas-vindas", en: "Welcome channel", es: "Canal de bienvenida" },
+    "Auto role on join": { pt: "Cargo automatico ao entrar", en: "Auto role on join", es: "Rol automatico al entrar" },
     "Embed color (hex)": { pt: "Cor da embed (hex)", en: "Embed color (hex)", es: "Color del embed (hex)" },
     "Title": { pt: "Titulo", en: "Title", es: "Titulo" },
     "Description": { pt: "Descricao", en: "Description", es: "Descripcion" },
@@ -433,6 +434,7 @@ const STATIC_TRANSLATIONS = {
     "Choose a modmail category": { pt: "Escolha uma categoria de modmail", en: "Choose a modmail category", es: "Elige una categoria de modmail" },
     "Choose welcome channel": { pt: "Escolha um canal de boas-vindas", en: "Choose welcome channel", es: "Elige un canal de bienvenida" },
     "Choose leave channel": { pt: "Escolha um canal de saida", en: "Choose leave channel", es: "Elige un canal de salida" },
+    "Choose auto role": { pt: "Escolha o cargo automatico", en: "Choose auto role", es: "Elige el rol automatico" },
     "Module controls for this guild.": { pt: "Controles do modulo para esta guild.", en: "Module controls for this guild.", es: "Controles del modulo para este servidor." },
     "Language": { pt: "Idioma", en: "Language", es: "Idioma" },
     "AutoMod invite filter": { pt: "Filtro de convite do AutoMod", en: "AutoMod invite filter", es: "Filtro de invitacion de AutoMod" },
@@ -1409,6 +1411,7 @@ function applyResourceSelectors(context) {
     populateSelect(document.getElementById("welcome-channel"), setupResources.text_channels || [], translateStaticText("Choose welcome channel"));
     populateSelect(document.getElementById("leave-channel"), setupResources.text_channels || [], translateStaticText("Choose leave channel"));
     populateSelect(document.getElementById("voice-drops-channel"), setupResources.text_channels || [], translateStaticText("Choose a voice drops channel"));
+    populateRoleSelect(document.getElementById("entry-auto-role"), setupResources.roles || [], translateStaticText("Choose auto role"));
     populateRoleSelect(document.getElementById("auto-role"), setupResources.roles || []);
     populateRoleSelect(document.getElementById("auto-immune-role-picker"), setupResources.roles || []);
     populateRoleSelect(document.getElementById("modmail-role-picker"), setupResources.roles || []);
@@ -1522,7 +1525,7 @@ function bindSetupDirtyTracking() {
     if (!["guild-settings", "entry-exit"].includes(page) || setupDirtyTrackingBound) return;
 
     const trackedSelector = page === "entry-exit"
-        ? "#welcome-enabled, #welcome-channel, #welcome-title, #welcome-description, #welcome-color, #leave-enabled, #leave-channel, #leave-title, #leave-description, #leave-color"
+        ? "#welcome-enabled, #welcome-channel, #welcome-title, #welcome-description, #welcome-color, #entry-auto-role, #leave-enabled, #leave-channel, #leave-title, #leave-description, #leave-color"
         : "#guild-language, #guild-log, #auto-enabled, #auto-antiflood, #auto-invite, #auto-link, #auto-caps, #auto-threshold, #auto-role, #auto-immune-role-picker, #warn-public-reason, #warn-dm-user, #warn-step-1-threshold, #warn-step-1-action, #warn-step-2-threshold, #warn-step-2-action, #warn-step-3-threshold, #warn-step-3-action, #log-enabled, #log-moderation, #log-ban-events, #log-join-leave, #log-message-delete, #log-modmail, #log-audit-channel, #log-ban-channel, #modmail-enabled, #modmail-anonymous, #modmail-idle, #modmail-channel, #modmail-role-picker, #modmail-hours, input[data-setup-cog]";
 
     const markDirty = (event) => {
@@ -1832,6 +1835,7 @@ function renderGuildSettings(context) {
         welcomeTitle: document.getElementById("welcome-title"),
         welcomeDescription: document.getElementById("welcome-description"),
         welcomeColor: document.getElementById("welcome-color"),
+        entryAutoRole: document.getElementById("entry-auto-role"),
         leaveEnabled: document.getElementById("leave-enabled"),
         leaveChannel: document.getElementById("leave-channel"),
         leaveTitle: document.getElementById("leave-title"),
@@ -1922,6 +1926,10 @@ function renderGuildSettings(context) {
     if (refs.welcomeTitle) refs.welcomeTitle.value = entryExit.welcome_title || translateStaticText("Welcome, {member}!");
     if (refs.welcomeDescription) refs.welcomeDescription.value = entryExit.welcome_description || translateStaticText("Enjoy your stay in **{guild}**.");
     if (refs.welcomeColor) refs.welcomeColor.value = entryExit.welcome_color || "#57cc99";
+    if (refs.entryAutoRole) {
+        ensureOption(refs.entryAutoRole, entryExit.auto_role, entryExit.auto_role);
+        refs.entryAutoRole.value = entryExit.auto_role || "";
+    }
 
     if (refs.leaveEnabled) refs.leaveEnabled.checked = Boolean(entryExit.leave_enabled);
     if (refs.leaveChannel) {
@@ -1955,6 +1963,7 @@ function renderEntryExitPage(context) {
         welcomeTitle: document.getElementById("welcome-title"),
         welcomeDescription: document.getElementById("welcome-description"),
         welcomeColor: document.getElementById("welcome-color"),
+        entryAutoRole: document.getElementById("entry-auto-role"),
         leaveEnabled: document.getElementById("leave-enabled"),
         leaveChannel: document.getElementById("leave-channel"),
         leaveTitle: document.getElementById("leave-title"),
@@ -1972,6 +1981,8 @@ function renderEntryExitPage(context) {
     refs.welcomeTitle.value = entryExit.welcome_title || translateStaticText("Welcome, {member}!");
     refs.welcomeDescription.value = entryExit.welcome_description || translateStaticText("Enjoy your stay in **{guild}**.");
     refs.welcomeColor.value = entryExit.welcome_color || "#57cc99";
+    ensureOption(refs.entryAutoRole, entryExit.auto_role, entryExit.auto_role);
+    refs.entryAutoRole.value = entryExit.auto_role || "";
 
     refs.leaveEnabled.checked = Boolean(entryExit.leave_enabled);
     ensureOption(refs.leaveChannel, entryExit.leave_channel, entryExit.leave_channel);
@@ -2414,6 +2425,7 @@ function buildEntryExitPayloadFromForm() {
         welcome_title: readText("welcome-title", current.welcome_title || "Bem-vindo(a), {member}!"),
         welcome_description: readText("welcome-description", current.welcome_description || "Aproveite sua estadia em **{guild}**."),
         welcome_color: readText("welcome-color", current.welcome_color || "#57cc99") || "#57cc99",
+        auto_role: readText("entry-auto-role", current.auto_role),
         leave_enabled: readChecked("leave-enabled", current.leave_enabled),
         leave_channel: readText("leave-channel", current.leave_channel),
         leave_title: readText("leave-title", current.leave_title || "Ate logo, {member}."),
