@@ -16,6 +16,8 @@ let territorySignals = [];
 let selectedCity = null;
 let gatheredInventory = [];
 let leaderboardVisible = false;
+let seasonPoints = 0;
+const seenFactionAlerts = new Set();
 
 const TERRITORY_GLYPHS = ['✦', '◈', '✶', '⬡', '✹', '✷', '◉'];
 const GUILD_SIGILS = ['✦', '☽', '✶', '⬢', '✹', '✧'];
@@ -303,6 +305,9 @@ function getActionGate(action, territory) {
     }
 
     if (action === 'defend' || action === 'claim') {
+        if (action === 'defend' && territory?.factionAttackActive) {
+            return { allowed: true, mode: 'defend', state };
+        }
         if (!state.isPrime) {
             return { allowed: false, reason: `Ação liberada apenas no prime time ${state.windowLabel}.`, state };
         }
@@ -345,6 +350,46 @@ function normalizeGatheredInventory(rows) {
             value: Math.max(0, Number(entry?.value || 0)),
         }))
         .filter((entry) => entry.key && entry.amount > 0);
+}
+
+function updateSeasonPointsHud() {
+    const pointsEl = document.getElementById('seasonPoints');
+    if (pointsEl) {
+        pointsEl.textContent = Number(seasonPoints || 0).toLocaleString('pt-BR');
+    }
+}
+
+function applyFactionAlerts(alerts) {
+    const rows = Array.isArray(alerts) ? alerts : [];
+    rows.forEach((alert) => {
+        const key = `${alert?.territory_id || '0'}:${alert?.started_at || alert?.event_type || 'active'}`;
+        if (seenFactionAlerts.has(key)) {
+            return;
+        }
+        seenFactionAlerts.add(key);
+        const territoryName = String(alert?.territory_name || 'Território');
+        const factionName = String(alert?.faction_name || 'Facção');
+        const remaining = Number(alert?.remaining_seconds || 0);
+        flash(`⚠ ${territoryName} sob ataque da ${factionName} (${formatCooldownCompact(remaining)}).`, true);
+    });
+}
+
+async function claimSeasonPoints() {
+    try {
+        const payload = await apiRequest('/api/dashboard/territories/season/claim', {
+            method: 'POST',
+            body: JSON.stringify({ map_id: Number(MAPS[currentMapIndex]?.id || 0) }),
+        });
+        if (payload.ok === false) {
+            flash(payload.message || 'Não foi possível resgatar pontos de temporada.', true);
+            return;
+        }
+        seasonPoints = Number(payload.season_points || seasonPoints);
+        updateSeasonPointsHud();
+        flash(payload.message || `+${Number(payload.points || 0)} pontos da temporada.`);
+    } catch (error) {
+        flash(`Falha no resgate de temporada: ${error.message}`, true);
+    }
 }
 
 function applyWorldConfig(world) {
@@ -541,8 +586,11 @@ async function syncTerritoriesFromServer(showSuccessMessage = false) {
         const payload = await apiRequest('/api/dashboard/territories/list');
         currentUserId = Number(payload.current_user_id || 0);
         currentBalance = Number(payload.balance || 0);
+        seasonPoints = Number(payload.season_points || seasonPoints || 0);
+        updateSeasonPointsHud();
         applyWorldConfig(payload.world || null);
         gatheredInventory = normalizeGatheredInventory(payload.gathered_inventory);
+        applyFactionAlerts(payload.faction_alerts);
 
         const wallet = document.getElementById('walletBalance');
         if (wallet) {
@@ -564,11 +612,15 @@ async function syncTerritoriesFromServer(showSuccessMessage = false) {
             slot.name = String(row.name || slot.baseName);
             slot.ownerId = ownerId;
             slot.owner = ownerName;
-            slot.ownerDisplay = ownerName ? stylizeGuildName(ownerName) : null;
+            slot.ownerDisplay = row.owner_faction ? ownerName : (ownerName ? stylizeGuildName(ownerName) : null);
             slot.defense = Math.max(1, Math.min(5, Number(row.defense_level || 1)));
             slot.coins = Number(row.luma_coins || 100);
             slot.rewardCoins = Number(row.owner_reward_coins || 25);
             slot.league = String(row.league || 'Abismo');
+            slot.factionOwner = row.owner_faction ? String(row.owner_faction) : null;
+            slot.factionAttackActive = Boolean(row.faction_attack_active);
+            slot.factionName = row.faction_name ? String(row.faction_name) : null;
+            slot.factionAttackRemaining = Number(row.faction_attack_remaining_seconds || 0);
             slot.attackCooldownRemaining = Number(row.attack_cooldown_remaining_seconds || 0);
             slot.attackCooldownTotal = Number(row.attack_cooldown_total_seconds || 900);
             slot.color = ownerName ? ownerColor(ownerId, ownerName) : '#2a2a4b';
@@ -947,7 +999,8 @@ function openPanel(territory, withAnimation = true) {
     const defense = Number(territory.defense || 1);
     const healthPercent = Math.max(10, Math.min(100, Math.round((defense / 5) * 100)));
     const isOwner = territory.ownerId && Number(territory.ownerId) === Number(currentUserId);
-    const isFree = !territory.ownerId;
+    const isFactionHeld = Boolean(territory.factionOwner);
+    const isFree = !territory.ownerId && !isFactionHeld;
     const ownerLeaderboardEntry = currentLeaderboard.find((entry) => Number(entry.user_id) === Number(territory.ownerId));
     const cooldownRemaining = Number(territory.attackCooldownRemaining || 0);
     const presenceCount = Number(territoryPresence[territory.dbId || territory.id] || 0);
@@ -963,18 +1016,27 @@ function openPanel(territory, withAnimation = true) {
     document.getElementById('panelHealthPercent').textContent = `${healthPercent}% de Saúde`;
     document.getElementById('panelHealthFill').style.width = `${healthPercent}%`;
     document.getElementById('panelCoins').textContent = `🪙 ${Number(territory.coins || 0).toLocaleString('pt-BR')}`;
-    document.getElementById('panelStatus').textContent = isFree ? '◌ Disponível para tomada' : (isOwner ? '◈ Domínio ativo da sua guilda' : '⬡ Fortaleza hostil');
+    document.getElementById('panelStatus').textContent = isFree
+        ? '◌ Disponível para tomada'
+        : (isOwner ? '◈ Domínio ativo da sua guilda' : (isFactionHeld ? '⚔ Ocupado por facção' : '⬡ Fortaleza hostil'));
     document.getElementById('panelLeague').textContent = ownerLeaderboardEntry?.league || territory.league || 'Abismo';
     document.getElementById('panelAttackTimer').textContent = formatCooldown(cooldownRemaining);
     document.getElementById('panelPrimeTime').textContent = `${primeState.windowLabel}`;
-    document.getElementById('panelWarPhase').textContent = territory.attackDeclared
-        ? `${primeState.meta.icon} ${primeState.meta.label} • ataque declarado`
-        : `${primeState.meta.icon} ${primeState.meta.label}`;
+    document.getElementById('panelWarPhase').textContent = territory.factionAttackActive
+        ? `⚠ Ataque da ${territory.factionName || 'Facção'} em curso`
+        : (territory.attackDeclared
+            ? `${primeState.meta.icon} ${primeState.meta.label} • ataque declarado`
+            : `${primeState.meta.icon} ${primeState.meta.label}`);
+    document.getElementById('panelFactionThreat').textContent = territory.factionAttackActive
+        ? `${territory.factionName || 'Facção'} • ${formatCooldown(territory.factionAttackRemaining || 0)}`
+        : 'Sem ameaça ativa';
     document.getElementById('panelPresence').textContent = isFeatured
         ? `${presenceCount} players na área • epicentro em ebulição`
         : `${presenceCount} players na área`;
     document.getElementById('panelOwnerAction').textContent = isOwner
-        ? `Coleta: ${Number(territory.rewardCoins || 0)} coins`
+        ? (territory.factionAttackActive
+            ? `Defesa urgente contra ${territory.factionName || 'Facção'}`
+            : `Coleta: ${Number(territory.rewardCoins || 0)} coins`)
         : (territory.attackDeclared ? 'Ataque sinalizado no mapa' : 'Sem coleta');
 
     const safety = document.getElementById('panelSafety');
@@ -1014,7 +1076,7 @@ function openPanel(territory, withAnimation = true) {
     btnCapture.disabled = !primeState.isPrime;
     btnCollect.style.display = isOwner ? 'block' : 'none';
     btnDefend.style.display = isOwner ? 'block' : 'none';
-    btnDefend.disabled = !primeState.isPrime;
+    btnDefend.disabled = territory.factionAttackActive ? false : !primeState.isPrime;
     btnUpgrade.style.display = isOwner ? 'block' : 'none';
     if (btnSellCity) {
         btnSellCity.style.display = (selectedCity && selectedCity.kind !== 'league') ? 'block' : 'none';
@@ -1045,6 +1107,13 @@ function setupActionButtons() {
     document.getElementById('btnRefresh').addEventListener('click', async () => {
         await Promise.all([syncTerritoriesFromServer(true), loadLeaderboard()]);
     });
+    const seasonClaimButton = document.getElementById('btnSeasonClaim');
+    if (seasonClaimButton) {
+        seasonClaimButton.addEventListener('click', async () => {
+            await claimSeasonPoints();
+            await syncTerritoriesFromServer(false);
+        });
+    }
     const sellButton = document.getElementById('btnSellCity');
     if (sellButton) {
         sellButton.addEventListener('click', async () => {
@@ -1068,7 +1137,7 @@ function setupActionButtons() {
 }
 
 function setButtonsBusy(busy) {
-    ['btnAttack', 'btnCapture', 'btnCollect', 'btnDefend', 'btnUpgrade', 'btnRefresh', 'btnSellCity'].forEach((id) => {
+    ['btnAttack', 'btnCapture', 'btnCollect', 'btnDefend', 'btnUpgrade', 'btnRefresh', 'btnSellCity', 'btnSeasonClaim'].forEach((id) => {
         const btn = document.getElementById(id);
         if (btn) {
             btn.disabled = busy;

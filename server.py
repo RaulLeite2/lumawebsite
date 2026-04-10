@@ -63,6 +63,23 @@ TERRITORY_LEAGUES: list[tuple[str, int]] = [
 
 TERRITORY_ATTACK_COOLDOWN_SECONDS = 900
 TERRITORY_RESOURCE_GATHER_COOLDOWN_SECONDS = 45
+TERRITORY_FACTION_ATTACK_MIN_INTERVAL_SECONDS = 1800
+TERRITORY_FACTION_ATTACK_DURATION_MINUTES = 15
+
+TERRITORY_FACTIONS = [
+    "Legiao Rubra",
+    "Ordem do Eclipse",
+    "Coroa de Cinzas",
+    "Pacto do Abismo",
+]
+
+TERRITORY_PRIME_SCHEDULE_BY_MAP: dict[int, dict[str, int]] = {
+    0: {"end_hour": 21, "end_minute": 0},
+    1: {"end_hour": 22, "end_minute": 0},
+    2: {"end_hour": 23, "end_minute": 0},
+    3: {"end_hour": 20, "end_minute": 0},
+    4: {"end_hour": 19, "end_minute": 0},
+}
 
 TERRITORY_RESOURCE_QUALITY_TABLE: list[tuple[int, str]] = [
     (45, "Comum"),
@@ -429,6 +446,10 @@ class TerritoryGatherPayload(BaseModel):
 class TerritorySellPayload(BaseModel):
     map_id: int = Field(ge=0)
     city_id: str = Field(min_length=1, max_length=80)
+
+
+class TerritorySeasonClaimPayload(BaseModel):
+    map_id: int = Field(ge=0)
 
 
 class BlogPostCreatePayload(BaseModel):
@@ -1200,6 +1221,27 @@ async def _ensure_dashboard_tables(pool: Any) -> None:
             )
             await connection.execute(
                 """
+                CREATE TABLE IF NOT EXISTS territory_season_points (
+                    user_id BIGINT PRIMARY KEY,
+                    total_points INT NOT NULL DEFAULT 0,
+                    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+            await connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS territory_season_claims (
+                    user_id BIGINT NOT NULL,
+                    map_id INT NOT NULL,
+                    day_key DATE NOT NULL,
+                    points INT NOT NULL,
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (user_id, map_id, day_key)
+                )
+                """
+            )
+            await connection.execute(
+                """
                 CREATE TABLE IF NOT EXISTS user_voice_drops_daily (
                     guild_id BIGINT NOT NULL REFERENCES guilds(guild_id) ON DELETE CASCADE,
                     user_id BIGINT NOT NULL,
@@ -1236,6 +1278,7 @@ async def _ensure_dashboard_tables(pool: Any) -> None:
             await connection.execute("CREATE INDEX IF NOT EXISTS idx_territories_owner_id ON territories(owner_id)")
             await connection.execute("CREATE INDEX IF NOT EXISTS idx_territory_resource_inventory_user ON territory_resource_inventory(user_id)")
             await connection.execute("CREATE INDEX IF NOT EXISTS idx_territory_resource_cooldowns_user ON territory_resource_cooldowns(user_id)")
+            await connection.execute("CREATE INDEX IF NOT EXISTS idx_territory_season_claims_user_day ON territory_season_claims(user_id, day_key)")
             await connection.execute("CREATE INDEX IF NOT EXISTS idx_user_voice_drops_daily_guild_day ON user_voice_drops_daily(guild_id, day_key)")
             await connection.execute("CREATE INDEX IF NOT EXISTS idx_user_voice_drops_daily_user_day ON user_voice_drops_daily(user_id, day_key)")
             await connection.execute("ALTER TABLE guild_raid_settings ADD COLUMN IF NOT EXISTS mode VARCHAR(16) NOT NULL DEFAULT 'lockdown'")
@@ -1243,6 +1286,14 @@ async def _ensure_dashboard_tables(pool: Any) -> None:
             await connection.execute("ALTER TABLE territories ADD COLUMN IF NOT EXISTS owner_reward_coins INT NOT NULL DEFAULT 25")
             await connection.execute("ALTER TABLE territories ADD COLUMN IF NOT EXISTS luma_coins INT NOT NULL DEFAULT 100")
             await connection.execute("ALTER TABLE territories ADD COLUMN IF NOT EXISTS defense_level INT NOT NULL DEFAULT 1")
+            await connection.execute("ALTER TABLE territories ADD COLUMN IF NOT EXISTS owner_faction VARCHAR(80)")
+            await connection.execute("ALTER TABLE territories ADD COLUMN IF NOT EXISTS faction_attack_active BOOLEAN NOT NULL DEFAULT FALSE")
+            await connection.execute("ALTER TABLE territories ADD COLUMN IF NOT EXISTS faction_name VARCHAR(80)")
+            await connection.execute("ALTER TABLE territories ADD COLUMN IF NOT EXISTS faction_attack_started_at TIMESTAMP")
+            await connection.execute("ALTER TABLE territories ADD COLUMN IF NOT EXISTS faction_attack_ends_at TIMESTAMP")
+            await connection.execute("ALTER TABLE territories ADD COLUMN IF NOT EXISTS last_faction_attack_at TIMESTAMP")
+            await connection.execute("ALTER TABLE territories ADD COLUMN IF NOT EXISTS last_faction_result VARCHAR(32)")
+            await connection.execute("ALTER TABLE territories ADD COLUMN IF NOT EXISTS last_faction_result_at TIMESTAMP")
             await connection.execute(
                 """
                 INSERT INTO territories (name)
@@ -1375,6 +1426,140 @@ def _territory_world_payload() -> dict[str, Any]:
         ],
         "gather_cooldown_seconds": TERRITORY_RESOURCE_GATHER_COOLDOWN_SECONDS,
     }
+
+
+def _territory_prime_window_closed(map_id: int, now: datetime | None = None) -> bool:
+    moment = now or datetime.utcnow()
+    schedule = TERRITORY_PRIME_SCHEDULE_BY_MAP.get(int(map_id))
+    if schedule is None:
+        return False
+    current_minutes = moment.hour * 60 + moment.minute
+    end_minutes = int(schedule["end_hour"]) * 60 + int(schedule.get("end_minute", 0))
+    return current_minutes >= end_minutes
+
+
+async def _process_faction_activity(connection: Any) -> list[dict[str, Any]]:
+    now = datetime.utcnow()
+    alerts_started: list[dict[str, Any]] = []
+    rows = await connection.fetch(
+        """
+        SELECT
+            id,
+            name,
+            owner_id,
+            owner_faction,
+            defense_level,
+            faction_attack_active,
+            faction_name,
+            faction_attack_ends_at,
+            last_faction_attack_at
+        FROM territories
+        FOR UPDATE
+        """
+    )
+
+    for row in rows:
+        territory_id = int(row.get("id") or 0)
+        owner_id = _extract_discord_id(row.get("owner_id"))
+        owner_faction = str(row.get("owner_faction") or "").strip() or None
+        defense_level = int(row.get("defense_level") or 1)
+        active = bool(row.get("faction_attack_active"))
+        faction_name = str(row.get("faction_name") or "").strip() or random.choice(TERRITORY_FACTIONS)
+        ends_at = row.get("faction_attack_ends_at")
+        last_attack_at = row.get("last_faction_attack_at")
+
+        if active and ends_at is not None:
+            ends_dt = ends_at.replace(tzinfo=None) if getattr(ends_at, "tzinfo", None) else ends_at
+            if ends_dt <= now:
+                faction_wins = False
+                if owner_id is not None:
+                    faction_win_chance = min(0.8, max(0.22, 0.66 - (defense_level * 0.08)))
+                    faction_wins = random.random() < faction_win_chance
+
+                if faction_wins:
+                    await connection.execute(
+                        """
+                        UPDATE territories
+                        SET
+                            owner_id = NULL,
+                            owner_faction = $1,
+                            called_at = CURRENT_TIMESTAMP,
+                            attack_time = CURRENT_TIMESTAMP,
+                            faction_attack_active = FALSE,
+                            faction_name = NULL,
+                            faction_attack_started_at = NULL,
+                            faction_attack_ends_at = NULL,
+                            last_faction_result = 'lost_to_faction',
+                            last_faction_result_at = CURRENT_TIMESTAMP
+                        WHERE id = $2
+                        """,
+                        faction_name,
+                        territory_id,
+                    )
+                else:
+                    await connection.execute(
+                        """
+                        UPDATE territories
+                        SET
+                            faction_attack_active = FALSE,
+                            faction_name = NULL,
+                            faction_attack_started_at = NULL,
+                            faction_attack_ends_at = NULL,
+                            last_faction_result = 'faction_failed',
+                            last_faction_result_at = CURRENT_TIMESTAMP
+                        WHERE id = $1
+                        """,
+                        territory_id,
+                    )
+                continue
+
+        if active:
+            continue
+        if owner_id is None:
+            continue
+        if owner_faction is not None:
+            continue
+
+        if last_attack_at is not None:
+            last_attack_dt = last_attack_at.replace(tzinfo=None) if getattr(last_attack_at, "tzinfo", None) else last_attack_at
+            elapsed = (now - last_attack_dt).total_seconds()
+            if elapsed < TERRITORY_FACTION_ATTACK_MIN_INTERVAL_SECONDS:
+                continue
+
+        if random.random() > 0.18:
+            continue
+
+        selected_faction = random.choice(TERRITORY_FACTIONS)
+        ends_at_new = now + timedelta(minutes=TERRITORY_FACTION_ATTACK_DURATION_MINUTES)
+        await connection.execute(
+            """
+            UPDATE territories
+            SET
+                faction_attack_active = TRUE,
+                faction_name = $1,
+                faction_attack_started_at = CURRENT_TIMESTAMP,
+                faction_attack_ends_at = $2,
+                last_faction_attack_at = CURRENT_TIMESTAMP,
+                last_faction_result = 'invasion_started',
+                last_faction_result_at = CURRENT_TIMESTAMP
+            WHERE id = $3
+            """,
+            selected_faction,
+            ends_at_new,
+            territory_id,
+        )
+        alerts_started.append(
+            {
+                "territory_id": territory_id,
+                "territory_name": str(row.get("name") or "Território"),
+                "owner_id": str(owner_id),
+                "faction_name": selected_faction,
+                "ends_at": ends_at_new.isoformat(),
+                "event_type": "faction_started",
+            }
+        )
+
+    return alerts_started
 
 
 async def _fetch_guild_resources(guild_id: str) -> dict[str, Any]:
@@ -3933,40 +4118,71 @@ async def dashboard_territories_list(request: Request) -> dict[str, Any]:
 
     active_guild = _active_guild_from_session(request)
     guild_id_str = str(active_guild.get("id")) if isinstance(active_guild, dict) and active_guild.get("id") else None
+    now_utc = datetime.utcnow()
+    today_key = now_utc.date()
 
     async with pool.acquire() as connection:
-        await connection.execute(
-            """
-            INSERT INTO economy (user_id, balance)
-            VALUES ($1, 0)
-            ON CONFLICT (user_id) DO NOTHING
-            """,
-            user_id,
-        )
-        balance = await connection.fetchval("SELECT balance FROM economy WHERE user_id = $1", user_id)
-        rows = await connection.fetch(
-            """
-            SELECT id, name, owner_id, called_at, attack_time, luma_coins, owner_reward_coins, defense_level
-            FROM territories
-            ORDER BY id ASC
-            """
-        )
-        gathered_inventory_rows = await connection.fetch(
-            """
-            SELECT resource_key, resource_name, quality, icon, quantity, total_value
-            FROM territory_resource_inventory
-            WHERE user_id = $1
-            ORDER BY quality DESC, resource_name ASC
-            """,
-            user_id,
-        )
+        async with connection.transaction():
+            started_faction_events = await _process_faction_activity(connection)
+            await connection.execute(
+                """
+                INSERT INTO economy (user_id, balance)
+                VALUES ($1, 0)
+                ON CONFLICT (user_id) DO NOTHING
+                """,
+                user_id,
+            )
+            balance = await connection.fetchval("SELECT balance FROM economy WHERE user_id = $1", user_id)
+            rows = await connection.fetch(
+                """
+                SELECT
+                    id,
+                    name,
+                    owner_id,
+                    owner_faction,
+                    called_at,
+                    attack_time,
+                    luma_coins,
+                    owner_reward_coins,
+                    defense_level,
+                    faction_attack_active,
+                    faction_name,
+                    faction_attack_started_at,
+                    faction_attack_ends_at
+                FROM territories
+                ORDER BY id ASC
+                """
+            )
+            gathered_inventory_rows = await connection.fetch(
+                """
+                SELECT resource_key, resource_name, quality, icon, quantity, total_value
+                FROM territory_resource_inventory
+                WHERE user_id = $1
+                ORDER BY quality DESC, resource_name ASC
+                """,
+                user_id,
+            )
+            season_points = await connection.fetchval(
+                "SELECT total_points FROM territory_season_points WHERE user_id = $1",
+                user_id,
+            )
+            season_claim_rows = await connection.fetch(
+                """
+                SELECT map_id
+                FROM territory_season_claims
+                WHERE user_id = $1 AND day_key = $2
+                """,
+                user_id,
+                today_key,
+            )
 
     owner_ids = [int(row["owner_id"]) for row in rows if row.get("owner_id") is not None]
     owner_names: dict[str, str] = {}
     if guild_id_str and owner_ids:
         owner_names = await _fetch_guild_member_display_names(guild_id_str, owner_ids)
 
-    now_utc = datetime.utcnow()
+    claimed_map_ids = {int(item.get("map_id") or -1) for item in season_claim_rows}
+    started_by_territory = {int(item.get("territory_id") or 0): item for item in started_faction_events}
 
     def _attack_cooldown_remaining_seconds(row: Any) -> int:
         attack_time = row.get("attack_time")
@@ -3976,11 +4192,42 @@ async def dashboard_territories_list(request: Request) -> dict[str, Any]:
         elapsed = (now_utc - attack_dt).total_seconds()
         return max(0, int(TERRITORY_ATTACK_COOLDOWN_SECONDS - elapsed))
 
+    def _faction_attack_remaining_seconds(row: Any) -> int:
+        if not bool(row.get("faction_attack_active")):
+            return 0
+        ends_at = row.get("faction_attack_ends_at")
+        if ends_at is None:
+            return 0
+        ends_dt = ends_at.replace(tzinfo=None) if getattr(ends_at, "tzinfo", None) else ends_at
+        return max(0, int((ends_dt - now_utc).total_seconds()))
+
+    faction_alerts: list[dict[str, Any]] = []
+    for row in rows:
+        if not bool(row.get("faction_attack_active")):
+            continue
+        if _extract_discord_id(row.get("owner_id")) != user_id:
+            continue
+        territory_id = int(row["id"])
+        started_event = started_by_territory.get(territory_id)
+        faction_alerts.append(
+            {
+                "territory_id": territory_id,
+                "territory_name": str(row.get("name") or "Território"),
+                "faction_name": str(row.get("faction_name") or "Facção"),
+                "remaining_seconds": _faction_attack_remaining_seconds(row),
+                "event_type": str(started_event.get("event_type") if isinstance(started_event, dict) else "faction_active"),
+                "started_at": row.get("faction_attack_started_at").isoformat() if row.get("faction_attack_started_at") else None,
+            }
+        )
+
     return {
         "ok": True,
         "current_user_id": str(user_id),
         "balance": int(balance or 0),
+        "season_points": int(season_points or 0),
+        "season_claimed_maps_today": sorted([value for value in claimed_map_ids if value >= 0]),
         "world": _territory_world_payload(),
+        "faction_alerts": faction_alerts,
         "gathered_inventory": [
             {
                 "key": str(item.get("resource_key") or ""),
@@ -3997,12 +4244,22 @@ async def dashboard_territories_list(request: Request) -> dict[str, Any]:
                 "id": int(row["id"]),
                 "name": str(row["name"]),
                 "owner_id": str(row["owner_id"]) if row.get("owner_id") is not None else None,
-                "owner_display": owner_names.get(str(row["owner_id"])) if row.get("owner_id") is not None else None,
+                "owner_display": (
+                    owner_names.get(str(row["owner_id"]))
+                    if row.get("owner_id") is not None
+                    else (f"⚔ {str(row.get('owner_faction') or '')}" if row.get("owner_faction") else None)
+                ),
+                "owner_faction": str(row.get("owner_faction") or "") or None,
                 "defense_level": int(row["defense_level"] or 1),
                 "luma_coins": int(row["luma_coins"] or 100),
                 "owner_reward_coins": int(row["owner_reward_coins"] or 25),
                 "called_at": row.get("called_at").isoformat() if row.get("called_at") else None,
                 "attack_time": row.get("attack_time").isoformat() if row.get("attack_time") else None,
+                "faction_attack_active": bool(row.get("faction_attack_active")),
+                "faction_name": str(row.get("faction_name") or "") or None,
+                "faction_attack_started_at": row.get("faction_attack_started_at").isoformat() if row.get("faction_attack_started_at") else None,
+                "faction_attack_ends_at": row.get("faction_attack_ends_at").isoformat() if row.get("faction_attack_ends_at") else None,
+                "faction_attack_remaining_seconds": _faction_attack_remaining_seconds(row),
                 "attack_cooldown_remaining_seconds": _attack_cooldown_remaining_seconds(row),
                 "attack_cooldown_total_seconds": TERRITORY_ATTACK_COOLDOWN_SECONDS,
                 "is_mine": row.get("owner_id") == user_id,
@@ -4010,7 +4267,7 @@ async def dashboard_territories_list(request: Request) -> dict[str, Any]:
                     (int(row["defense_level"] or 1) * 35)
                     + (int(row["owner_reward_coins"] or 25) * 4)
                     + (int(row["luma_coins"] or 100) // 10)
-                ) if row.get("owner_id") is not None else "Abismo",
+                ) if row.get("owner_id") is not None else ("Conquistador" if row.get("owner_faction") else "Abismo"),
             }
             for row in rows
         ],
@@ -4023,6 +4280,102 @@ async def dashboard_territories_world(request: Request) -> dict[str, Any]:
     return {
         "ok": True,
         "world": _territory_world_payload(),
+    }
+
+
+@app.post("/api/dashboard/territories/season/claim")
+async def dashboard_territories_season_claim(payload: TerritorySeasonClaimPayload, request: Request) -> dict[str, Any]:
+    _require_auth(request)
+    user_id = _require_session_user_id(request)
+    pool = _db_pool()
+    if pool is None:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
+    map_id = int(payload.map_id)
+    if map_id not in TERRITORY_PRIME_SCHEDULE_BY_MAP:
+        return {"ok": False, "message": "Mapa inválido para resgate de temporada."}
+
+    now_utc = datetime.utcnow()
+    if not _territory_prime_window_closed(map_id, now_utc):
+        return {"ok": False, "message": "Recompensa liberada apenas após o fim do prime time."}
+
+    day_key = now_utc.date()
+
+    async with pool.acquire() as connection:
+        async with connection.transaction():
+            existing_claim = await connection.fetchrow(
+                """
+                SELECT points
+                FROM territory_season_claims
+                WHERE user_id = $1 AND map_id = $2 AND day_key = $3
+                """,
+                user_id,
+                map_id,
+                day_key,
+            )
+            if existing_claim is not None:
+                total_points = await connection.fetchval(
+                    "SELECT total_points FROM territory_season_points WHERE user_id = $1",
+                    user_id,
+                )
+                return {
+                    "ok": False,
+                    "already_claimed": True,
+                    "message": "Você já resgatou os pontos deste mapa hoje.",
+                    "points": int(existing_claim.get("points") or 0),
+                    "season_points": int(total_points or 0),
+                }
+
+            holdings = await connection.fetchrow(
+                """
+                SELECT
+                    COALESCE(COUNT(*), 0) AS owned_count,
+                    COALESCE(SUM(defense_level), 0) AS defense_sum
+                FROM territories
+                WHERE owner_id = $1
+                """,
+                user_id,
+            )
+            owned_count = int(holdings.get("owned_count") or 0) if holdings else 0
+            defense_sum = int(holdings.get("defense_sum") or 0) if holdings else 0
+
+            points = max(10, (owned_count * 25) + (defense_sum * 6))
+
+            await connection.execute(
+                """
+                INSERT INTO territory_season_claims (user_id, map_id, day_key, points)
+                VALUES ($1, $2, $3, $4)
+                """,
+                user_id,
+                map_id,
+                day_key,
+                points,
+            )
+
+            await connection.execute(
+                """
+                INSERT INTO territory_season_points (user_id, total_points, updated_at)
+                VALUES ($1, $2, CURRENT_TIMESTAMP)
+                ON CONFLICT (user_id)
+                DO UPDATE SET
+                    total_points = territory_season_points.total_points + EXCLUDED.total_points,
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                user_id,
+                points,
+            )
+
+            season_points = await connection.fetchval(
+                "SELECT total_points FROM territory_season_points WHERE user_id = $1",
+                user_id,
+            )
+
+    return {
+        "ok": True,
+        "points": points,
+        "season_points": int(season_points or 0),
+        "map_id": map_id,
+        "message": f"Resgate concluído: +{points} pontos da temporada.",
     }
 
 
@@ -4311,7 +4664,7 @@ async def dashboard_territories_defend(payload: TerritoryActionPayload, request:
         async with connection.transaction():
             territory = await connection.fetchrow(
                 """
-                SELECT id, name, owner_id, defense_level
+                SELECT id, name, owner_id, defense_level, faction_attack_active, faction_name
                 FROM territories
                 WHERE id = $1
                 FOR UPDATE
@@ -4322,6 +4675,49 @@ async def dashboard_territories_defend(payload: TerritoryActionPayload, request:
                 raise HTTPException(status_code=404, detail="Territory not found")
             if territory.get("owner_id") != user_id:
                 return {"ok": False, "message": "Somente o dono pode reforçar esse território."}
+
+            if bool(territory.get("faction_attack_active")):
+                faction_name = str(territory.get("faction_name") or "Facção")
+                new_defense = await connection.fetchval(
+                    """
+                    UPDATE territories
+                    SET
+                        defense_level = LEAST(defense_level + 1, 5),
+                        faction_attack_active = FALSE,
+                        faction_name = NULL,
+                        faction_attack_started_at = NULL,
+                        faction_attack_ends_at = NULL,
+                        last_faction_result = 'defended',
+                        last_faction_result_at = CURRENT_TIMESTAMP
+                    WHERE id = $1
+                    RETURNING defense_level
+                    """,
+                    payload.territory_id,
+                )
+                defense_points = 18
+                await connection.execute(
+                    """
+                    INSERT INTO territory_season_points (user_id, total_points, updated_at)
+                    VALUES ($1, $2, CURRENT_TIMESTAMP)
+                    ON CONFLICT (user_id)
+                    DO UPDATE SET
+                        total_points = territory_season_points.total_points + EXCLUDED.total_points,
+                        updated_at = CURRENT_TIMESTAMP
+                    """,
+                    user_id,
+                    defense_points,
+                )
+                season_points = await connection.fetchval(
+                    "SELECT total_points FROM territory_season_points WHERE user_id = $1",
+                    user_id,
+                )
+
+                return {
+                    "ok": True,
+                    "defense_level": int(new_defense or territory.get("defense_level") or 1),
+                    "season_points": int(season_points or 0),
+                    "message": f"Ataque da {faction_name} repelido. +{defense_points} pontos da temporada.",
+                }
 
             current_defense = int(territory.get("defense_level") or 1)
             if current_defense >= 5:
@@ -4537,7 +4933,7 @@ async def dashboard_territories_claim(payload: TerritoryActionPayload, request: 
         async with connection.transaction():
             territory = await connection.fetchrow(
                 """
-                SELECT id, name, owner_id
+                SELECT id, name, owner_id, owner_faction
                 FROM territories
                 WHERE id = $1
                 FOR UPDATE
@@ -4548,6 +4944,8 @@ async def dashboard_territories_claim(payload: TerritoryActionPayload, request: 
                 raise HTTPException(status_code=404, detail="Territory not found")
             if territory.get("owner_id") is not None:
                 return {"ok": False, "message": "Esse território já possui dono."}
+            if territory.get("owner_faction"):
+                return {"ok": False, "message": "Esse território está sob domínio de facção. Ataque para retomar."}
 
             await connection.execute(
                 """
@@ -4581,7 +4979,18 @@ async def dashboard_territories_claim(payload: TerritoryActionPayload, request: 
                 user_id,
             )
             await connection.execute(
-                "UPDATE territories SET owner_id = $1, called_at = CURRENT_TIMESTAMP WHERE id = $2",
+                """
+                UPDATE territories
+                SET
+                    owner_id = $1,
+                    owner_faction = NULL,
+                    called_at = CURRENT_TIMESTAMP,
+                    faction_attack_active = FALSE,
+                    faction_name = NULL,
+                    faction_attack_started_at = NULL,
+                    faction_attack_ends_at = NULL
+                WHERE id = $2
+                """,
                 user_id,
                 payload.territory_id,
             )
@@ -4620,7 +5029,7 @@ async def dashboard_territories_attack(payload: TerritoryActionPayload, request:
         async with connection.transaction():
             territory = await connection.fetchrow(
                 """
-                SELECT id, name, owner_id, defense_level, luma_coins, attack_time
+                SELECT id, name, owner_id, owner_faction, defense_level, luma_coins, attack_time
                 FROM territories
                 WHERE id = $1
                 FOR UPDATE
@@ -4720,9 +5129,14 @@ async def dashboard_territories_attack(payload: TerritoryActionPayload, request:
                 """
                 UPDATE territories
                 SET owner_id = $1,
+                    owner_faction = NULL,
                     called_at = CURRENT_TIMESTAMP,
                     attack_time = CURRENT_TIMESTAMP,
-                    defense_level = 1
+                    defense_level = 1,
+                    faction_attack_active = FALSE,
+                    faction_name = NULL,
+                    faction_attack_started_at = NULL,
+                    faction_attack_ends_at = NULL
                 WHERE id = $2
                 """,
                 user_id,
