@@ -1,5 +1,5 @@
 // -- State --------------------------------------------------------------------
-let currentMapIndex = 0;
+let currentMapIndex = 1;
 let renderer = null;
 let playerInterval = null;
 let selectedTerritory = null;
@@ -95,7 +95,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const canvas = document.getElementById('mapCanvas');
     renderer = new MapRenderer(canvas);
 
-    loadMap(0, null);
+    loadMap(1, null);
     startMapAmbientLoop();
     setupEvents(canvas);
     setupNavigation();
@@ -193,6 +193,10 @@ function getMapDefByTerritory(territory) {
     return MAPS.find((mapDef) => mapDef.territories.some((slot) => Number(slot.id) === Number(territory?.id)));
 }
 
+function isAtlasMap(mapDef) {
+    return Boolean(mapDef?.isAtlas);
+}
+
 function formatClockLabel(hour, minute = 0) {
     return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
 }
@@ -249,6 +253,13 @@ function syncPrimeTimeHud(mapDef = MAPS[currentMapIndex]) {
     const clock = document.getElementById('hudPrimeClock');
     const badge = document.getElementById('hudPrimeTime');
     if (!phase || !clock || !badge || !mapDef) {
+        return;
+    }
+
+    if (isAtlasMap(mapDef)) {
+        phase.textContent = '🗺 Visão global';
+        clock.textContent = 'Selecione uma região para entrar no mapa correspondente';
+        badge.classList.remove('is-prime', 'is-declaration');
         return;
     }
 
@@ -376,6 +387,11 @@ function applyFactionAlerts(alerts) {
 
 async function claimSeasonPoints() {
     try {
+        if (isAtlasMap(MAPS[currentMapIndex])) {
+            flash('Abra um mapa real para resgatar pontos da temporada.', true);
+            return;
+        }
+
         const payload = await apiRequest('/api/dashboard/territories/season/claim', {
             method: 'POST',
             body: JSON.stringify({ map_id: Number(MAPS[currentMapIndex]?.id || 0) }),
@@ -822,7 +838,7 @@ function setupNavigation() {
     dotsEl.innerHTML = '';
     MAPS.forEach((_, i) => {
         const dot = document.createElement('div');
-        dot.className = `map-dot${i === 0 ? ' active' : ''}`;
+        dot.className = `map-dot${i === currentMapIndex ? ' active' : ''}`;
         dot.addEventListener('click', () => {
             if (i !== currentMapIndex) {
                 const direction = i > currentMapIndex ? 'left' : 'right';
@@ -865,7 +881,9 @@ function transitionViaExit(exit, direction) {
 // -- HUD -----------------------------------------------------------------------
 function updateHUD(mapDef) {
     document.querySelector('.zone-name').textContent = mapDef.name;
-    document.querySelector('.zone-sub').textContent = `${mapDef.sub} • Prime ${getPrimeTimeState(mapDef).windowLabel} • Bolsa: ${gatheredInventory.length}`;
+    document.querySelector('.zone-sub').textContent = isAtlasMap(mapDef)
+        ? `${mapDef.sub} • Bolsa: ${gatheredInventory.length}`
+        : `${mapDef.sub} • Prime ${getPrimeTimeState(mapDef).windowLabel} • Bolsa: ${gatheredInventory.length}`;
     document.getElementById('playerCount').textContent = mapDef.playerCount;
     syncPrimeTimeHud(mapDef);
 

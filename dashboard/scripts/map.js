@@ -265,10 +265,10 @@ function buildExpandedMaps(templates, totalMaps) {
         };
 
         clone.exits = [
-            { gx: 7, gy: 0, dir: 'N', target: (i + 1) % totalMaps },
-            { gx: 13, gy: 6, dir: 'E', target: (i + 2) % totalMaps },
-            { gx: 7, gy: 13, dir: 'S', target: (i - 1 + totalMaps) % totalMaps },
-            { gx: 0, gy: 6, dir: 'W', target: (i - 2 + totalMaps) % totalMaps },
+            { gx: 7, gy: 0, dir: 'N', target: ((i + 1) % totalMaps) + 1 },
+            { gx: 13, gy: 6, dir: 'E', target: ((i + 2) % totalMaps) + 1 },
+            { gx: 7, gy: 13, dir: 'S', target: ((i - 1 + totalMaps) % totalMaps) + 1 },
+            { gx: 0, gy: 6, dir: 'W', target: ((i - 2 + totalMaps) % totalMaps) + 1 },
         ];
         clone.playerCount = Math.max(8, Number(clone.playerCount || 20) + ((i % 7) - 3));
         maps.push(clone);
@@ -306,6 +306,7 @@ function buildAtlasMap(realMaps) {
 
     return {
         id: 'atlas',
+        isAtlas: true,
         name: 'Atlas da Capital',
         sub: '👑 Visão total das 48 regiões • Capital no centro',
         seed: 2026,
@@ -659,6 +660,10 @@ class MapRenderer {
     }
 
     _cityList() {
+        if (this.mapDef?.isAtlas) {
+            return [];
+        }
+
         const cities = Array.isArray(this.mapDef.cities) && this.mapDef.cities.length
             ? [...this.mapDef.cities]
             : [
@@ -718,6 +723,7 @@ class MapRenderer {
             return;
         }
 
+                isAtlas: true,
         active.forEach((territory) => {
             const [tx, ty] = this._screenTerritoryCenter(territory);
             const lane = Math.abs(Number(territory.id || 0)) % 4;
