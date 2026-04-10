@@ -730,6 +730,24 @@ function closeLeaderboardPanel() {
     setLeaderboardVisible(false);
 }
 
+function transitionForExitDirection(exitDir) {
+    const dir = String(exitDir || '').toUpperCase();
+    if (dir === 'S') return 'up';
+    if (dir === 'W') return 'right';
+    if (dir === 'N') return 'down';
+    if (dir === 'E') return 'left';
+    return 'left';
+}
+
+function transitionForAtlasNode(node) {
+    const dx = Number(node?.gx || 7) - 7;
+    const dy = Number(node?.gy || 7) - 7;
+    if (Math.abs(dx) >= Math.abs(dy)) {
+        return dx >= 0 ? 'left' : 'right';
+    }
+    return dy >= 0 ? 'up' : 'down';
+}
+
 // -- Map loading + slide transition -------------------------------------------
 function loadMap(index, direction) {
     const mapDef = MAPS[index];
@@ -747,11 +765,14 @@ function loadMap(index, direction) {
         return;
     }
 
+    const enterClass = `enter-${direction}`;
+    const exitClass = `exit-${direction}`;
+
     const oldCanvas = document.getElementById('mapCanvas');
     const oldSlide = oldCanvas.closest('.map-slide');
 
     const newSlide = document.createElement('div');
-    newSlide.className = `map-slide ${direction === 'left' ? 'enter-left' : 'enter-right'}`;
+    newSlide.className = `map-slide ${enterClass}`;
     const newCanvas = document.createElement('canvas');
     newCanvas.id = 'mapCanvas';
     newSlide.appendChild(newCanvas);
@@ -776,9 +797,9 @@ function loadMap(index, direction) {
 
     requestAnimationFrame(() => {
         oldSlide.classList.remove('active');
-        oldSlide.classList.add(direction === 'left' ? 'exit-left' : 'exit-right');
+        oldSlide.classList.add(exitClass);
 
-        newSlide.classList.remove('enter-left', 'enter-right');
+        newSlide.classList.remove('enter-left', 'enter-right', 'enter-up', 'enter-down');
         newSlide.classList.add('active');
 
         setTimeout(() => {
@@ -804,7 +825,8 @@ function setupNavigation() {
         dot.className = `map-dot${i === 0 ? ' active' : ''}`;
         dot.addEventListener('click', () => {
             if (i !== currentMapIndex) {
-                loadMap(i, i > currentMapIndex ? 'left' : 'right');
+                const direction = i > currentMapIndex ? 'left' : 'right';
+                loadMap(i, direction);
             }
         });
         dotsEl.appendChild(dot);
@@ -876,16 +898,19 @@ function setupEvents(canvas) {
     fresh.addEventListener('mousemove', (event) => {
         const { ox, oy } = offset(event, fresh);
         const territory = renderer.hitTerritory(ox, oy);
-        const city = territory ? null : renderer.hitCity(ox, oy);
-        const resource = (territory || city) ? null : renderer.hitResource(ox, oy);
-        const exit = (territory || city || resource) ? null : renderer.hitExit(ox, oy);
+        const atlasNode = territory ? null : renderer.hitAtlasNode(ox, oy);
+        const city = (territory || atlasNode) ? null : renderer.hitCity(ox, oy);
+        const resource = (territory || atlasNode || city) ? null : renderer.hitResource(ox, oy);
+        const exit = (territory || atlasNode || city || resource) ? null : renderer.hitExit(ox, oy);
 
         renderer.setHovered(territory ? territory.id : null);
-        fresh.style.cursor = (territory || city || resource || exit) ? 'pointer' : 'default';
+        fresh.style.cursor = (territory || atlasNode || city || resource || exit) ? 'pointer' : 'default';
 
         if (territory) {
             const ownerLabel = territory.ownerDisplay || territory.owner || 'Sem dono';
             showTooltip(tooltip, `${territoryDisplayName(territory)} · ${ownerLabel}`, ox, oy);
+        } else if (atlasNode) {
+            showTooltip(tooltip, `🗺 ${atlasNode.name} · entrar no mapa ${atlasNode.label}`, ox, oy);
         } else if (city) {
             if (city.kind === 'league') {
                 showTooltip(tooltip, `🏆 ${city.name} · abrir leaderboard`, ox, oy);
@@ -906,9 +931,10 @@ function setupEvents(canvas) {
     fresh.addEventListener('click', async (event) => {
         const { ox, oy } = offset(event, fresh);
         const territory = renderer.hitTerritory(ox, oy);
-        const city = territory ? null : renderer.hitCity(ox, oy);
-        const resource = (territory || city) ? null : renderer.hitResource(ox, oy);
-        const exit = (territory || city || resource) ? null : renderer.hitExit(ox, oy);
+        const atlasNode = territory ? null : renderer.hitAtlasNode(ox, oy);
+        const city = (territory || atlasNode) ? null : renderer.hitCity(ox, oy);
+        const resource = (territory || atlasNode || city) ? null : renderer.hitResource(ox, oy);
+        const exit = (territory || atlasNode || city || resource) ? null : renderer.hitExit(ox, oy);
 
         if (territory) {
             closeLeaderboardPanel();
@@ -916,6 +942,13 @@ function setupEvents(canvas) {
             selectedTerritory = territory;
             renderer.setSelected(territory.id);
             openPanel(territory);
+        } else if (atlasNode) {
+            closeLeaderboardPanel();
+            selectedCity = null;
+            selectedTerritory = null;
+            renderer.setSelected(null);
+            document.getElementById('infoPanel').classList.remove('show');
+            loadMap(Number(atlasNode.targetIndex || 0), transitionForAtlasNode(atlasNode));
         } else if (city) {
             if (city.kind === 'league') {
                 selectedCity = null;
@@ -936,7 +969,7 @@ function setupEvents(canvas) {
             }
         } else if (exit && exit.target !== null) {
             closeLeaderboardPanel();
-            const direction = exit.target > currentMapIndex ? 'left' : 'right';
+            const direction = transitionForExitDirection(exit.dir);
             transitionViaExit(exit, direction);
         } else {
             closeLeaderboardPanel();

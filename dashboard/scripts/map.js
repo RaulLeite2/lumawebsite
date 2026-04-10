@@ -276,7 +276,64 @@ function buildExpandedMaps(templates, totalMaps) {
     return maps;
 }
 
-const MAPS = buildExpandedMaps(MAP_TEMPLATES, TOTAL_MAPS);
+function buildAtlasMap(realMaps) {
+    const atlasSlots = [];
+    const gridPoints = [1, 3, 5, 7, 9, 11, 13];
+    let cursor = 0;
+
+    for (const gy of gridPoints) {
+        for (const gx of gridPoints) {
+            if (gx === 7 && gy === 7) {
+                continue;
+            }
+            const targetIndex = cursor + 1;
+            const targetMap = realMaps[cursor];
+            if (!targetMap) {
+                continue;
+            }
+            atlasSlots.push({
+                id: `atlas-${cursor}`,
+                gx,
+                gy,
+                label: String(cursor + 1).padStart(2, '0'),
+                name: targetMap.name,
+                targetIndex,
+                primeTime: targetMap.primeTime,
+            });
+            cursor += 1;
+        }
+    }
+
+    return {
+        id: 'atlas',
+        name: 'Atlas da Capital',
+        sub: '👑 Visão total das 48 regiões • Capital no centro',
+        seed: 2026,
+        primeTime: { declareHour: 0, startHour: 0, endHour: 23, endMinute: 59 },
+        atmosphere: { mode: 'fireflies', glow: 'rgba(255, 214, 122, 0.12)', fogColor: '188, 192, 255', particleColor: '255, 232, 175' },
+        palette: {
+            low:  { base:'#141a2c', side:'#0c111f', path:'rgba(112,128,188,0.28)' },
+            mid:  { base:'#1e2944', side:'#131a2e' },
+            high: { base:'#28355b', side:'#18203b' },
+            water:{ base:'#0a1020', side:'#060b15' },
+        },
+        resources: [],
+        territories: [],
+        exits: [],
+        cities: [],
+        atlasNodes: atlasSlots,
+        atlasCapital: { gx: 7, gy: 7, name: 'Capital Luma' },
+        playerCount: 48,
+        hudResources: [
+            { icon:'👑', quality:'Capital' },
+            { icon:'🗺', quality:'48 mapas' },
+            { icon:'⏳', quality:'24h ciclo' },
+        ],
+    };
+}
+
+const REAL_MAPS = buildExpandedMaps(MAP_TEMPLATES, TOTAL_MAPS);
+const MAPS = [buildAtlasMap(REAL_MAPS), ...REAL_MAPS];
 
 // ── Renderer ──────────────────────────────────────────────────────────────────
 const GRID = 14;
@@ -364,6 +421,7 @@ class MapRenderer {
         this._drawCities();
         this._drawPaths();
         this._drawFog();
+        this._drawAtlasOverview();
         this._drawFactionAssaultTrails();
         this._drawTerritories();
         this._drawActionSignals();
@@ -701,10 +759,75 @@ class MapRenderer {
         });
     }
 
+    _drawAtlasOverview() {
+        if (!Array.isArray(this.mapDef.atlasNodes) || !this.mapDef.atlasNodes.length) {
+            return;
+        }
+
+        const c = this.ctx;
+        const capital = this.mapDef.atlasCapital;
+        if (capital) {
+            const [sx, sy] = this._tilePos(capital.gx, capital.gy);
+            const cx = sx;
+            const cy = sy + TILE_H * 0.32;
+            c.save();
+            const glow = c.createRadialGradient(cx, cy, 10, cx, cy, 48);
+            glow.addColorStop(0, 'rgba(255, 223, 132, 0.54)');
+            glow.addColorStop(1, 'rgba(255, 223, 132, 0)');
+            c.fillStyle = glow;
+            c.beginPath();
+            c.arc(cx, cy, 48, 0, Math.PI * 2);
+            c.fill();
+
+            c.beginPath();
+            c.arc(cx, cy, 18, 0, Math.PI * 2);
+            c.fillStyle = 'rgba(21, 18, 42, 0.96)';
+            c.fill();
+            c.strokeStyle = 'rgba(255, 214, 122, 0.95)';
+            c.lineWidth = 2.2;
+            c.stroke();
+            c.font = '14px "Plus Jakarta Sans", sans-serif';
+            c.textAlign = 'center';
+            c.textBaseline = 'middle';
+            c.fillStyle = '#fff2ba';
+            c.fillText('👑', cx, cy);
+            c.font = '700 11px "Plus Jakarta Sans", sans-serif';
+            c.fillStyle = '#ffe08e';
+            c.fillText(capital.name, cx, cy + 24);
+            c.restore();
+        }
+
+        this.mapDef.atlasNodes.forEach((node) => {
+            const [sx, sy] = this._tilePos(node.gx, node.gy);
+            const cx = sx;
+            const cy = sy + TILE_H * 0.3;
+
+            c.save();
+            c.beginPath();
+            c.arc(cx, cy, 10, 0, Math.PI * 2);
+            c.fillStyle = 'rgba(18, 24, 48, 0.92)';
+            c.fill();
+            c.strokeStyle = 'rgba(124, 192, 255, 0.88)';
+            c.lineWidth = 1.4;
+            c.stroke();
+
+            c.font = '700 8px "Plus Jakarta Sans", sans-serif';
+            c.textAlign = 'center';
+            c.textBaseline = 'middle';
+            c.fillStyle = '#e8f4ff';
+            c.fillText(node.label, cx, cy);
+
+            c.font = '700 8px "Plus Jakarta Sans", sans-serif';
+            c.fillStyle = '#8fd0ff';
+            c.fillText(node.name.replace(/\s\d+$/, ''), cx, cy + 16);
+            c.restore();
+        });
+    }
+
     _drawTerritories() {
         const c = this.ctx;
         const w = this.canvas.width;
-        const r_base = w * 0.021;
+        const r_base = w * 0.0165;
         const cityKeys = new Set(this._cityList().map(ct => `${ct.gx},${ct.gy}`));
 
         this.mapDef.territories.forEach(t => {
@@ -722,7 +845,7 @@ class MapRenderer {
             c.scale(sc, sc);
 
             if (t.owner) {
-                const glowRadius = r * (featured ? 2.45 : 1.85);
+                const glowRadius = r * (featured ? 2.1 : 1.55);
                 const glow = c.createRadialGradient(0,0,r*.2, 0,0,glowRadius);
                 glow.addColorStop(0, aura.core);
                 glow.addColorStop(0.58, `${t.color}55`);
@@ -737,10 +860,10 @@ class MapRenderer {
                 c.save();
                 c.rotate(this._time * 0.42);
                 c.strokeStyle = aura.ring;
-                c.lineWidth = 2.2;
-                c.setLineDash([8, 7]);
+                c.lineWidth = 1.8;
+                c.setLineDash([6, 6]);
                 c.beginPath();
-                c.arc(0, 0, r * 1.48, 0, Math.PI * 2);
+                c.arc(0, 0, r * 1.32, 0, Math.PI * 2);
                 c.stroke();
                 c.restore();
             }
@@ -749,10 +872,10 @@ class MapRenderer {
                 c.save();
                 c.rotate(-this._time * 0.55);
                 c.strokeStyle = 'rgba(255, 170, 86, 0.92)';
-                c.lineWidth = 1.9;
-                c.setLineDash([5, 4]);
+                c.lineWidth = 1.5;
+                c.setLineDash([4, 4]);
                 c.beginPath();
-                c.arc(0, 0, r * 1.72, 0, Math.PI * 2);
+                c.arc(0, 0, r * 1.48, 0, Math.PI * 2);
                 c.stroke();
                 c.restore();
             }
@@ -762,18 +885,18 @@ class MapRenderer {
                 c.save();
                 c.rotate(this._time * 0.42);
                 c.strokeStyle = 'rgba(255, 74, 94, 0.95)';
-                c.lineWidth = 2.5;
-                c.setLineDash([6, 5]);
+                c.lineWidth = 1.9;
+                c.setLineDash([5, 4]);
                 c.beginPath();
-                c.arc(0, 0, r * 1.98 * siegePulse, 0, Math.PI * 2);
+                c.arc(0, 0, r * 1.62 * siegePulse, 0, Math.PI * 2);
                 c.stroke();
                 c.restore();
 
                 c.save();
                 c.strokeStyle = 'rgba(255, 130, 140, 0.6)';
-                c.lineWidth = 1.8;
+                c.lineWidth = 1.3;
                 c.beginPath();
-                c.arc(0, 0, r * 1.45, 0, Math.PI * 2);
+                c.arc(0, 0, r * 1.22, 0, Math.PI * 2);
                 c.stroke();
                 c.restore();
             }
@@ -788,29 +911,29 @@ class MapRenderer {
             c.fill();
 
             c.strokeStyle = this._selected === t.id ? '#fff' : (t.owner ? aura.edge : '#3a3a6a');
-            c.lineWidth = this._selected === t.id ? 3.2 : (featured ? 2.3 : 1.5);
+            c.lineWidth = this._selected === t.id ? 2.3 : (featured ? 1.8 : 1.2);
             c.stroke();
 
             c.shadowColor = featured ? aura.edge : 'transparent';
-            c.shadowBlur = featured ? 12 : 0;
-            c.font = `${r*.52}px "Plus Jakarta Sans", sans-serif`;
+            c.shadowBlur = featured ? 8 : 0;
+            c.font = `${r*.42}px "Plus Jakarta Sans", sans-serif`;
             c.textAlign = 'center';
             c.textBaseline = 'middle';
             c.fillStyle = '#f7f8ff';
             c.fillText(this._territoryMarker(t), 0, -r*.12);
 
-            c.font = `bold ${r*.28}px "Plus Jakarta Sans",sans-serif`;
+            c.font = `bold ${r*.21}px "Plus Jakarta Sans",sans-serif`;
             c.fillStyle = '#fff';
             c.fillText(`Lv ${t.defense}`, 0, r*.38);
             c.shadowBlur = 0;
 
             c.restore();
 
-            const fs = Math.max(8, w * .0125);
+            const fs = Math.max(6, w * .0095);
             c.textAlign = 'center';
             c.textBaseline = 'top';
             c.shadowColor = 'rgba(0,0,0,0.95)';
-            c.shadowBlur = 7;
+            c.shadowBlur = 5;
 
             c.font = `700 ${fs}px "Plus Jakarta Sans",sans-serif`;
             c.fillStyle = '#f1f2ff';
@@ -999,12 +1122,12 @@ class MapRenderer {
     // ── Hit test ──
     hitTerritory(mx, my) {
         const w = this.canvas.width;
-        const r_base = w * 0.021;
+        const r_base = w * 0.0165;
         const cityKeys = new Set(this._cityList().map(ct => `${ct.gx},${ct.gy}`));
         for (const t of this.mapDef.territories) {
             if (cityKeys.has(`${t.gx},${t.gy}`)) continue;
             const [sx, sy] = this._screenTerritoryCenter(t);
-            const r = r_base * t.r * 1.2;
+            const r = r_base * t.r * 1.12;
             const dx = mx - sx, dy = my - sy;
             if (dx*dx + dy*dy <= r*r) return t;
         }
@@ -1017,6 +1140,23 @@ class MapRenderer {
             const cx = sx, cy = sy + TILE_H/2 - 2;
             const dx = mx - cx, dy = my - cy;
             if (dx*dx + dy*dy <= 22*22) return e;
+        }
+        return null;
+    }
+
+    hitAtlasNode(mx, my) {
+        if (!Array.isArray(this.mapDef.atlasNodes) || !this.mapDef.atlasNodes.length) {
+            return null;
+        }
+        for (const node of this.mapDef.atlasNodes) {
+            const [sx, sy] = this._tilePos(node.gx, node.gy);
+            const cx = sx;
+            const cy = sy + TILE_H * 0.3;
+            const dx = mx - cx;
+            const dy = my - cy;
+            if ((dx * dx) + (dy * dy) <= (12 * 12)) {
+                return node;
+            }
         }
         return null;
     }

@@ -364,6 +364,10 @@ body {
 .map-slide.exit-right{ transform: translateX(100%);  opacity: 0; pointer-events: none; }
 .map-slide.enter-left { transform: translateX(100%); opacity: 0; pointer-events: none; }
 .map-slide.enter-right{ transform: translateX(-100%);opacity: 0; pointer-events: none; }
+.map-slide.exit-up { transform: translateY(-100%); opacity: 0; pointer-events: none; }
+.map-slide.exit-down { transform: translateY(100%); opacity: 0; pointer-events: none; }
+.map-slide.enter-up { transform: translateY(100%); opacity: 0; pointer-events: none; }
+.map-slide.enter-down { transform: translateY(-100%); opacity: 0; pointer-events: none; }
 
 .map-slide.portal-transition {
     animation: portalOut 220ms ease;
