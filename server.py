@@ -62,6 +62,108 @@ TERRITORY_LEAGUES: list[tuple[str, int]] = [
 ]
 
 TERRITORY_ATTACK_COOLDOWN_SECONDS = 900
+TERRITORY_RESOURCE_GATHER_COOLDOWN_SECONDS = 45
+
+TERRITORY_RESOURCE_QUALITY_TABLE: list[tuple[int, str]] = [
+    (45, "Comum"),
+    (75, "Incomum"),
+    (90, "Rara"),
+    (98, "Epica"),
+    (100, "Lendaria"),
+]
+
+TERRITORY_RESOURCE_UNIT_VALUE: dict[str, int] = {
+    "Comum": 6,
+    "Incomum": 12,
+    "Rara": 22,
+    "Epica": 38,
+    "Lendaria": 62,
+}
+
+TERRITORY_RESOURCE_BASE_NAME: dict[str, str] = {
+    "🪵": "Madeira",
+    "🪨": "Pedra",
+    "🌿": "Fibra",
+    "⛏": "Metal",
+    "🐾": "Couro",
+    "🌾": "Graos",
+    "💎": "Cristal",
+    "🦴": "Osso",
+    "🧊": "Gelo",
+    "💠": "Essencia",
+    "🪷": "Lotus",
+    "🐚": "Concha",
+    "🧪": "Reagente",
+}
+
+TERRITORY_WORLD_MAPS: list[dict[str, Any]] = [
+    {
+        "id": 0,
+        "cities": [
+            {"id": "valorium-exchange", "name": "Valorium Exchange", "gx": 2, "gy": 2, "tax_rate": 0.07},
+            {"id": "seraph-docks", "name": "Docks de Seraph", "gx": 11, "gy": 10, "tax_rate": 0.11},
+        ],
+        "resources": [
+            {"gx": 4, "gy": 3, "icon": "🪨"},
+            {"gx": 9, "gy": 3, "icon": "🪵"},
+            {"gx": 10, "gy": 8, "icon": "🌿"},
+            {"gx": 3, "gy": 8, "icon": "⛏"},
+            {"gx": 7, "gy": 7, "icon": "🐾"},
+        ],
+    },
+    {
+        "id": 1,
+        "cities": [
+            {"id": "ashveil-bazaar", "name": "Bazar de Ashveil", "gx": 2, "gy": 2, "tax_rate": 0.08},
+            {"id": "greenpact-wharf", "name": "Wharf Esmeral", "gx": 11, "gy": 10, "tax_rate": 0.1},
+        ],
+        "resources": [
+            {"gx": 5, "gy": 4, "icon": "🌿"},
+            {"gx": 9, "gy": 2, "icon": "🪵"},
+            {"gx": 11, "gy": 9, "icon": "🪨"},
+            {"gx": 3, "gy": 9, "icon": "🌾"},
+        ],
+    },
+    {
+        "id": 2,
+        "cities": [
+            {"id": "nhal-kor-smeltery", "name": "Fundicao Nhal-Kor", "gx": 2, "gy": 2, "tax_rate": 0.09},
+            {"id": "obsidian-market", "name": "Mercado Obsidiana", "gx": 11, "gy": 10, "tax_rate": 0.13},
+        ],
+        "resources": [
+            {"gx": 4, "gy": 4, "icon": "⛏"},
+            {"gx": 9, "gy": 3, "icon": "🪨"},
+            {"gx": 10, "gy": 9, "icon": "💎"},
+            {"gx": 3, "gy": 8, "icon": "🦴"},
+        ],
+    },
+    {
+        "id": 3,
+        "cities": [
+            {"id": "myriath-bloomhall", "name": "Bloomhall", "gx": 2, "gy": 2, "tax_rate": 0.06},
+            {"id": "hollowmere-ferry", "name": "Balsa Hollowmere", "gx": 11, "gy": 10, "tax_rate": 0.09},
+        ],
+        "resources": [
+            {"gx": 4, "gy": 4, "icon": "🪷"},
+            {"gx": 9, "gy": 4, "icon": "🌿"},
+            {"gx": 11, "gy": 8, "icon": "🐚"},
+            {"gx": 2, "gy": 9, "icon": "🧪"},
+        ],
+    },
+    {
+        "id": 4,
+        "cities": [
+            {"id": "astreon-crossing", "name": "Crossing Astreon", "gx": 2, "gy": 2, "tax_rate": 0.08},
+            {"id": "bluewake-outpost", "name": "Outpost Bluewake", "gx": 11, "gy": 10, "tax_rate": 0.12},
+        ],
+        "resources": [
+            {"gx": 4, "gy": 3, "icon": "🧊"},
+            {"gx": 9, "gy": 3, "icon": "💠"},
+            {"gx": 10, "gy": 8, "icon": "🪨"},
+            {"gx": 3, "gy": 8, "icon": "🐾"},
+        ],
+    },
+]
 
 PRESET_TEMPLATES: dict[str, dict[str, Any]] = {
     "gamer": {
@@ -315,6 +417,18 @@ class TerritoryActionPayload(BaseModel):
 class TerritoryUpgradePayload(BaseModel):
     territory_id: int = Field(ge=1)
     tier: int = Field(ge=1, le=3)
+
+
+class TerritoryGatherPayload(BaseModel):
+    map_id: int = Field(ge=0)
+    node_gx: int = Field(ge=0)
+    node_gy: int = Field(ge=0)
+    node_icon: str = Field(min_length=1, max_length=8)
+
+
+class TerritorySellPayload(BaseModel):
+    map_id: int = Field(ge=0)
+    city_id: str = Field(min_length=1, max_length=80)
 
 
 class BlogPostCreatePayload(BaseModel):
@@ -1059,6 +1173,33 @@ async def _ensure_dashboard_tables(pool: Any) -> None:
             )
             await connection.execute(
                 """
+                CREATE TABLE IF NOT EXISTS territory_resource_inventory (
+                    user_id BIGINT NOT NULL,
+                    resource_key VARCHAR(120) NOT NULL,
+                    resource_name VARCHAR(80) NOT NULL,
+                    quality VARCHAR(16) NOT NULL,
+                    icon VARCHAR(8) NOT NULL,
+                    quantity INT NOT NULL DEFAULT 0,
+                    total_value INT NOT NULL DEFAULT 0,
+                    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (user_id, resource_key)
+                )
+                """
+            )
+            await connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS territory_resource_cooldowns (
+                    user_id BIGINT NOT NULL,
+                    map_id INT NOT NULL,
+                    node_key VARCHAR(64) NOT NULL,
+                    available_at TIMESTAMP NOT NULL,
+                    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (user_id, map_id, node_key)
+                )
+                """
+            )
+            await connection.execute(
+                """
                 CREATE TABLE IF NOT EXISTS user_voice_drops_daily (
                     guild_id BIGINT NOT NULL REFERENCES guilds(guild_id) ON DELETE CASCADE,
                     user_id BIGINT NOT NULL,
@@ -1093,6 +1234,8 @@ async def _ensure_dashboard_tables(pool: Any) -> None:
             await connection.execute("CREATE INDEX IF NOT EXISTS idx_economy_transactions_type_time ON economy_transactions(tx_type, created_at)")
             await connection.execute("CREATE INDEX IF NOT EXISTS idx_economy_transactions_guild_time ON economy_transactions(guild_id, created_at)")
             await connection.execute("CREATE INDEX IF NOT EXISTS idx_territories_owner_id ON territories(owner_id)")
+            await connection.execute("CREATE INDEX IF NOT EXISTS idx_territory_resource_inventory_user ON territory_resource_inventory(user_id)")
+            await connection.execute("CREATE INDEX IF NOT EXISTS idx_territory_resource_cooldowns_user ON territory_resource_cooldowns(user_id)")
             await connection.execute("CREATE INDEX IF NOT EXISTS idx_user_voice_drops_daily_guild_day ON user_voice_drops_daily(guild_id, day_key)")
             await connection.execute("CREATE INDEX IF NOT EXISTS idx_user_voice_drops_daily_user_day ON user_voice_drops_daily(user_id, day_key)")
             await connection.execute("ALTER TABLE guild_raid_settings ADD COLUMN IF NOT EXISTS mode VARCHAR(16) NOT NULL DEFAULT 'lockdown'")
@@ -1195,6 +1338,43 @@ def _territory_league_for_score(score: int) -> str:
         if score >= minimum_score:
             return league_name
     return "Abismo"
+
+
+def _territory_world_by_map() -> dict[int, dict[str, Any]]:
+    return {int(item["id"]): item for item in TERRITORY_WORLD_MAPS}
+
+
+def _territory_resource_name(icon: str) -> str:
+    return TERRITORY_RESOURCE_BASE_NAME.get(icon, "Recurso")
+
+
+def _territory_quality_from_roll(roll: int) -> str:
+    for max_roll, label in TERRITORY_RESOURCE_QUALITY_TABLE:
+        if roll <= max_roll:
+            return label
+    return "Comum"
+
+
+def _territory_world_payload() -> dict[str, Any]:
+    return {
+        "maps": [
+            {
+                "id": int(map_item["id"]),
+                "cities": [
+                    {
+                        "id": str(city["id"]),
+                        "name": str(city["name"]),
+                        "gx": int(city["gx"]),
+                        "gy": int(city["gy"]),
+                        "tax_rate": float(city["tax_rate"]),
+                    }
+                    for city in map_item.get("cities", [])
+                ],
+            }
+            for map_item in TERRITORY_WORLD_MAPS
+        ],
+        "gather_cooldown_seconds": TERRITORY_RESOURCE_GATHER_COOLDOWN_SECONDS,
+    }
 
 
 async def _fetch_guild_resources(guild_id: str) -> dict[str, Any]:
@@ -3771,6 +3951,15 @@ async def dashboard_territories_list(request: Request) -> dict[str, Any]:
             ORDER BY id ASC
             """
         )
+        gathered_inventory_rows = await connection.fetch(
+            """
+            SELECT resource_key, resource_name, quality, icon, quantity, total_value
+            FROM territory_resource_inventory
+            WHERE user_id = $1
+            ORDER BY quality DESC, resource_name ASC
+            """,
+            user_id,
+        )
 
     owner_ids = [int(row["owner_id"]) for row in rows if row.get("owner_id") is not None]
     owner_names: dict[str, str] = {}
@@ -3791,6 +3980,18 @@ async def dashboard_territories_list(request: Request) -> dict[str, Any]:
         "ok": True,
         "current_user_id": str(user_id),
         "balance": int(balance or 0),
+        "world": _territory_world_payload(),
+        "gathered_inventory": [
+            {
+                "key": str(item.get("resource_key") or ""),
+                "name": str(item.get("resource_name") or "Recurso"),
+                "quality": str(item.get("quality") or "Comum"),
+                "icon": str(item.get("icon") or "🪨"),
+                "amount": int(item.get("quantity") or 0),
+                "value": int(item.get("total_value") or 0),
+            }
+            for item in gathered_inventory_rows
+        ],
         "territories": [
             {
                 "id": int(row["id"]),
@@ -3812,6 +4013,288 @@ async def dashboard_territories_list(request: Request) -> dict[str, Any]:
                 ) if row.get("owner_id") is not None else "Abismo",
             }
             for row in rows
+        ],
+    }
+
+
+@app.get("/api/dashboard/territories/world")
+async def dashboard_territories_world(request: Request) -> dict[str, Any]:
+    _require_auth(request)
+    return {
+        "ok": True,
+        "world": _territory_world_payload(),
+    }
+
+
+@app.post("/api/dashboard/territories/gather")
+async def dashboard_territories_gather(payload: TerritoryGatherPayload, request: Request) -> dict[str, Any]:
+    _require_auth(request)
+    user_id = _require_session_user_id(request)
+    active_guild = _active_guild_from_session(request)
+    guild_id_int = _extract_discord_id(active_guild.get("id")) if isinstance(active_guild, dict) else None
+    pool = _db_pool()
+    if pool is None:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
+    world_by_map = _territory_world_by_map()
+    map_data = world_by_map.get(int(payload.map_id))
+    if map_data is None:
+        return {"ok": False, "message": "Mapa inválido para coleta."}
+
+    matched_node = None
+    for node in map_data.get("resources", []):
+        if int(node.get("gx") or -1) == int(payload.node_gx) and int(node.get("gy") or -1) == int(payload.node_gy):
+            matched_node = node
+            break
+
+    if matched_node is None:
+        return {"ok": False, "message": "Esse nó de recurso não pertence ao mapa atual."}
+
+    node_key = f"{int(payload.node_gx)}:{int(payload.node_gy)}"
+    now = datetime.utcnow()
+
+    async with pool.acquire() as connection:
+        async with connection.transaction():
+            cooldown_row = await connection.fetchrow(
+                """
+                SELECT available_at
+                FROM territory_resource_cooldowns
+                WHERE user_id = $1 AND map_id = $2 AND node_key = $3
+                FOR UPDATE
+                """,
+                user_id,
+                int(payload.map_id),
+                node_key,
+            )
+
+            if cooldown_row and cooldown_row.get("available_at"):
+                available_at = cooldown_row["available_at"]
+                available_dt = available_at.replace(tzinfo=None) if getattr(available_at, "tzinfo", None) else available_at
+                remaining = (available_dt - now).total_seconds()
+                if remaining > 0:
+                    return {
+                        "ok": False,
+                        "cooldown": True,
+                        "remaining_seconds": int(remaining),
+                        "message": "Esse nó ainda está em recuperação.",
+                    }
+
+            roll = random.randint(1, 100)
+            quality = _territory_quality_from_roll(roll)
+            amount = max(1, (roll + 21) // 22)
+            icon = str(matched_node.get("icon") or payload.node_icon)
+            name = _territory_resource_name(icon)
+            unit_value = int(TERRITORY_RESOURCE_UNIT_VALUE.get(quality, 8))
+            total_value = amount * unit_value
+            resource_key = f"{name}:{quality}"
+
+            await connection.execute(
+                """
+                INSERT INTO territory_resource_inventory
+                    (user_id, resource_key, resource_name, quality, icon, quantity, total_value, updated_at)
+                VALUES
+                    ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)
+                ON CONFLICT (user_id, resource_key)
+                DO UPDATE SET
+                    quantity = territory_resource_inventory.quantity + EXCLUDED.quantity,
+                    total_value = territory_resource_inventory.total_value + EXCLUDED.total_value,
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                user_id,
+                resource_key,
+                name,
+                quality,
+                icon,
+                amount,
+                total_value,
+            )
+
+            next_available = now + timedelta(seconds=TERRITORY_RESOURCE_GATHER_COOLDOWN_SECONDS)
+            await connection.execute(
+                """
+                INSERT INTO territory_resource_cooldowns
+                    (user_id, map_id, node_key, available_at, updated_at)
+                VALUES
+                    ($1, $2, $3, $4, CURRENT_TIMESTAMP)
+                ON CONFLICT (user_id, map_id, node_key)
+                DO UPDATE SET
+                    available_at = EXCLUDED.available_at,
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                user_id,
+                int(payload.map_id),
+                node_key,
+                next_available,
+            )
+
+            await connection.execute(
+                """
+                INSERT INTO economy_transactions (user_id, guild_id, delta, balance_after, tx_type, metadata)
+                VALUES ($1, $2, 0, NULL, 'territory_gather', $3::jsonb)
+                """,
+                user_id,
+                guild_id_int,
+                json.dumps(
+                    {
+                        "map_id": int(payload.map_id),
+                        "node_key": node_key,
+                        "resource_key": resource_key,
+                        "roll": int(roll),
+                        "amount": int(amount),
+                        "total_value": int(total_value),
+                    }
+                ),
+            )
+
+            inventory_rows = await connection.fetch(
+                """
+                SELECT resource_key, resource_name, quality, icon, quantity, total_value
+                FROM territory_resource_inventory
+                WHERE user_id = $1
+                ORDER BY quality DESC, resource_name ASC
+                """,
+                user_id,
+            )
+
+    return {
+        "ok": True,
+        "loot": {
+            "key": resource_key,
+            "name": name,
+            "quality": quality,
+            "icon": icon,
+            "amount": int(amount),
+            "roll": int(roll),
+            "value": int(total_value),
+        },
+        "gather_cooldown_seconds": TERRITORY_RESOURCE_GATHER_COOLDOWN_SECONDS,
+        "inventory": [
+            {
+                "key": str(item.get("resource_key") or ""),
+                "name": str(item.get("resource_name") or "Recurso"),
+                "quality": str(item.get("quality") or "Comum"),
+                "icon": str(item.get("icon") or "🪨"),
+                "amount": int(item.get("quantity") or 0),
+                "value": int(item.get("total_value") or 0),
+            }
+            for item in inventory_rows
+        ],
+    }
+
+
+@app.post("/api/dashboard/territories/sell")
+async def dashboard_territories_sell(payload: TerritorySellPayload, request: Request) -> dict[str, Any]:
+    _require_auth(request)
+    user_id = _require_session_user_id(request)
+    active_guild = _active_guild_from_session(request)
+    guild_id_int = _extract_discord_id(active_guild.get("id")) if isinstance(active_guild, dict) else None
+    pool = _db_pool()
+    if pool is None:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
+    world_by_map = _territory_world_by_map()
+    map_data = world_by_map.get(int(payload.map_id))
+    if map_data is None:
+        return {"ok": False, "message": "Mapa inválido para venda."}
+
+    city = None
+    for item in map_data.get("cities", []):
+        if str(item.get("id") or "") == str(payload.city_id):
+            city = item
+            break
+
+    if city is None:
+        return {"ok": False, "message": "Cidade inválida para este mapa."}
+
+    tax_rate = float(city.get("tax_rate") or 0.1)
+
+    async with pool.acquire() as connection:
+        async with connection.transaction():
+            inventory_rows = await connection.fetch(
+                """
+                SELECT resource_key, resource_name, quality, icon, quantity, total_value
+                FROM territory_resource_inventory
+                WHERE user_id = $1
+                FOR UPDATE
+                """,
+                user_id,
+            )
+
+            if not inventory_rows:
+                return {"ok": False, "message": "Inventário vazio para venda."}
+
+            gross_value = sum(int(item.get("total_value") or 0) for item in inventory_rows)
+            net_value = max(0, int(gross_value * (1 - tax_rate)))
+            tax_value = max(0, int(gross_value - net_value))
+
+            await connection.execute(
+                """
+                INSERT INTO economy (user_id, balance)
+                VALUES ($1, 0)
+                ON CONFLICT (user_id) DO NOTHING
+                """,
+                user_id,
+            )
+            new_balance = await connection.fetchval(
+                """
+                UPDATE economy
+                SET balance = balance + $1,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE user_id = $2
+                RETURNING balance
+                """,
+                net_value,
+                user_id,
+            )
+
+            await connection.execute(
+                "DELETE FROM territory_resource_inventory WHERE user_id = $1",
+                user_id,
+            )
+
+            await connection.execute(
+                """
+                INSERT INTO economy_transactions (user_id, guild_id, delta, balance_after, tx_type, metadata)
+                VALUES ($1, $2, $3, $4, 'territory_market_sale', $5::jsonb)
+                """,
+                user_id,
+                guild_id_int,
+                net_value,
+                int(new_balance or 0),
+                json.dumps(
+                    {
+                        "map_id": int(payload.map_id),
+                        "city_id": str(payload.city_id),
+                        "city_name": str(city.get("name") or "Cidade"),
+                        "tax_rate": tax_rate,
+                        "gross_value": int(gross_value),
+                        "tax_value": int(tax_value),
+                        "entry_count": len(inventory_rows),
+                    }
+                ),
+            )
+
+    return {
+        "ok": True,
+        "city": {
+            "id": str(city.get("id") or ""),
+            "name": str(city.get("name") or "Cidade"),
+            "tax_rate": tax_rate,
+        },
+        "gross": int(gross_value),
+        "tax": int(tax_value),
+        "net": int(net_value),
+        "balance": int(new_balance or 0),
+        "sold_entries": [
+            {
+                "key": str(item.get("resource_key") or ""),
+                "name": str(item.get("resource_name") or "Recurso"),
+                "quality": str(item.get("quality") or "Comum"),
+                "icon": str(item.get("icon") or "🪨"),
+                "amount": int(item.get("quantity") or 0),
+                "value": int(item.get("total_value") or 0),
+            }
+            for item in inventory_rows
         ],
     }
 

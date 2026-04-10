@@ -330,6 +330,44 @@ function resourceBaseName(icon) {
     return names[icon] || 'Recurso';
 }
 
+function normalizeGatheredInventory(rows) {
+    if (!Array.isArray(rows)) {
+        return [];
+    }
+    return rows
+        .map((entry) => ({
+            key: String(entry?.key || ''),
+            icon: String(entry?.icon || '🪨'),
+            name: String(entry?.name || 'Recurso'),
+            quality: String(entry?.quality || 'Comum'),
+            amount: Math.max(0, Number(entry?.amount || 0)),
+            value: Math.max(0, Number(entry?.value || 0)),
+        }))
+        .filter((entry) => entry.key && entry.amount > 0);
+}
+
+function applyWorldConfig(world) {
+    const maps = Array.isArray(world?.maps) ? world.maps : [];
+    if (!maps.length) {
+        return;
+    }
+    const byId = new Map(maps.map((mapItem) => [Number(mapItem?.id), mapItem]));
+    MAPS.forEach((mapDef) => {
+        const serverMap = byId.get(Number(mapDef.id));
+        if (!serverMap) {
+            return;
+        }
+        const cities = Array.isArray(serverMap.cities) ? serverMap.cities : [];
+        mapDef.cities = cities.map((city) => ({
+            id: String(city?.id || `city-${mapDef.id}`),
+            name: String(city?.name || 'Cidade'),
+            gx: Number(city?.gx || 0),
+            gy: Number(city?.gy || 0),
+            taxRate: Number(city?.tax_rate ?? 0.1),
+        }));
+    });
+}
+
 function rollResourceGather(resource) {
     const roll = 1 + Math.floor(Math.random() * 100);
     const quality = RESOURCE_QUALITY_TABLE.find((entry) => roll <= entry.max)?.label || 'Comum';
@@ -354,42 +392,78 @@ function rollResourceGather(resource) {
     };
 }
 
-function gatherFromResource(resource) {
-    const loot = rollResourceGather(resource);
-    const existing = gatheredInventory.find((item) => item.key === loot.key);
-    if (existing) {
-        existing.amount += loot.amount;
-        existing.value += loot.value;
-    } else {
-        gatheredInventory.push(loot);
+async function gatherFromResource(resource) {
+    const mapDef = MAPS[currentMapIndex];
+    if (!mapDef) {
+        return;
     }
 
-    flash(`🎲 d100:${loot.roll} • ${loot.amount}x ${loot.name} ${loot.quality}`);
-    if (selectedTerritory) {
-        pushTerritorySignal(selectedTerritory, 'collect', `+${loot.amount} ${loot.name}`);
+    try {
+        const payload = await apiRequest('/api/dashboard/territories/gather', {
+            method: 'POST',
+            body: JSON.stringify({
+                map_id: Number(mapDef.id),
+                node_gx: Number(resource?.gx || 0),
+                node_gy: Number(resource?.gy || 0),
+                node_icon: String(resource?.icon || '🪨'),
+            }),
+        });
+
+        if (payload.ok === false && payload.cooldown) {
+            flash(`Nó em cooldown: ${formatCooldownCompact(Number(payload.remaining_seconds || 0))}.`, true);
+            return;
+        }
+        if (payload.ok === false) {
+            flash(payload.message || 'Falha ao coletar recurso.', true);
+            return;
+        }
+
+        gatheredInventory = normalizeGatheredInventory(payload.inventory);
+        const loot = payload.loot || rollResourceGather(resource);
+        flash(`🎲 d100:${Number(loot.roll || 0)} • ${Number(loot.amount || 0)}x ${loot.name || resourceBaseName(resource.icon)} ${loot.quality || 'Comum'}`);
+        if (selectedTerritory) {
+            pushTerritorySignal(selectedTerritory, 'collect', `+${Number(loot.amount || 0)} ${loot.name || resourceBaseName(resource.icon)}`);
+        }
+        updateHUD(MAPS[currentMapIndex]);
+    } catch (error) {
+        flash(`Falha na coleta: ${error.message}`, true);
     }
-    updateHUD(MAPS[currentMapIndex]);
 }
 
-function sellInventoryAtCity(city) {
+async function sellInventoryAtCity(city) {
     if (!gatheredInventory.length) {
         flash(`Mercado de ${city.name}: inventario vazio.`, true);
         return;
     }
 
-    const gross = gatheredInventory.reduce((sum, item) => sum + item.value, 0);
-    const taxRate = Number(city.taxRate || 0.08);
-    const net = Math.max(0, Math.floor(gross * (1 - taxRate)));
-    currentBalance += net;
-    gatheredInventory = [];
+    try {
+        const payload = await apiRequest('/api/dashboard/territories/sell', {
+            method: 'POST',
+            body: JSON.stringify({
+                map_id: Number(MAPS[currentMapIndex]?.id || 0),
+                city_id: String(city.id || ''),
+            }),
+        });
 
-    const wallet = document.getElementById('walletBalance');
-    if (wallet) {
-        wallet.textContent = currentBalance.toLocaleString('pt-BR');
+        if (payload.ok === false) {
+            flash(payload.message || 'Falha ao vender inventário.', true);
+            return;
+        }
+
+        currentBalance = Number(payload.balance || currentBalance);
+        gatheredInventory = [];
+
+        const wallet = document.getElementById('walletBalance');
+        if (wallet) {
+            wallet.textContent = currentBalance.toLocaleString('pt-BR');
+        }
+
+        const net = Number(payload.net || 0);
+        flash(`🏙 ${city.name}: venda concluida (+${net.toLocaleString('pt-BR')} coins).`);
+        updateHUD(MAPS[currentMapIndex]);
+    } catch (error) {
+        flash(`Falha na venda: ${error.message}`, true);
     }
-
-    flash(`🏙 ${city.name}: venda concluida (+${net.toLocaleString('pt-BR')} coins).`);
-    updateHUD(MAPS[currentMapIndex]);
 }
 
 function startMapAmbientLoop() {
@@ -466,6 +540,8 @@ async function syncTerritoriesFromServer(showSuccessMessage = false) {
         const payload = await apiRequest('/api/dashboard/territories/list');
         currentUserId = Number(payload.current_user_id || 0);
         currentBalance = Number(payload.balance || 0);
+        applyWorldConfig(payload.world || null);
+        gatheredInventory = normalizeGatheredInventory(payload.gathered_inventory);
 
         const wallet = document.getElementById('walletBalance');
         if (wallet) {
@@ -748,7 +824,7 @@ function setupEvents(canvas) {
         renderer.draw();
     });
 
-    fresh.addEventListener('click', (event) => {
+    fresh.addEventListener('click', async (event) => {
         const { ox, oy } = offset(event, fresh);
         const territory = renderer.hitTerritory(ox, oy);
         const city = territory ? null : renderer.hitCity(ox, oy);
@@ -762,12 +838,12 @@ function setupEvents(canvas) {
             openPanel(territory);
         } else if (city) {
             selectedCity = city;
-            sellInventoryAtCity(city);
+            await sellInventoryAtCity(city);
             if (selectedTerritory) {
                 openPanel(selectedTerritory, false);
             }
         } else if (resource) {
-            gatherFromResource(resource);
+            await gatherFromResource(resource);
             if (selectedTerritory) {
                 openPanel(selectedTerritory, false);
             }
@@ -934,12 +1010,12 @@ function setupActionButtons() {
     });
     const sellButton = document.getElementById('btnSellCity');
     if (sellButton) {
-        sellButton.addEventListener('click', () => {
+        sellButton.addEventListener('click', async () => {
             if (!selectedCity) {
                 flash('Selecione uma cidade no mapa para vender.', true);
                 return;
             }
-            sellInventoryAtCity(selectedCity);
+            await sellInventoryAtCity(selectedCity);
             if (selectedTerritory) {
                 openPanel(selectedTerritory, false);
             }
