@@ -15,6 +15,7 @@ let uiAudioContext = null;
 let territorySignals = [];
 let selectedCity = null;
 let gatheredInventory = [];
+let leaderboardVisible = false;
 
 const TERRITORY_GLYPHS = ['✦', '◈', '✶', '⬡', '✹', '✷', '◉'];
 const GUILD_SIGILS = ['✦', '☽', '✶', '⬢', '✹', '✧'];
@@ -660,6 +661,23 @@ function renderLeaderboard(entries, me) {
     });
 }
 
+function setLeaderboardVisible(visible) {
+    const panel = document.getElementById('leaderboardPanel');
+    if (!panel) {
+        return;
+    }
+    leaderboardVisible = Boolean(visible);
+    panel.classList.toggle('show', leaderboardVisible);
+}
+
+function openLeaderboardPanel() {
+    setLeaderboardVisible(true);
+}
+
+function closeLeaderboardPanel() {
+    setLeaderboardVisible(false);
+}
+
 // -- Map loading + slide transition -------------------------------------------
 function loadMap(index, direction) {
     const mapDef = MAPS[index];
@@ -745,6 +763,11 @@ function setupNavigation() {
         refreshLeaderboardButton.addEventListener('click', () => loadLeaderboard());
     }
 
+    const closeLeaderboardButton = document.getElementById('leaderboardClose');
+    if (closeLeaderboardButton) {
+        closeLeaderboardButton.addEventListener('click', () => closeLeaderboardPanel());
+    }
+
 }
 
 function updateDots(index) {
@@ -812,7 +835,11 @@ function setupEvents(canvas) {
             const ownerLabel = territory.ownerDisplay || territory.owner || 'Sem dono';
             showTooltip(tooltip, `${territoryDisplayName(territory)} · ${ownerLabel}`, ox, oy);
         } else if (city) {
-            showTooltip(tooltip, `🏙 ${city.name} · taxa ${(Number(city.taxRate || 0.08) * 100).toFixed(0)}%`, ox, oy);
+            if (city.kind === 'league') {
+                showTooltip(tooltip, `🏆 ${city.name} · abrir leaderboard`, ox, oy);
+            } else {
+                showTooltip(tooltip, `🏙 ${city.name} · taxa ${(Number(city.taxRate || 0.08) * 100).toFixed(0)}%`, ox, oy);
+            }
         } else if (resource) {
             showTooltip(tooltip, `${resource.icon} ${resourceBaseName(resource.icon)} · coleta d100`, ox, oy);
         } else if (exit) {
@@ -832,25 +859,35 @@ function setupEvents(canvas) {
         const exit = (territory || city || resource) ? null : renderer.hitExit(ox, oy);
 
         if (territory) {
+            closeLeaderboardPanel();
             selectedCity = null;
             selectedTerritory = territory;
             renderer.setSelected(territory.id);
             openPanel(territory);
         } else if (city) {
-            selectedCity = city;
-            await sellInventoryAtCity(city);
-            if (selectedTerritory) {
-                openPanel(selectedTerritory, false);
+            if (city.kind === 'league') {
+                selectedCity = null;
+                openLeaderboardPanel();
+                flash('Liga aberta: confira o ranking da guerra.');
+            } else {
+                selectedCity = city;
+                await sellInventoryAtCity(city);
+                if (selectedTerritory) {
+                    openPanel(selectedTerritory, false);
+                }
             }
         } else if (resource) {
+            closeLeaderboardPanel();
             await gatherFromResource(resource);
             if (selectedTerritory) {
                 openPanel(selectedTerritory, false);
             }
         } else if (exit && exit.target !== null) {
+            closeLeaderboardPanel();
             const direction = exit.target > currentMapIndex ? 'left' : 'right';
             transitionViaExit(exit, direction);
         } else {
+            closeLeaderboardPanel();
             selectedCity = null;
             selectedTerritory = null;
             renderer.setSelected(null);
@@ -980,7 +1017,7 @@ function openPanel(territory, withAnimation = true) {
     btnDefend.disabled = !primeState.isPrime;
     btnUpgrade.style.display = isOwner ? 'block' : 'none';
     if (btnSellCity) {
-        btnSellCity.style.display = selectedCity ? 'block' : 'none';
+        btnSellCity.style.display = (selectedCity && selectedCity.kind !== 'league') ? 'block' : 'none';
     }
     if (inspectButton) {
         inspectButton.style.display = 'block';

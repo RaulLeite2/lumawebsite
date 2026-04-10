@@ -185,14 +185,26 @@ body {
     left: 18px;
     top: 18px;
     z-index: 14;
-    width: 310px;
+    width: 280px;
     max-height: calc(100% - 36px);
     overflow: auto;
-    padding: 16px;
+    padding: 14px;
     border-radius: 18px;
     border: 1px solid rgba(42, 42, 75, 0.9);
     background: rgba(15, 14, 33, 0.9);
     backdrop-filter: blur(14px);
+    opacity: 0;
+    transform: translateY(-8px) scale(0.985);
+    pointer-events: none;
+    visibility: hidden;
+    transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.leaderboard-panel.show {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+    visibility: visible;
 }
 
 .leaderboard-header {
@@ -201,6 +213,11 @@ body {
     justify-content: space-between;
     gap: 12px;
     margin-bottom: 12px;
+}
+
+.leaderboard-actions {
+    display: inline-flex;
+    gap: 8px;
 }
 
 .leaderboard-header h2 {
@@ -235,6 +252,28 @@ body {
 
 .leaderboard-refresh:active,
 .leaderboard-refresh.is-pressed {
+    transform: translateY(1px) scale(0.97);
+}
+
+.leaderboard-close {
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: rgba(255, 109, 122, 0.12);
+    color: #ffd5da;
+    cursor: pointer;
+    transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease;
+}
+
+.leaderboard-close:hover {
+    transform: translateY(-1px) scale(1.04);
+    background: rgba(255, 109, 122, 0.22);
+    box-shadow: 0 10px 18px rgba(128, 38, 55, 0.24);
+}
+
+.leaderboard-close:active,
+.leaderboard-close.is-pressed {
     transform: translateY(1px) scale(0.97);
 }
 

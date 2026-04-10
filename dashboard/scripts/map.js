@@ -526,22 +526,22 @@ class MapRenderer {
             const cx = sx, cy = sy + TILE_H / 2 - 4;
 
             c.beginPath();
-            c.arc(cx, cy, 14, 0, Math.PI * 2);
+            c.arc(cx, cy, 11, 0, Math.PI * 2);
             c.fillStyle = 'rgba(10,6,2,0.88)';
             c.fill();
             c.strokeStyle = 'rgba(180,110,15,0.6)';
-            c.lineWidth = 1.5;
+            c.lineWidth = 1.3;
             c.stroke();
 
-            c.font = '11px serif';
+            c.font = '9px serif';
             c.textAlign = 'center';
             c.textBaseline = 'middle';
             c.fillStyle = '#fff';
             c.fillText(r.icon, cx, cy - 1);
 
-            c.font = 'bold 7px "Plus Jakarta Sans", sans-serif';
+            c.font = 'bold 6px "Plus Jakarta Sans", sans-serif';
             c.fillStyle = '#f4c430';
-            c.fillText(this._resourceLabel(r), cx, cy + 10);
+            c.fillText(this._resourceLabel(r), cx, cy + 8);
         });
     }
 
@@ -558,13 +558,23 @@ class MapRenderer {
     }
 
     _cityList() {
-        if (Array.isArray(this.mapDef.cities) && this.mapDef.cities.length) {
-            return this.mapDef.cities;
-        }
-        return [
+        const cities = Array.isArray(this.mapDef.cities) && this.mapDef.cities.length
+            ? [...this.mapDef.cities]
+            : [
             { id: `city-${this.mapDef.id}-a`, name: 'Cidade Mercantil', gx: 2, gy: 2, taxRate: 0.08 },
             { id: `city-${this.mapDef.id}-b`, name: 'Porto de Trocas', gx: 11, gy: 10, taxRate: 0.12 },
         ];
+
+        cities.push({
+            id: `league-hall-${this.mapDef.id}`,
+            name: 'Liga',
+            gx: 7,
+            gy: 1,
+            taxRate: 0,
+            kind: 'league',
+        });
+
+        return cities;
     }
 
     _drawCities() {
@@ -573,24 +583,26 @@ class MapRenderer {
             const [sx, sy] = this._tilePos(city.gx, city.gy);
             const cx = sx;
             const cy = sy + TILE_H * 0.35;
+            const isLeague = city.kind === 'league';
+            const icon = isLeague ? '🏆' : '🏙';
 
             c.save();
             c.beginPath();
-            c.arc(cx, cy, 16, 0, Math.PI * 2);
+            c.arc(cx, cy, isLeague ? 14 : 13, 0, Math.PI * 2);
             c.fillStyle = 'rgba(16, 23, 48, 0.82)';
             c.fill();
-            c.strokeStyle = 'rgba(136, 192, 255, 0.9)';
-            c.lineWidth = 1.8;
+            c.strokeStyle = isLeague ? 'rgba(244, 196, 48, 0.92)' : 'rgba(136, 192, 255, 0.9)';
+            c.lineWidth = isLeague ? 2.1 : 1.6;
             c.stroke();
 
-            c.font = '14px "Plus Jakarta Sans", sans-serif';
+            c.font = '12px "Plus Jakarta Sans", sans-serif';
             c.textAlign = 'center';
             c.textBaseline = 'middle';
             c.fillStyle = '#f7fbff';
-            c.fillText('🏙', cx, cy);
+            c.fillText(icon, cx, cy);
 
-            c.font = '700 10px "Plus Jakarta Sans", sans-serif';
-            c.fillStyle = '#9fc3ff';
+            c.font = '700 9px "Plus Jakarta Sans", sans-serif';
+            c.fillStyle = isLeague ? '#f4c430' : '#9fc3ff';
             c.fillText(city.name, cx, cy + 20);
             c.restore();
         });
@@ -599,7 +611,7 @@ class MapRenderer {
     _drawTerritories() {
         const c = this.ctx;
         const w = this.canvas.width;
-        const r_base = w * 0.038;
+        const r_base = w * 0.029;
 
         this.mapDef.territories.forEach(t => {
             const [sx, sy] = this._screenTerritoryCenter(t);
@@ -678,7 +690,7 @@ class MapRenderer {
 
             c.restore();
 
-            const fs = Math.max(9, w * .016);
+            const fs = Math.max(8, w * .0125);
             c.textAlign = 'center';
             c.textBaseline = 'top';
             c.shadowColor = 'rgba(0,0,0,0.95)';
@@ -854,7 +866,7 @@ class MapRenderer {
     _drawCardinals() {
         const c = this.ctx;
         const w = this.canvas.width, h = this.canvas.height;
-        const fs = w * .022;
+        const fs = w * .018;
         const dirs = [
             { l:'N', x:w*.5,  y:h*.04 },
             { l:'S', x:w*.5,  y:h*.96 },
@@ -871,7 +883,7 @@ class MapRenderer {
     // ── Hit test ──
     hitTerritory(mx, my) {
         const w = this.canvas.width;
-        const r_base = w * 0.038;
+        const r_base = w * 0.029;
         for (const t of this.mapDef.territories) {
             const [sx, sy] = this._screenTerritoryCenter(t);
             const r = r_base * t.r * 1.2;
@@ -898,7 +910,7 @@ class MapRenderer {
             const cy = sy + TILE_H / 2 - 4;
             const dx = mx - cx;
             const dy = my - cy;
-            if (dx * dx + dy * dy <= 17 * 17) {
+            if (dx * dx + dy * dy <= 14 * 14) {
                 return r;
             }
         }
@@ -912,7 +924,7 @@ class MapRenderer {
             const cy = sy + TILE_H * 0.35;
             const dx = mx - cx;
             const dy = my - cy;
-            if (dx * dx + dy * dy <= 18 * 18) {
+            if (dx * dx + dy * dy <= 15 * 15) {
                 return city;
             }
         }
