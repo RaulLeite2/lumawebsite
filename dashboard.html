@@ -135,6 +135,45 @@
         .pill { border-radius: 999px; border: 1px solid rgba(85, 223, 207, 0.35); background: rgba(85, 223, 207, 0.14); color: #d9fff9; font-size: 0.76rem; padding: 0.25rem 0.58rem; }
         .top-actions { display: inline-flex; gap: 0.55rem; align-items: center; flex-wrap: wrap; }
 
+        .lang-select {
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 0.58rem 0.82rem;
+            color: var(--text);
+            background: rgba(10, 23, 40, 0.75);
+            font-size: 0.84rem;
+            font-weight: 700;
+        }
+
+        .user-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.55rem;
+            padding-left: 0.45rem;
+        }
+
+        .user-avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            object-fit: cover;
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .user-avatar-fallback {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.72rem;
+            font-weight: 800;
+            color: #07111e;
+            background: linear-gradient(135deg, var(--accent), var(--accent-soft));
+        }
+
         .notice {
             position: fixed;
             right: 1rem;
@@ -164,88 +203,97 @@
         <header class="topbar">
             <div class="brand"><span class="dot"></span>Luma Dashboard</div>
             <div class="top-actions">
+                <select class="lang-select" id="lang-select" aria-label="Dashboard language">
+                    <option value="pt">PT</option>
+                    <option value="en">EN</option>
+                    <option value="es">ES</option>
+                </select>
                 <span class="pill" id="guild-pill">Guild: Loading...</span>
-                <span class="pill" id="user-pill">User: Loading...</span>
-                <a class="btn" href="/">Back to Site</a>
-                <a class="btn" href="/auth/logout">Logout</a>
-                <button class="btn btn-danger" id="reset-btn">Reset Config</button>
+                <span class="pill user-chip" id="user-pill">
+                    <img class="user-avatar" id="user-avatar" alt="User avatar" hidden>
+                    <span class="user-avatar-fallback" id="user-avatar-fallback">L</span>
+                    <span id="user-pill-text">User: Loading...</span>
+                </span>
+                <a class="btn" href="/" data-i18n="back_to_site">Back to Site</a>
+                <a class="btn" href="/auth/logout" data-i18n="logout">Logout</a>
+                <button class="btn btn-danger" id="reset-btn" data-i18n="reset_config">Reset Config</button>
             </div>
         </header>
 
         <div class="layout">
             <section class="stack">
                 <article class="card">
-                    <h2>Overview</h2>
-                    <p class="sub">Live values from backend settings and moderation/cogs state.</p>
+                    <h2 data-i18n="overview">Overview</h2>
+                    <p class="sub" data-i18n="overview_sub">Live values from backend settings and moderation/cogs state.</p>
                     <div class="metrics">
-                        <div class="metric"><p>Warnings (24h)</p><p id="metric-warnings">-</p></div>
-                        <div class="metric"><p>Open Tickets</p><p id="metric-tickets">-</p></div>
-                        <div class="metric"><p>Modmail Threads</p><p id="metric-modmail">-</p></div>
-                        <div class="metric"><p>Cogs Enabled</p><p id="metric-cogs">-</p></div>
+                        <div class="metric"><p data-i18n="warnings_24h">Warnings (24h)</p><p id="metric-warnings">-</p></div>
+                        <div class="metric"><p data-i18n="open_tickets">Open Tickets</p><p id="metric-tickets">-</p></div>
+                        <div class="metric"><p data-i18n="modmail_threads">Modmail Threads</p><p id="metric-modmail">-</p></div>
+                        <div class="metric"><p data-i18n="cogs_enabled">Cogs Enabled</p><p id="metric-cogs">-</p></div>
                     </div>
                 </article>
 
                 <article class="card">
-                    <h2>Moderation Settings</h2>
-                    <p class="sub">Configure main moderation behavior and automation quickly.</p>
+                    <h2 data-i18n="moderation_settings">Moderation Settings</h2>
+                    <p class="sub" data-i18n="moderation_settings_sub">Configure main moderation behavior and automation quickly.</p>
                     <div class="grid-2">
                         <div class="field">
-                            <label for="warning-limit">Warning limit</label>
+                            <label for="warning-limit" data-i18n="warning_limit">Warning limit</label>
                             <input id="warning-limit" type="number" min="1" max="20" value="3">
                         </div>
                         <div class="field">
-                            <label for="default-action">Default action</label>
+                            <label for="default-action" data-i18n="default_action">Default action</label>
                             <select id="default-action">
-                                <option value="kick">Kick</option>
-                                <option value="ban">Ban</option>
-                                <option value="mute">Mute</option>
+                                <option value="kick" data-i18n="action_kick">Kick</option>
+                                <option value="ban" data-i18n="action_ban">Ban</option>
+                                <option value="mute" data-i18n="action_mute">Mute</option>
                             </select>
                         </div>
                     </div>
 
-                    <div class="switch-row"><span>Moderation Enabled</span><input id="mod-enabled" class="switch" type="checkbox"></div>
-                    <div class="switch-row"><span>Smart Anti-flood</span><input id="smart-antiflood" class="switch" type="checkbox"></div>
-                    <div class="switch-row"><span>Modmail Enabled</span><input id="modmail-enabled" class="switch" type="checkbox"></div>
-                    <div class="switch-row"><span>Tickets Enabled</span><input id="tickets-enabled" class="switch" type="checkbox"></div>
+                    <div class="switch-row"><span data-i18n="moderation_enabled">Moderation Enabled</span><input id="mod-enabled" class="switch" type="checkbox"></div>
+                    <div class="switch-row"><span data-i18n="smart_antiflood">Smart Anti-flood</span><input id="smart-antiflood" class="switch" type="checkbox"></div>
+                    <div class="switch-row"><span data-i18n="modmail_enabled">Modmail Enabled</span><input id="modmail-enabled" class="switch" type="checkbox"></div>
+                    <div class="switch-row"><span data-i18n="tickets_enabled">Tickets Enabled</span><input id="tickets-enabled" class="switch" type="checkbox"></div>
 
                     <div style="margin-top:0.85rem; display:flex; justify-content:flex-end;">
-                        <button class="btn btn-primary" id="save-moderation">Save Moderation</button>
+                        <button class="btn btn-primary" id="save-moderation" data-i18n="save_moderation">Save Moderation</button>
                     </div>
                 </article>
             </section>
 
             <section class="stack">
                 <article class="card">
-                    <h2>Guild Settings</h2>
-                    <p class="sub">Basic dashboard context and defaults.</p>
+                    <h2 data-i18n="guild_settings">Guild Settings</h2>
+                    <p class="sub" data-i18n="guild_settings_sub">Basic dashboard context and defaults.</p>
                     <div class="field">
-                        <label for="guild-name">Guild name</label>
+                        <label for="guild-name" data-i18n="guild_name">Guild name</label>
                         <input id="guild-name" type="text">
                     </div>
                     <div class="field">
-                        <label for="guild-language">Language</label>
+                        <label for="guild-language" data-i18n="language">Language</label>
                         <select id="guild-language">
-                            <option value="pt">Portuguese</option>
-                            <option value="en">English</option>
-                            <option value="es">Spanish</option>
+                            <option value="pt" data-i18n="lang_pt">Portuguese</option>
+                            <option value="en" data-i18n="lang_en">English</option>
+                            <option value="es" data-i18n="lang_es">Spanish</option>
                         </select>
                     </div>
                     <div class="field">
-                        <label for="log-channel">Log channel</label>
-                        <input id="log-channel" type="text" placeholder="#moderation-log">
+                        <label for="log-channel" data-i18n="log_channel">Log channel</label>
+                        <input id="log-channel" type="text" placeholder="#moderation-log" data-i18n-placeholder="log_channel_placeholder">
                     </div>
 
                     <div style="display:flex; justify-content:flex-end;">
-                        <button class="btn btn-primary" id="save-guild">Save Guild</button>
+                        <button class="btn btn-primary" id="save-guild" data-i18n="save_guild">Save Guild</button>
                     </div>
                 </article>
 
                 <article class="card">
-                    <h2>Cog Controls</h2>
-                    <p class="sub">Enable or disable bot modules directly from the dashboard.</p>
+                    <h2 data-i18n="cog_controls">Cog Controls</h2>
+                    <p class="sub" data-i18n="cog_controls_sub">Enable or disable bot modules directly from the dashboard.</p>
                     <div class="cogs" id="cog-list"></div>
                     <div style="margin-top:0.85rem; display:flex; justify-content:flex-end;">
-                        <button class="btn btn-primary" id="save-cogs">Save Cogs</button>
+                        <button class="btn btn-primary" id="save-cogs" data-i18n="save_cogs">Save Cogs</button>
                     </div>
                 </article>
             </section>
@@ -256,10 +304,168 @@
 
     <script>
         let dashboardState = null;
+        let currentLang = "pt";
+
+        const TRANSLATIONS = {
+            pt: {
+                title: "Luma Dashboard",
+                back_to_site: "Voltar ao Site",
+                logout: "Sair",
+                reset_config: "Resetar Config",
+                overview: "Visao Geral",
+                overview_sub: "Valores ao vivo do backend e do estado de moderacao/cogs.",
+                warnings_24h: "Advertencias (24h)",
+                open_tickets: "Tickets Abertos",
+                modmail_threads: "Threads de Modmail",
+                cogs_enabled: "Cogs Ativos",
+                moderation_settings: "Configuracoes de Moderacao",
+                moderation_settings_sub: "Configure rapidamente o comportamento principal da moderacao e da automacao.",
+                warning_limit: "Limite de advertencias",
+                default_action: "Acao padrao",
+                action_kick: "Kick",
+                action_ban: "Ban",
+                action_mute: "Mute",
+                moderation_enabled: "Moderacao Ativada",
+                smart_antiflood: "Anti-flood Inteligente",
+                modmail_enabled: "Modmail Ativado",
+                tickets_enabled: "Tickets Ativados",
+                save_moderation: "Salvar Moderacao",
+                guild_settings: "Configuracoes da Guild",
+                guild_settings_sub: "Contexto basico do dashboard e padroes.",
+                guild_name: "Nome da guild",
+                language: "Idioma",
+                lang_pt: "Portugues",
+                lang_en: "Ingles",
+                lang_es: "Espanhol",
+                log_channel: "Canal de log",
+                log_channel_placeholder: "#log-de-moderacao",
+                save_guild: "Salvar Guild",
+                cog_controls: "Controles de Cogs",
+                cog_controls_sub: "Ative ou desative modulos do bot diretamente pelo dashboard.",
+                save_cogs: "Salvar Cogs",
+                guild_prefix: "Guild",
+                user_prefix: "Usuario",
+                loading: "Carregando...",
+                unavailable: "Indisponivel",
+                notice_guild_updated: "Configuracoes da guild atualizadas",
+                notice_guild_error: "Falha ao salvar configuracoes da guild",
+                notice_moderation_updated: "Configuracoes de moderacao atualizadas",
+                notice_moderation_error: "Falha ao salvar moderacao",
+                notice_cogs_updated: "Estado dos cogs salvo",
+                notice_cogs_error: "Falha ao salvar cogs",
+                notice_reset_ok: "Reset do dashboard concluido",
+                notice_reset_error: "Falha no reset",
+                notice_state_error: "Falha ao carregar estado do dashboard"
+            },
+            en: {
+                title: "Luma Dashboard",
+                back_to_site: "Back to Site",
+                logout: "Logout",
+                reset_config: "Reset Config",
+                overview: "Overview",
+                overview_sub: "Live values from backend settings and moderation/cogs state.",
+                warnings_24h: "Warnings (24h)",
+                open_tickets: "Open Tickets",
+                modmail_threads: "Modmail Threads",
+                cogs_enabled: "Cogs Enabled",
+                moderation_settings: "Moderation Settings",
+                moderation_settings_sub: "Configure main moderation behavior and automation quickly.",
+                warning_limit: "Warning limit",
+                default_action: "Default action",
+                action_kick: "Kick",
+                action_ban: "Ban",
+                action_mute: "Mute",
+                moderation_enabled: "Moderation Enabled",
+                smart_antiflood: "Smart Anti-flood",
+                modmail_enabled: "Modmail Enabled",
+                tickets_enabled: "Tickets Enabled",
+                save_moderation: "Save Moderation",
+                guild_settings: "Guild Settings",
+                guild_settings_sub: "Basic dashboard context and defaults.",
+                guild_name: "Guild name",
+                language: "Language",
+                lang_pt: "Portuguese",
+                lang_en: "English",
+                lang_es: "Spanish",
+                log_channel: "Log channel",
+                log_channel_placeholder: "#moderation-log",
+                save_guild: "Save Guild",
+                cog_controls: "Cog Controls",
+                cog_controls_sub: "Enable or disable bot modules directly from the dashboard.",
+                save_cogs: "Save Cogs",
+                guild_prefix: "Guild",
+                user_prefix: "User",
+                loading: "Loading...",
+                unavailable: "Unavailable",
+                notice_guild_updated: "Guild settings updated",
+                notice_guild_error: "Failed to save guild settings",
+                notice_moderation_updated: "Moderation settings updated",
+                notice_moderation_error: "Failed to save moderation",
+                notice_cogs_updated: "Cog status saved",
+                notice_cogs_error: "Failed to save cogs",
+                notice_reset_ok: "Dashboard reset complete",
+                notice_reset_error: "Reset failed",
+                notice_state_error: "Failed to load dashboard state"
+            },
+            es: {
+                title: "Luma Dashboard",
+                back_to_site: "Volver al Sitio",
+                logout: "Salir",
+                reset_config: "Reiniciar Config",
+                overview: "Resumen",
+                overview_sub: "Valores en vivo del backend y del estado de moderacion/cogs.",
+                warnings_24h: "Advertencias (24h)",
+                open_tickets: "Tickets Abiertos",
+                modmail_threads: "Hilos de Modmail",
+                cogs_enabled: "Cogs Activos",
+                moderation_settings: "Configuracion de Moderacion",
+                moderation_settings_sub: "Configura rapidamente el comportamiento principal de moderacion y automatizacion.",
+                warning_limit: "Limite de advertencias",
+                default_action: "Accion predeterminada",
+                action_kick: "Kick",
+                action_ban: "Ban",
+                action_mute: "Mute",
+                moderation_enabled: "Moderacion Activada",
+                smart_antiflood: "Anti-flood Inteligente",
+                modmail_enabled: "Modmail Activado",
+                tickets_enabled: "Tickets Activados",
+                save_moderation: "Guardar Moderacion",
+                guild_settings: "Configuracion del Servidor",
+                guild_settings_sub: "Contexto basico del dashboard y valores predeterminados.",
+                guild_name: "Nombre del servidor",
+                language: "Idioma",
+                lang_pt: "Portugues",
+                lang_en: "Ingles",
+                lang_es: "Espanol",
+                log_channel: "Canal de logs",
+                log_channel_placeholder: "#log-moderacion",
+                save_guild: "Guardar Servidor",
+                cog_controls: "Controles de Cogs",
+                cog_controls_sub: "Activa o desactiva modulos del bot directamente desde el dashboard.",
+                save_cogs: "Guardar Cogs",
+                guild_prefix: "Servidor",
+                user_prefix: "Usuario",
+                loading: "Cargando...",
+                unavailable: "No disponible",
+                notice_guild_updated: "Configuracion del servidor actualizada",
+                notice_guild_error: "Error al guardar la configuracion del servidor",
+                notice_moderation_updated: "Configuracion de moderacion actualizada",
+                notice_moderation_error: "Error al guardar moderacion",
+                notice_cogs_updated: "Estado de cogs guardado",
+                notice_cogs_error: "Error al guardar cogs",
+                notice_reset_ok: "Reinicio del dashboard completado",
+                notice_reset_error: "Error al reiniciar",
+                notice_state_error: "Error al cargar el estado del dashboard"
+            }
+        };
 
         const refs = {
             guildPill: document.getElementById("guild-pill"),
             userPill: document.getElementById("user-pill"),
+            userPillText: document.getElementById("user-pill-text"),
+            userAvatar: document.getElementById("user-avatar"),
+            userAvatarFallback: document.getElementById("user-avatar-fallback"),
+            langSelect: document.getElementById("lang-select"),
             warnings: document.getElementById("metric-warnings"),
             tickets: document.getElementById("metric-tickets"),
             modmail: document.getElementById("metric-modmail"),
@@ -281,8 +487,82 @@
             notice: document.getElementById("notice")
         };
 
-        function showNotice(message) {
-            refs.notice.textContent = message;
+        function translate(key) {
+            return TRANSLATIONS[currentLang]?.[key] || TRANSLATIONS.en[key] || key;
+        }
+
+        function setLanguage(lang) {
+            currentLang = ["pt", "en", "es"].includes(lang) ? lang : "en";
+            document.documentElement.lang = currentLang;
+            document.title = translate("title");
+            if (refs.langSelect) {
+                refs.langSelect.value = currentLang;
+            }
+
+            document.querySelectorAll("[data-i18n]").forEach((node) => {
+                const key = node.dataset.i18n;
+                node.textContent = translate(key);
+            });
+
+            document.querySelectorAll("[data-i18n-placeholder]").forEach((node) => {
+                const key = node.dataset.i18nPlaceholder;
+                node.setAttribute("placeholder", translate(key));
+            });
+
+            if (dashboardState) {
+                renderState(dashboardState);
+            }
+        }
+
+        function buildDiscordAvatarUrl(user) {
+            if (!user || !user.id) {
+                return "";
+            }
+
+            if (user.avatar) {
+                const extension = String(user.avatar).startsWith("a_") ? "gif" : "png";
+                return `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.${extension}?size=256`;
+            }
+
+            if (user.avatar_url) {
+                return String(user.avatar_url);
+            }
+
+            const discriminator = String(user.discriminator || "").trim();
+            if (discriminator && discriminator !== "0") {
+                const index = Number(discriminator) % 5;
+                return `https://cdn.discordapp.com/embed/avatars/${index}.png`;
+            }
+
+            try {
+                const index = Number((BigInt(user.id) >> 22n) % 6n);
+                return `https://cdn.discordapp.com/embed/avatars/${index}.png`;
+            } catch (_) {
+                return "https://cdn.discordapp.com/embed/avatars/0.png";
+            }
+        }
+
+        function renderUserAvatar(user) {
+            const label = user?.global_name || user?.username || "Luma";
+            const avatarUrl = buildDiscordAvatarUrl(user);
+            refs.userAvatarFallback.textContent = String(label).slice(0, 1).toUpperCase();
+
+            if (!avatarUrl) {
+                refs.userAvatar.hidden = true;
+                return;
+            }
+
+            refs.userAvatar.onerror = () => {
+                refs.userAvatar.hidden = true;
+            };
+            refs.userAvatar.onload = () => {
+                refs.userAvatar.hidden = false;
+            };
+            refs.userAvatar.src = avatarUrl;
+        }
+
+        function showNotice(key) {
+            refs.notice.textContent = translate(key);
             refs.notice.classList.add("show");
             setTimeout(() => refs.notice.classList.remove("show"), 1800);
         }
@@ -314,9 +594,11 @@
                 }
 
                 const label = session.user?.global_name || session.user?.username || "Unknown";
-                refs.userPill.textContent = `User: ${label}`;
+                refs.userPillText.textContent = `${translate("user_prefix")}: ${label}`;
+                renderUserAvatar(session.user || null);
+                setLanguage(session.user?.locale?.slice?.(0, 2) || refs.guildLanguage.value || localStorage.getItem("dashboard_lang") || "pt");
             } catch (error) {
-                refs.userPill.textContent = "User: Unavailable";
+                refs.userPillText.textContent = `${translate("user_prefix")}: ${translate("unavailable")}`;
             }
         }
 
@@ -328,10 +610,14 @@
         }
 
         function renderGuild(state) {
-            refs.guildPill.textContent = `Guild: ${state.guild.guild_name}`;
+            refs.guildPill.textContent = `${translate("guild_prefix")}: ${state.guild.guild_name}`;
             refs.guildName.value = state.guild.guild_name;
             refs.guildLanguage.value = state.guild.language;
             refs.logChannel.value = state.guild.log_channel;
+
+            if (!localStorage.getItem("dashboard_lang")) {
+                setLanguage(state.guild.language || currentLang);
+            }
         }
 
         function renderModeration(state) {
@@ -387,9 +673,9 @@
                 };
                 const result = await apiCall("/api/dashboard/guild", { method: "PUT", body: JSON.stringify(payload) });
                 renderState(result.state);
-                showNotice("Guild settings updated");
+                showNotice("notice_guild_updated");
             } catch (error) {
-                showNotice("Failed to save guild settings");
+                showNotice("notice_guild_error");
             }
         });
 
@@ -405,9 +691,9 @@
                 };
                 const result = await apiCall("/api/dashboard/moderation", { method: "PUT", body: JSON.stringify(payload) });
                 renderState(result.state);
-                showNotice("Moderation settings updated");
+                showNotice("notice_moderation_updated");
             } catch (error) {
-                showNotice("Failed to save moderation");
+                showNotice("notice_moderation_error");
             }
         });
 
@@ -420,9 +706,9 @@
                 });
                 const result = await apiCall("/api/dashboard/cogs", { method: "PUT", body: JSON.stringify({ cogs }) });
                 renderState(result.state);
-                showNotice("Cog status saved");
+                showNotice("notice_cogs_updated");
             } catch (error) {
-                showNotice("Failed to save cogs");
+                showNotice("notice_cogs_error");
             }
         });
 
@@ -430,14 +716,20 @@
             try {
                 const result = await apiCall("/api/dashboard/reset", { method: "POST", body: "{}" });
                 renderState(result.state);
-                showNotice("Dashboard reset complete");
+                showNotice("notice_reset_ok");
             } catch (error) {
-                showNotice("Reset failed");
+                showNotice("notice_reset_error");
             }
         });
 
+        refs.langSelect.addEventListener("change", () => {
+            localStorage.setItem("dashboard_lang", refs.langSelect.value);
+            setLanguage(refs.langSelect.value);
+        });
+
+        setLanguage(localStorage.getItem("dashboard_lang") || "pt");
         loadSession();
-        loadState().catch(() => showNotice("Failed to load dashboard state"));
+        loadState().catch(() => showNotice("notice_state_error"));
     </script>
 </body>
 </html>
