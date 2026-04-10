@@ -1269,8 +1269,10 @@ function setupActionButtons() {
 
     const factionButton = document.getElementById('btnSetFactionAttack');
     if (factionButton) {
+        factionButton.disabled = true;
+        factionButton.title = 'Ataques de facção manuais desativados';
         factionButton.addEventListener('click', async () => {
-            await setFactionAttackOnSelectedTerritory();
+            flash('Ataques de facção manuais estão desativados. Use o botão Atacar como player.', true);
         });
     }
 

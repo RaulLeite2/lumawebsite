@@ -5347,60 +5347,11 @@ async def dashboard_territories_attack(payload: TerritoryActionPayload, request:
 @app.post("/api/dashboard/territories/faction/set-attack")
 async def dashboard_set_faction_attack(payload: TerritoryFactionAttackSetPayload, request: Request) -> dict[str, Any]:
     _require_auth(request)
-    await _require_dashboard_role(request, "admin")
-    pool = _db_pool()
-    if pool is None:
-        raise HTTPException(status_code=503, detail="Database unavailable")
-
-    faction_name = str(payload.faction_name or "").strip()
-    if not faction_name:
-        return {"ok": False, "message": "Escolha uma facção válida."}
-
-    now = datetime.utcnow()
-    ends_at = now + timedelta(minutes=int(payload.duration_minutes))
-
-    async with pool.acquire() as connection:
-        async with connection.transaction():
-            territory = await connection.fetchrow(
-                """
-                SELECT id, name
-                FROM territories
-                WHERE id = $1
-                FOR UPDATE
-                """,
-                int(payload.territory_id),
-            )
-            if territory is None:
-                raise HTTPException(status_code=404, detail="Territory not found")
-
-            await connection.execute(
-                """
-                UPDATE territories
-                SET
-                    faction_attack_active = TRUE,
-                    faction_name = $1,
-                    faction_attack_started_at = CURRENT_TIMESTAMP,
-                    faction_attack_ends_at = $2,
-                    last_faction_attack_at = CURRENT_TIMESTAMP,
-                    last_faction_result = 'invasion_started',
-                    last_faction_result_at = CURRENT_TIMESTAMP
-                WHERE id = $3
-                """,
-                faction_name,
-                ends_at,
-                int(payload.territory_id),
-            )
-
-    return {
-        "ok": True,
-        "territory_id": int(payload.territory_id),
-        "territory_name": str(territory.get("name") or "Território"),
-        "faction_name": faction_name,
-        "faction_flag": str(TERRITORY_FACTION_BY_NAME.get(faction_name, {}).get("flag") or "⚑"),
-        "duration_minutes": int(payload.duration_minutes),
-        "ends_at": ends_at.isoformat(),
-        "message": f"Ataque da {faction_name} setado em {str(territory.get('name') or 'Território')}.",
-    }
+    _require_session_user_id(request)
+    raise HTTPException(
+        status_code=403,
+        detail="Ataques de facção manuais estão desativados. Apenas players podem atacar via ação padrão.",
+    )
 
 
 @app.post("/api/dashboard/territories/collect")
