@@ -46,10 +46,57 @@
                 </div>
             </header>
 
-            <section class="section">
-                <h2>Seus Servidores</h2>
-                <p class="lead"><span id="servers-manageable">0</span> servidores configuraveis, <span id="servers-total">0</span> servidores no total.</p>
-                <div id="servers-grid" class="servers-grid"></div>
+            <section class="section server-hub-shell" id="server-hub-shell">
+                <div class="server-hub-profile">
+                    <div class="server-hub-avatar" id="server-hub-avatar">L</div>
+                    <div class="server-hub-identity">
+                        <h2 id="server-hub-name">Luma</h2>
+                        <p id="server-hub-handle">@dashboard</p>
+                    </div>
+                </div>
+
+                <div class="server-hub-tabs" role="tablist" aria-label="Hub sections">
+                    <button class="server-hub-tab active" id="hub-tab-servers" data-hub-tab="servers" type="button">Servidores</button>
+                    <button class="server-hub-tab" id="hub-tab-premium" data-hub-tab="premium" type="button">Assinatura</button>
+                    <button class="server-hub-tab" id="hub-tab-config" data-hub-tab="config" type="button">Configurações</button>
+                </div>
+
+                <div class="server-hub-subtabs">
+                    <button class="server-hub-subtab active" data-hub-tab="servers" type="button">Lista</button>
+                    <button class="server-hub-subtab" data-hub-tab="premium" type="button">Premium</button>
+                </div>
+
+                <div class="server-hub-pane" id="hub-pane-servers">
+                    <div class="server-pane-head">
+                        <div>
+                            <h2>Seus Servidores</h2>
+                            <p class="lead"><span id="servers-manageable">0</span> servidores configuraveis, <span id="servers-total">0</span> servidores no total.</p>
+                        </div>
+                    </div>
+                    <div id="servers-grid" class="servers-grid"></div>
+                </div>
+
+                <div class="server-hub-pane" id="hub-pane-premium" hidden>
+                    <div class="server-premium-panel">
+                        <span class="eyebrow">Premium</span>
+                        <h2>Hub Premium</h2>
+                        <p class="lead">Espaço reservado para assinatura, vantagens exclusivas e futuros upgrades do painel.</p>
+                    </div>
+                </div>
+
+                <div class="server-hub-pane" id="hub-pane-config" hidden>
+                    <div class="server-config-shell" id="server-config-shell">
+                        <div class="server-config-header">
+                            <div>
+                                <span class="eyebrow">Configuração do Dashboard</span>
+                                <h2 id="server-config-title">Selecione um servidor</h2>
+                                <p class="lead" id="server-config-subtitle">Ao escolher um servidor, os atalhos de configuração aparecem aqui no centro.</p>
+                            </div>
+                            <div class="server-config-badge" id="server-config-badge">Aguardando seleção</div>
+                        </div>
+                        <div class="server-config-grid" id="server-config-grid"></div>
+                    </div>
+                </div>
             </section>
         </main>
     </div>

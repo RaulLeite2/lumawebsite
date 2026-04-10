@@ -7,6 +7,7 @@ let selectedAutoImmuneRoles = [];
 let liveActivityEventSource = null;
 let warnFlowSteps = [];
 let dashboardLang = "en";
+let currentServerHubTab = "servers";
 
 const I18N = {
     en: {
@@ -168,6 +169,27 @@ const STATIC_TRANSLATIONS = {
     "Overview": { pt: "Visao Geral", en: "Overview", es: "Resumen" },
     "Moderation": { pt: "Moderacao", en: "Moderation", es: "Moderacion" },
     "Bot Setup": { pt: "Configuracao do Bot", en: "Bot Setup", es: "Configuracion del Bot" },
+    "Modules": { pt: "Modulos", en: "Modules", es: "Modulos" },
+    "Territories": { pt: "Territorios", en: "Territories", es: "Territorios" },
+    "Entry / Exit": { pt: "Entrada / Saida", en: "Entry / Exit", es: "Entrada / Salida" },
+    "Dashboard Configuration": { pt: "Configuracao do Dashboard", en: "Dashboard Configuration", es: "Configuracion del Dashboard" },
+    "Select a server": { pt: "Selecione um servidor", en: "Select a server", es: "Selecciona un servidor" },
+    "Select a server to open the configuration shortcuts in the center.": { pt: "Ao escolher um servidor, os atalhos de configuracao aparecem aqui no centro.", en: "Select a server to open the configuration shortcuts in the center.", es: "Selecciona un servidor para abrir los accesos de configuracion en el centro." },
+    "Waiting for selection": { pt: "Aguardando selecao", en: "Waiting for selection", es: "Esperando seleccion" },
+    "Selection active": { pt: "Selecao ativa", en: "Selection active", es: "Seleccion activa" },
+    "{guild} selected. Choose what you want to configure now.": { pt: "{guild} selecionado. Escolha agora o que deseja configurar.", en: "{guild} selected. Choose what you want to configure now.", es: "{guild} seleccionado. Elige ahora que deseas configurar." },
+    "Choose a configurable server to unlock the dashboard modules here.": { pt: "Escolha um servidor configuravel para liberar aqui os modulos do dashboard.", en: "Choose a configurable server to unlock the dashboard modules here.", es: "Elige un servidor configurable para desbloquear aqui los modulos del dashboard." },
+    "Open module": { pt: "Abrir modulo", en: "Open module", es: "Abrir modulo" },
+    "Overview and quick operational reading for the selected server.": { pt: "Visao geral e leitura operacional rapida do servidor selecionado.", en: "Overview and quick operational reading for the selected server.", es: "Resumen y lectura operativa rapida del servidor seleccionado." },
+    "Rules, AutoMod and staff control flows.": { pt: "Regras, AutoMod e fluxos de controle da staff.", en: "Rules, AutoMod and staff control flows.", es: "Reglas, AutoMod y flujos de control del staff." },
+    "Language, logs, modmail and the bot foundation.": { pt: "Idioma, logs, modmail e a fundacao do bot.", en: "Language, logs, modmail and the bot foundation.", es: "Idioma, logs, modmail y la base del bot." },
+    "Module toggles and activation state for this server.": { pt: "Alternancia de modulos e estado de ativacao deste servidor.", en: "Module toggles and activation state for this server.", es: "Interruptores de modulos y estado de activacion de este servidor." },
+    "Coins, shop and economic progression for the guild.": { pt: "Coins, loja e progresso economico da guild.", en: "Coins, shop and economic progression for the guild.", es: "Monedas, tienda y progreso economico del servidor." },
+    "Territory wars, seasonal points and faction pressure.": { pt: "Guerras de territorio, pontos sazonais e pressao de faccoes.", en: "Territory wars, seasonal points and faction pressure.", es: "Guerras territoriales, puntos de temporada y presion de facciones." },
+    "Visual scripting and guided automation flows.": { pt: "Script visual e fluxos guiados de automacao.", en: "Visual scripting and guided automation flows.", es: "Script visual y flujos guiados de automatizacion." },
+    "Public posts, featured content and publishing flow.": { pt: "Posts publicos, conteudo em destaque e fluxo de publicacao.", en: "Public posts, featured content and publishing flow.", es: "Posts publicos, contenido destacado y flujo de publicacion." },
+    "Welcome and leave embeds for member movement.": { pt: "Embeds de entrada e saida para movimento de membros.", en: "Welcome and leave embeds for member movement.", es: "Embeds de entrada y salida para el movimiento de miembros." },
+    "Audit trail, snapshots and dashboard permissions.": { pt: "Trilha de auditoria, snapshots e permissoes do dashboard.", en: "Audit trail, snapshots and dashboard permissions.", es: "Rastro de auditoria, snapshots y permisos del dashboard." },
     "Select the server you want to configure.": { pt: "Selecione o servidor que deseja configurar.", en: "Select the server you want to configure.", es: "Selecciona el servidor que deseas configurar." },
     "<manageable> configurable servers, <total> servers total.": { pt: "<manageable> servidores configuraveis, <total> servidores no total.", en: "<manageable> configurable servers, <total> servers total.", es: "<manageable> servidores configurables, <total> servidores en total." },
     "Narrative overview with risk, incidents and operational status.": { pt: "Visao narrativa com risco, incidentes e status operacional.", en: "Narrative overview with risk, incidents and operational status.", es: "Resumen narrativo con riesgo, incidentes y estado operativo." },
@@ -812,8 +834,10 @@ function applyStaticTranslations() {
         "/dashboard/cogs": t("nav_cogs", "Cogs"),
         "/dashboard/levels": t("nav_levels", "Levels"),
         "/dashboard/economy": t("nav_economy", "Economy"),
+        "/dashboard/territories": translateStaticText("Territories"),
         "/dashboard/mk-script": t("nav_mkscript", "MK Script"),
         "/dashboard/blog": t("nav_blog", "Blog"),
+        "/dashboard/entry-exit": translateStaticText("Entry / Exit"),
         "/dashboard/config-logs": t("nav_audit", "Audit Center"),
     };
     document.querySelectorAll(".sidebar .nav a").forEach((link) => {
@@ -982,6 +1006,132 @@ function ensureSidebarChrome() {
     }
 
     applySidebarCollapsedState(collapsed);
+}
+
+function currentActiveGuildId(context = dashboardContext) {
+    return String(context?.active_guild_id || context?.state?.guild?.guild_id || "");
+}
+
+function setServerHubTab(tabName = "servers") {
+    if (page !== "servers") return;
+
+    currentServerHubTab = ["servers", "premium", "config"].includes(tabName) ? tabName : "servers";
+    document.querySelectorAll("[data-hub-tab]").forEach((node) => {
+        const active = node.dataset.hubTab === currentServerHubTab;
+        node.classList.toggle("active", active);
+        if (node.matches(".server-hub-tab")) {
+            node.setAttribute("aria-selected", active ? "true" : "false");
+        }
+    });
+
+    document.querySelectorAll(".server-hub-pane").forEach((pane) => {
+        pane.hidden = pane.id !== `hub-pane-${currentServerHubTab}`;
+    });
+}
+
+function renderServerHubProfile(context) {
+    const avatar = document.getElementById("server-hub-avatar");
+    const name = document.getElementById("server-hub-name");
+    const handle = document.getElementById("server-hub-handle");
+    if (!avatar || !name || !handle) return;
+
+    const user = context?.user || {};
+    const label = user.global_name || user.username || "Luma";
+    const username = user.username || "dashboard";
+    const avatarUrl = user.avatar && user.id
+        ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=256`
+        : "";
+
+    name.textContent = label;
+    handle.textContent = `@${username}`;
+
+    if (avatarUrl) {
+        avatar.innerHTML = `<img src="${avatarUrl}" alt="${label}">`;
+    } else {
+        avatar.textContent = String(label).slice(0, 1).toUpperCase();
+    }
+}
+
+function bindServerHubTabs() {
+    if (page !== "servers") return;
+
+    document.querySelectorAll(".server-hub-tab, .server-hub-subtab").forEach((button) => {
+        if (button.dataset.hubBound === "1") return;
+        button.dataset.hubBound = "1";
+        button.addEventListener("click", () => {
+            setServerHubTab(button.dataset.hubTab || "servers");
+        });
+    });
+}
+
+const SERVER_CONFIGURATION_MODULES = [
+    { href: "/dashboard/overview", icon: "OV", title: "Overview", description: "Overview and quick operational reading for the selected server." },
+    { href: "/dashboard/moderation", icon: "MD", title: "Moderation", description: "Rules, AutoMod and staff control flows." },
+    { href: "/dashboard/guild-settings", icon: "BT", title: "Bot Setup", description: "Language, logs, modmail and the bot foundation." },
+    { href: "/dashboard/cogs", icon: "CG", title: "Modules", description: "Module toggles and activation state for this server." },
+    { href: "/dashboard/economy", icon: "EC", title: "Economy", description: "Coins, shop and economic progression for the guild." },
+    { href: "/dashboard/territories", icon: "TR", title: "Territories", description: "Territory wars, seasonal points and faction pressure." },
+    { href: "/dashboard/mk-script", icon: "MK", title: "MK Script", description: "Visual scripting and guided automation flows." },
+    { href: "/dashboard/blog", icon: "BL", title: "Blog", description: "Public posts, featured content and publishing flow." },
+    { href: "/dashboard/entry-exit", icon: "EX", title: "Entry / Exit", description: "Welcome and leave embeds for member movement." },
+    { href: "/dashboard/config-logs", icon: "LG", title: "Audit Center", description: "Audit trail, snapshots and dashboard permissions." },
+];
+
+function renderServerConfigurationHub(context) {
+    const shell = document.getElementById("server-config-shell");
+    const grid = document.getElementById("server-config-grid");
+    const title = document.getElementById("server-config-title");
+    const subtitle = document.getElementById("server-config-subtitle");
+    const badge = document.getElementById("server-config-badge");
+    if (!shell || !grid || !title || !subtitle || !badge) return;
+
+    const guilds = context?.guilds || [];
+    const activeGuild = guilds.find((guild) => String(guild.id) === currentActiveGuildId(context) && guild.configurable);
+
+    if (!activeGuild) {
+        title.textContent = translateStaticText("Select a server");
+        subtitle.textContent = translateStaticText("Choose a configurable server to unlock the dashboard modules here.");
+        badge.textContent = translateStaticText("Waiting for selection");
+        grid.innerHTML = `<div class="server-config-empty">${translateStaticText("Select a server to open the configuration shortcuts in the center.")}</div>`;
+        return;
+    }
+
+    title.textContent = tx(translateStaticText("{guild} selected. Choose what you want to configure now."), { guild: activeGuild.name });
+    subtitle.textContent = translateStaticText("Select a server to open the configuration shortcuts in the center.");
+    badge.textContent = translateStaticText("Selection active");
+
+    grid.innerHTML = "";
+    SERVER_CONFIGURATION_MODULES.forEach((moduleItem) => {
+        const card = document.createElement("a");
+        card.className = "server-config-card";
+        card.href = moduleItem.href;
+        card.innerHTML = `
+            <span class="server-config-icon">${moduleItem.icon}</span>
+            <h3>${translateStaticText(moduleItem.title)}</h3>
+            <p>${translateStaticText(moduleItem.description)}</p>
+            <span class="server-config-link">${translateStaticText("Open module")}</span>
+        `;
+        grid.appendChild(card);
+    });
+}
+
+async function switchActiveGuild(guildId) {
+    await api("/api/dashboard/active-guild", {
+        method: "PUT",
+        body: JSON.stringify({ guild_id: guildId }),
+    });
+
+    if (page === "servers") {
+        if (dashboardContext) {
+            dashboardContext.active_guild_id = guildId;
+        }
+        setGuildSwitcher(dashboardContext?.guilds || [], guildId);
+        renderServers(dashboardContext || { guilds: [], active_guild_id: guildId, guild_counts: {} });
+        applyStaticTranslations();
+        return;
+    }
+
+    await loadState();
 }
 
 function ensureMkRouteTransition() {
@@ -1502,7 +1652,11 @@ function renderServers(context) {
     const grid = document.getElementById("servers-grid");
     if (!grid) return;
 
+    renderServerHubProfile(context);
+    bindServerHubTabs();
+
     const guilds = context.guilds || [];
+    const activeGuildId = currentActiveGuildId(context);
     const counts = context.guild_counts || {};
     const manageableCount = Number.isFinite(counts.configurable) ? counts.configurable : guilds.filter((g) => g.configurable).length;
     const totalCount = Number.isFinite(counts.total) ? counts.total : guilds.length;
@@ -1548,6 +1702,10 @@ function renderServers(context) {
     guilds.forEach((guild) => {
         const card = document.createElement("article");
         card.className = "server-card project-card";
+        card.dataset.configureGuild = guild.id;
+        if (String(guild.id) === activeGuildId) {
+            card.classList.add("is-selected");
+        }
 
         const iconMarkup = guild.icon
             ? `<img class="server-icon" src="https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png?size=128" alt="${guild.name}">`
@@ -1555,7 +1713,9 @@ function renderServers(context) {
 
         const role = guild.owner ? t("owner", "Owner") : guild.configurable ? t("administrator", "Administrator") : t("member", "Member");
         const disabledAttr = guild.configurable ? "" : "disabled";
-        const buttonLabel = guild.configurable ? t("configure", "Configure") : t("no_access", "No Access");
+        const buttonLabel = guild.configurable
+            ? (String(guild.id) === activeGuildId ? translateStaticText("Selection active") : t("configure", "Configure"))
+            : t("no_access", "No Access");
         const accessTag = guild.configurable ? "Access Ready" : "Limited";
         const onlineText = guild.configurable ? "Setup enabled" : "Read-only access";
         card.innerHTML = `
@@ -1578,6 +1738,9 @@ function renderServers(context) {
 
         grid.appendChild(card);
     });
+
+    renderServerConfigurationHub(context);
+    setServerHubTab(currentServerHubTab);
 }
 
 function renderModeration(context) {
@@ -2794,11 +2957,7 @@ function bindGuildSwitcher() {
 
     select.addEventListener("change", async () => {
         try {
-            await api("/api/dashboard/active-guild", {
-                method: "PUT",
-                body: JSON.stringify({ guild_id: select.value }),
-            });
-            await loadState();
+            await switchActiveGuild(select.value);
             flash("Guild switched");
         } catch (error) {
             flash("Failed to switch guild");
@@ -2813,15 +2972,21 @@ function bindPageActions() {
             const target = event.target;
             if (!(target instanceof HTMLElement)) return;
 
-            const guildId = target.dataset.configureGuild;
+            const source = target.closest("[data-configure-guild]");
+            if (!(source instanceof HTMLElement)) return;
+
+            const guildId = source.dataset.configureGuild;
             if (!guildId) return;
 
+            const guild = (dashboardContext?.guilds || []).find((item) => String(item.id) === String(guildId));
+            if (!guild?.configurable) return;
+
             try {
-                await api("/api/dashboard/active-guild", {
-                    method: "PUT",
-                    body: JSON.stringify({ guild_id: guildId }),
-                });
-                window.location.href = "/dashboard/overview";
+                await switchActiveGuild(guildId);
+                if (target.closest(".server-configure-btn")) {
+                    setServerHubTab("config");
+                }
+                flash("Guild switched");
             } catch (error) {
                 flash("Failed to select guild");
             }
