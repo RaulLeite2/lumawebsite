@@ -13,6 +13,8 @@ let selectedBiome = 'snow';
 let mapAmbientFrame = null;
 let uiAudioContext = null;
 let territorySignals = [];
+let selectedCity = null;
+let gatheredInventory = [];
 
 const TERRITORY_GLYPHS = ['✦', '◈', '✶', '⬡', '✹', '✷', '◉'];
 const GUILD_SIGILS = ['✦', '☽', '✶', '⬢', '✹', '✧'];
@@ -21,6 +23,14 @@ const PRIME_TIME_PHASE_META = {
     declaration: { label: 'Janela de declaração', shortLabel: 'Declaração', icon: '⚑', actionLabel: 'Declarações abertas' },
     prime: { label: 'Prime Time ativo', shortLabel: 'Prime Time', icon: '🔥', actionLabel: 'Cerco liberado' },
 };
+
+const RESOURCE_QUALITY_TABLE = [
+    { max: 45, label: 'Comum' },
+    { max: 75, label: 'Incomum' },
+    { max: 90, label: 'Rara' },
+    { max: 98, label: 'Epica' },
+    { max: 100, label: 'Lendaria' },
+];
 
 const BIOME_PRESETS = {
     snow: {
@@ -301,6 +311,87 @@ function getActionGate(action, territory) {
     return { allowed: true, mode: action, state };
 }
 
+function resourceBaseName(icon) {
+    const names = {
+        '🪵': 'Madeira',
+        '🪨': 'Pedra',
+        '🌿': 'Fibra',
+        '⛏': 'Metal',
+        '🐾': 'Couro',
+        '🌾': 'Graos',
+        '💎': 'Cristal',
+        '🦴': 'Osso',
+        '🧊': 'Gelo',
+        '💠': 'Essencia',
+        '🪷': 'Lotus',
+        '🐚': 'Concha',
+        '🧪': 'Reagente',
+    };
+    return names[icon] || 'Recurso';
+}
+
+function rollResourceGather(resource) {
+    const roll = 1 + Math.floor(Math.random() * 100);
+    const quality = RESOURCE_QUALITY_TABLE.find((entry) => roll <= entry.max)?.label || 'Comum';
+    const amount = Math.max(1, Math.ceil(roll / 22));
+    const baseName = resourceBaseName(resource.icon);
+    const valuePerUnit = {
+        Comum: 6,
+        Incomum: 12,
+        Rara: 22,
+        Epica: 38,
+        Lendaria: 62,
+    }[quality] || 8;
+
+    return {
+        key: `${baseName}:${quality}`,
+        icon: resource.icon,
+        name: baseName,
+        quality,
+        amount,
+        roll,
+        value: amount * valuePerUnit,
+    };
+}
+
+function gatherFromResource(resource) {
+    const loot = rollResourceGather(resource);
+    const existing = gatheredInventory.find((item) => item.key === loot.key);
+    if (existing) {
+        existing.amount += loot.amount;
+        existing.value += loot.value;
+    } else {
+        gatheredInventory.push(loot);
+    }
+
+    flash(`🎲 d100:${loot.roll} • ${loot.amount}x ${loot.name} ${loot.quality}`);
+    if (selectedTerritory) {
+        pushTerritorySignal(selectedTerritory, 'collect', `+${loot.amount} ${loot.name}`);
+    }
+    updateHUD(MAPS[currentMapIndex]);
+}
+
+function sellInventoryAtCity(city) {
+    if (!gatheredInventory.length) {
+        flash(`Mercado de ${city.name}: inventario vazio.`, true);
+        return;
+    }
+
+    const gross = gatheredInventory.reduce((sum, item) => sum + item.value, 0);
+    const taxRate = Number(city.taxRate || 0.08);
+    const net = Math.max(0, Math.floor(gross * (1 - taxRate)));
+    currentBalance += net;
+    gatheredInventory = [];
+
+    const wallet = document.getElementById('walletBalance');
+    if (wallet) {
+        wallet.textContent = currentBalance.toLocaleString('pt-BR');
+    }
+
+    flash(`🏙 ${city.name}: venda concluida (+${net.toLocaleString('pt-BR')} coins).`);
+    updateHUD(MAPS[currentMapIndex]);
+}
+
 function startMapAmbientLoop() {
     const render = (time) => {
         syncRendererSignals();
@@ -345,7 +436,7 @@ function playUiClickTone(intensity = 1) {
 }
 
 function setupImpactFeedback() {
-    const interactiveSelector = '.btn, .tier-btn, .map-nav, .leaderboard-refresh, .map-dot';
+    const interactiveSelector = '.btn, .tier-btn, .leaderboard-refresh, .map-dot';
 
     document.addEventListener('pointerdown', (event) => {
         const control = event.target.closest(interactiveSelector);
@@ -506,7 +597,6 @@ function loadMap(index, direction) {
         renderer.load(mapDef);
         updateHUD(mapDef);
         updateDots(index);
-        updateNavArrows(index);
         currentMapIndex = index;
         return;
     }
@@ -532,8 +622,8 @@ function loadMap(index, direction) {
     }
 
     const size = canvasSize();
-    newCanvas.width = size;
-    newCanvas.height = size;
+    newCanvas.width = size.width;
+    newCanvas.height = size.height;
 
     const newRenderer = new MapRenderer(newCanvas);
     newRenderer.load(mapDef);
@@ -552,7 +642,6 @@ function loadMap(index, direction) {
             setupEvents(newCanvas);
             updateHUD(mapDef);
             updateDots(index);
-            updateNavArrows(index);
             if (selectedTerritory) {
                 openPanel(selectedTerritory);
             }
@@ -562,18 +651,6 @@ function loadMap(index, direction) {
 
 // -- Navigation ----------------------------------------------------------------
 function setupNavigation() {
-    document.getElementById('navLeft').addEventListener('click', () => {
-        if (currentMapIndex > 0) {
-            loadMap(currentMapIndex - 1, 'right');
-        }
-    });
-
-    document.getElementById('navRight').addEventListener('click', () => {
-        if (currentMapIndex < MAPS.length - 1) {
-            loadMap(currentMapIndex + 1, 'left');
-        }
-    });
-
     const dotsEl = document.getElementById('mapDots');
     dotsEl.innerHTML = '';
     MAPS.forEach((_, i) => {
@@ -592,7 +669,6 @@ function setupNavigation() {
         refreshLeaderboardButton.addEventListener('click', () => loadLeaderboard());
     }
 
-    updateNavArrows(0);
 }
 
 function updateDots(index) {
@@ -601,15 +677,22 @@ function updateDots(index) {
     });
 }
 
-function updateNavArrows(index) {
-    document.getElementById('navLeft').classList.toggle('disabled', index === 0);
-    document.getElementById('navRight').classList.toggle('disabled', index === MAPS.length - 1);
+function updateNavArrows(_index) {}
+
+function transitionViaExit(exit, direction) {
+    const activeSlide = document.querySelector('.map-slide.active');
+    if (activeSlide) {
+        activeSlide.classList.add('portal-transition');
+    }
+    window.setTimeout(() => {
+        loadMap(exit.target, direction);
+    }, 210);
 }
 
 // -- HUD -----------------------------------------------------------------------
 function updateHUD(mapDef) {
     document.querySelector('.zone-name').textContent = mapDef.name;
-    document.querySelector('.zone-sub').textContent = `${mapDef.sub} • Prime ${getPrimeTimeState(mapDef).windowLabel}`;
+    document.querySelector('.zone-sub').textContent = `${mapDef.sub} • Prime ${getPrimeTimeState(mapDef).windowLabel} • Bolsa: ${gatheredInventory.length}`;
     document.getElementById('playerCount').textContent = mapDef.playerCount;
     syncPrimeTimeHud(mapDef);
 
@@ -624,7 +707,7 @@ function updateHUD(mapDef) {
         }
         const item = document.createElement('div');
         item.className = 'res-item';
-        item.innerHTML = `<span class="res-icon">${resource.icon}</span><span class="res-tier">${resource.tier}</span>`;
+        item.innerHTML = `<span class="res-icon">${resource.icon}</span><span class="res-tier">${resource.quality || resource.tier || 'Qual'}</span>`;
         resContainer.appendChild(item);
     });
 }
@@ -642,14 +725,20 @@ function setupEvents(canvas) {
     fresh.addEventListener('mousemove', (event) => {
         const { ox, oy } = offset(event, fresh);
         const territory = renderer.hitTerritory(ox, oy);
-        const exit = territory ? null : renderer.hitExit(ox, oy);
+        const city = territory ? null : renderer.hitCity(ox, oy);
+        const resource = (territory || city) ? null : renderer.hitResource(ox, oy);
+        const exit = (territory || city || resource) ? null : renderer.hitExit(ox, oy);
 
         renderer.setHovered(territory ? territory.id : null);
-        fresh.style.cursor = (territory || exit) ? 'pointer' : 'default';
+        fresh.style.cursor = (territory || city || resource || exit) ? 'pointer' : 'default';
 
         if (territory) {
             const ownerLabel = territory.ownerDisplay || territory.owner || 'Sem dono';
             showTooltip(tooltip, `${territoryDisplayName(territory)} · ${ownerLabel}`, ox, oy);
+        } else if (city) {
+            showTooltip(tooltip, `🏙 ${city.name} · taxa ${(Number(city.taxRate || 0.08) * 100).toFixed(0)}%`, ox, oy);
+        } else if (resource) {
+            showTooltip(tooltip, `${resource.icon} ${resourceBaseName(resource.icon)} · coleta d100`, ox, oy);
         } else if (exit) {
             const destination = exit.target !== null ? MAPS[exit.target]?.name ?? '?' : 'Sem saída';
             showTooltip(tooltip, `Saída ${exit.dir} -> ${destination}`, ox, oy);
@@ -662,16 +751,31 @@ function setupEvents(canvas) {
     fresh.addEventListener('click', (event) => {
         const { ox, oy } = offset(event, fresh);
         const territory = renderer.hitTerritory(ox, oy);
-        const exit = territory ? null : renderer.hitExit(ox, oy);
+        const city = territory ? null : renderer.hitCity(ox, oy);
+        const resource = (territory || city) ? null : renderer.hitResource(ox, oy);
+        const exit = (territory || city || resource) ? null : renderer.hitExit(ox, oy);
 
         if (territory) {
+            selectedCity = null;
             selectedTerritory = territory;
             renderer.setSelected(territory.id);
             openPanel(territory);
+        } else if (city) {
+            selectedCity = city;
+            sellInventoryAtCity(city);
+            if (selectedTerritory) {
+                openPanel(selectedTerritory, false);
+            }
+        } else if (resource) {
+            gatherFromResource(resource);
+            if (selectedTerritory) {
+                openPanel(selectedTerritory, false);
+            }
         } else if (exit && exit.target !== null) {
             const direction = exit.target > currentMapIndex ? 'left' : 'right';
-            loadMap(exit.target, direction);
+            transitionViaExit(exit, direction);
         } else {
+            selectedCity = null;
             selectedTerritory = null;
             renderer.setSelected(null);
             document.getElementById('infoPanel').classList.remove('show');
@@ -687,8 +791,8 @@ function setupEvents(canvas) {
     });
 
     const size = canvasSize();
-    fresh.width = size;
-    fresh.height = size;
+    fresh.width = size.width;
+    fresh.height = size.height;
     renderer.draw();
 }
 
@@ -785,6 +889,7 @@ function openPanel(territory, withAnimation = true) {
     const btnCollect = document.getElementById('btnCollect');
     const btnDefend = document.getElementById('btnDefend');
     const btnUpgrade = document.getElementById('btnUpgrade');
+    const btnSellCity = document.getElementById('btnSellCity');
     const upgradeBox = document.getElementById('upgradeTierBox');
 
     btnAttack.style.display = (!isFree && !isOwner) ? 'block' : 'none';
@@ -798,6 +903,9 @@ function openPanel(territory, withAnimation = true) {
     btnDefend.style.display = isOwner ? 'block' : 'none';
     btnDefend.disabled = !primeState.isPrime;
     btnUpgrade.style.display = isOwner ? 'block' : 'none';
+    if (btnSellCity) {
+        btnSellCity.style.display = selectedCity ? 'block' : 'none';
+    }
     if (inspectButton) {
         inspectButton.style.display = 'block';
         inspectButton.disabled = false;
@@ -824,6 +932,19 @@ function setupActionButtons() {
     document.getElementById('btnRefresh').addEventListener('click', async () => {
         await Promise.all([syncTerritoriesFromServer(true), loadLeaderboard()]);
     });
+    const sellButton = document.getElementById('btnSellCity');
+    if (sellButton) {
+        sellButton.addEventListener('click', () => {
+            if (!selectedCity) {
+                flash('Selecione uma cidade no mapa para vender.', true);
+                return;
+            }
+            sellInventoryAtCity(selectedCity);
+            if (selectedTerritory) {
+                openPanel(selectedTerritory, false);
+            }
+        });
+    }
 
     document.querySelectorAll('[data-upgrade-tier]').forEach((button) => {
         button.addEventListener('click', async () => {
@@ -834,7 +955,7 @@ function setupActionButtons() {
 }
 
 function setButtonsBusy(busy) {
-    ['btnAttack', 'btnCapture', 'btnCollect', 'btnDefend', 'btnUpgrade', 'btnRefresh'].forEach((id) => {
+    ['btnAttack', 'btnCapture', 'btnCollect', 'btnDefend', 'btnUpgrade', 'btnRefresh', 'btnSellCity'].forEach((id) => {
         const btn = document.getElementById(id);
         if (btn) {
             btn.disabled = busy;
@@ -1608,18 +1729,17 @@ function setupInspectModal() {
 // -- Resize --------------------------------------------------------------------
 function canvasSize() {
     const area = document.querySelector('.map-viewport');
-    return Math.min(
-        area ? area.clientWidth - 40 : 660,
-        area ? area.clientHeight - 40 : 660,
-        720,
-    );
+    return {
+        width: Math.max(720, area ? area.clientWidth : 960),
+        height: Math.max(460, area ? area.clientHeight : 640),
+    };
 }
 
 function onResize() {
     const size = canvasSize();
     const canvas = document.getElementById('mapCanvas');
     if (canvas && renderer) {
-        renderer.resize(size, size);
+        renderer.resize(size.width, size.height);
     }
 }
 

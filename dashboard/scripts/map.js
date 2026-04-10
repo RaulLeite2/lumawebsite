@@ -319,6 +319,7 @@ class MapRenderer {
         }
 
         this._drawResources();
+        this._drawCities();
         this._drawPaths();
         this._drawFog();
         this._drawTerritories();
@@ -540,7 +541,58 @@ class MapRenderer {
 
             c.font = 'bold 7px "Plus Jakarta Sans", sans-serif';
             c.fillStyle = '#f4c430';
-            c.fillText(r.tier, cx, cy + 10);
+            c.fillText(this._resourceLabel(r), cx, cy + 10);
+        });
+    }
+
+    _resourceLabel(resource) {
+        if (resource.quality) {
+            return resource.quality;
+        }
+        const tier = String(resource.tier || '').toUpperCase();
+        if (tier.includes('VI') || tier.includes('6')) return 'Lend.';
+        if (tier.includes('V') || tier.includes('5')) return 'Epica';
+        if (tier.includes('IV') || tier.includes('4')) return 'Rara';
+        if (tier.includes('III') || tier.includes('3')) return 'Incom.';
+        return 'Comum';
+    }
+
+    _cityList() {
+        if (Array.isArray(this.mapDef.cities) && this.mapDef.cities.length) {
+            return this.mapDef.cities;
+        }
+        return [
+            { id: `city-${this.mapDef.id}-a`, name: 'Cidade Mercantil', gx: 2, gy: 2, taxRate: 0.08 },
+            { id: `city-${this.mapDef.id}-b`, name: 'Porto de Trocas', gx: 11, gy: 10, taxRate: 0.12 },
+        ];
+    }
+
+    _drawCities() {
+        const c = this.ctx;
+        this._cityList().forEach((city) => {
+            const [sx, sy] = this._tilePos(city.gx, city.gy);
+            const cx = sx;
+            const cy = sy + TILE_H * 0.35;
+
+            c.save();
+            c.beginPath();
+            c.arc(cx, cy, 16, 0, Math.PI * 2);
+            c.fillStyle = 'rgba(16, 23, 48, 0.82)';
+            c.fill();
+            c.strokeStyle = 'rgba(136, 192, 255, 0.9)';
+            c.lineWidth = 1.8;
+            c.stroke();
+
+            c.font = '14px "Plus Jakarta Sans", sans-serif';
+            c.textAlign = 'center';
+            c.textBaseline = 'middle';
+            c.fillStyle = '#f7fbff';
+            c.fillText('🏙', cx, cy);
+
+            c.font = '700 10px "Plus Jakarta Sans", sans-serif';
+            c.fillStyle = '#9fc3ff';
+            c.fillText(city.name, cx, cy + 20);
+            c.restore();
         });
     }
 
@@ -835,6 +887,34 @@ class MapRenderer {
             const cx = sx, cy = sy + TILE_H/2 - 2;
             const dx = mx - cx, dy = my - cy;
             if (dx*dx + dy*dy <= 22*22) return e;
+        }
+        return null;
+    }
+
+    hitResource(mx, my) {
+        for (const r of this.mapDef.resources) {
+            const [sx, sy] = this._tilePos(r.gx, r.gy);
+            const cx = sx;
+            const cy = sy + TILE_H / 2 - 4;
+            const dx = mx - cx;
+            const dy = my - cy;
+            if (dx * dx + dy * dy <= 17 * 17) {
+                return r;
+            }
+        }
+        return null;
+    }
+
+    hitCity(mx, my) {
+        for (const city of this._cityList()) {
+            const [sx, sy] = this._tilePos(city.gx, city.gy);
+            const cx = sx;
+            const cy = sy + TILE_H * 0.35;
+            const dx = mx - cx;
+            const dy = my - cy;
+            if (dx * dx + dy * dy <= 18 * 18) {
+                return city;
+            }
         }
         return null;
     }
