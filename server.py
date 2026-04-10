@@ -65,6 +65,7 @@ TERRITORY_ATTACK_COOLDOWN_SECONDS = 900
 TERRITORY_RESOURCE_GATHER_COOLDOWN_SECONDS = 45
 TERRITORY_FACTION_ATTACK_MIN_INTERVAL_SECONDS = 1800
 TERRITORY_FACTION_ATTACK_DURATION_MINUTES = 15
+TERRITORY_TOTAL_MAPS = 48
 
 TERRITORY_FACTIONS = [
     "Legiao Rubra",
@@ -73,13 +74,20 @@ TERRITORY_FACTIONS = [
     "Pacto do Abismo",
 ]
 
-TERRITORY_PRIME_SCHEDULE_BY_MAP: dict[int, dict[str, int]] = {
-    0: {"end_hour": 21, "end_minute": 0},
-    1: {"end_hour": 22, "end_minute": 0},
-    2: {"end_hour": 23, "end_minute": 0},
-    3: {"end_hour": 20, "end_minute": 0},
-    4: {"end_hour": 19, "end_minute": 0},
-}
+def _build_territory_prime_schedule(total_maps: int) -> dict[int, dict[str, int]]:
+    schedule: dict[int, dict[str, int]] = {}
+    for map_id in range(total_maps):
+        slot = map_id % 12
+        start_hour = slot * 2
+        end_hour = start_hour + 2
+        if end_hour >= 24:
+            schedule[map_id] = {"end_hour": 23, "end_minute": 59}
+        else:
+            schedule[map_id] = {"end_hour": end_hour, "end_minute": 0}
+    return schedule
+
+
+TERRITORY_PRIME_SCHEDULE_BY_MAP: dict[int, dict[str, int]] = _build_territory_prime_schedule(TERRITORY_TOTAL_MAPS)
 
 TERRITORY_RESOURCE_QUALITY_TABLE: list[tuple[int, str]] = [
     (45, "Comum"),
@@ -113,7 +121,7 @@ TERRITORY_RESOURCE_BASE_NAME: dict[str, str] = {
     "🧪": "Reagente",
 }
 
-TERRITORY_WORLD_MAPS: list[dict[str, Any]] = [
+TERRITORY_WORLD_BASE_MAPS: list[dict[str, Any]] = [
     {
         "id": 0,
         "cities": [
@@ -181,6 +189,38 @@ TERRITORY_WORLD_MAPS: list[dict[str, Any]] = [
         ],
     },
 ]
+
+
+def _expand_territory_world_maps(base_maps: list[dict[str, Any]], total_maps: int) -> list[dict[str, Any]]:
+    expanded: list[dict[str, Any]] = []
+    for map_id in range(total_maps):
+        template = base_maps[map_id % len(base_maps)]
+        cities = []
+        for index, city in enumerate(template.get("cities", []), start=1):
+            cities.append(
+                {
+                    "id": f"{str(city.get('id') or 'city')}-m{map_id}-{index}",
+                    "name": str(city.get("name") or f"Cidade {index}"),
+                    "gx": int(city.get("gx") or 0),
+                    "gy": int(city.get("gy") or 0),
+                    "tax_rate": float(city.get("tax_rate") or 0.1),
+                }
+            )
+
+        resources = [
+            {
+                "gx": int(node.get("gx") or 0),
+                "gy": int(node.get("gy") or 0),
+                "icon": str(node.get("icon") or "🪨"),
+            }
+            for node in template.get("resources", [])
+        ]
+
+        expanded.append({"id": map_id, "cities": cities, "resources": resources})
+    return expanded
+
+
+TERRITORY_WORLD_MAPS: list[dict[str, Any]] = _expand_territory_world_maps(TERRITORY_WORLD_BASE_MAPS, TERRITORY_TOTAL_MAPS)
 
 PRESET_TEMPLATES: dict[str, dict[str, Any]] = {
     "gamer": {

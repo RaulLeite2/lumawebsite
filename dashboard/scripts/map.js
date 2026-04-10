@@ -45,7 +45,7 @@ function isoProject(gx, gy, elev, tileW, tileH, originX, originY) {
 }
 
 // ── Map data ──────────────────────────────────────────────────────────────────
-const MAPS = [
+const MAP_TEMPLATES = [
     {
         id: 0,
         name: "Valoria Crown",
@@ -236,6 +236,48 @@ const MAPS = [
     },
 ];
 
+const TOTAL_MAPS = 48;
+
+function twoHourPrimeWindow(index) {
+    const slot = index % 12;
+    const startHour = slot * 2;
+    const endHourRaw = startHour + 2;
+    const endHour = endHourRaw >= 24 ? 23 : endHourRaw;
+    const endMinute = endHourRaw >= 24 ? 59 : 0;
+    return { startHour, endHour, endMinute };
+}
+
+function buildExpandedMaps(templates, totalMaps) {
+    const maps = [];
+    for (let i = 0; i < totalMaps; i += 1) {
+        const template = templates[i % templates.length];
+        const clone = JSON.parse(JSON.stringify(template));
+        const window = twoHourPrimeWindow(i);
+        clone.id = i;
+        clone.seed = Number(clone.seed || 0) + (i * 137);
+        clone.name = `${clone.name} ${String(i + 1).padStart(2, '0')}`;
+        clone.sub = `⚔ Prime ${String(window.startHour).padStart(2, '0')}:00-${String(window.endHour).padStart(2, '0')}:${String(window.endMinute).padStart(2, '0')}`;
+        clone.primeTime = {
+            declareHour: window.startHour,
+            startHour: window.startHour,
+            endHour: window.endHour,
+            endMinute: window.endMinute,
+        };
+
+        clone.exits = [
+            { gx: 7, gy: 0, dir: 'N', target: (i + 1) % totalMaps },
+            { gx: 13, gy: 6, dir: 'E', target: (i + 2) % totalMaps },
+            { gx: 7, gy: 13, dir: 'S', target: (i - 1 + totalMaps) % totalMaps },
+            { gx: 0, gy: 6, dir: 'W', target: (i - 2 + totalMaps) % totalMaps },
+        ];
+        clone.playerCount = Math.max(8, Number(clone.playerCount || 20) + ((i % 7) - 3));
+        maps.push(clone);
+    }
+    return maps;
+}
+
+const MAPS = buildExpandedMaps(MAP_TEMPLATES, TOTAL_MAPS);
+
 // ── Renderer ──────────────────────────────────────────────────────────────────
 const GRID = 14;
 const TILE_W = 64;
@@ -322,6 +364,7 @@ class MapRenderer {
         this._drawCities();
         this._drawPaths();
         this._drawFog();
+        this._drawFactionAssaultTrails();
         this._drawTerritories();
         this._drawActionSignals();
         this._drawExits();
@@ -608,6 +651,56 @@ class MapRenderer {
         });
     }
 
+    _drawFactionAssaultTrails() {
+        const c = this.ctx;
+        const w = this.canvas.width;
+        const h = this.canvas.height;
+        const active = this.mapDef.territories.filter((territory) => territory.factionAttackActive);
+        if (!active.length) {
+            return;
+        }
+
+        active.forEach((territory) => {
+            const [tx, ty] = this._screenTerritoryCenter(territory);
+            const lane = Math.abs(Number(territory.id || 0)) % 4;
+            let sx = -40;
+            let sy = h * 0.2;
+            if (lane === 1) {
+                sx = w + 40;
+                sy = h * 0.28;
+            } else if (lane === 2) {
+                sx = w * 0.18;
+                sy = h + 40;
+            } else if (lane === 3) {
+                sx = w * 0.84;
+                sy = -40;
+            }
+
+            c.save();
+            c.lineWidth = 2.8;
+            c.setLineDash([10, 7]);
+            c.lineDashOffset = -this._time * 26;
+            c.strokeStyle = 'rgba(255, 86, 104, 0.72)';
+            c.shadowColor = 'rgba(255, 70, 90, 0.62)';
+            c.shadowBlur = 16;
+            c.beginPath();
+            c.moveTo(sx, sy);
+            c.quadraticCurveTo((sx + tx) * 0.5, Math.min(sy, ty) - 28, tx, ty);
+            c.stroke();
+
+            c.setLineDash([]);
+            c.shadowBlur = 0;
+            c.globalAlpha = 0.48;
+            c.strokeStyle = 'rgba(255, 176, 186, 0.58)';
+            c.lineWidth = 1.3;
+            c.beginPath();
+            c.moveTo(sx, sy);
+            c.quadraticCurveTo((sx + tx) * 0.5, Math.min(sy, ty) - 18, tx, ty);
+            c.stroke();
+            c.restore();
+        });
+    }
+
     _drawTerritories() {
         const c = this.ctx;
         const w = this.canvas.width;
@@ -660,6 +753,27 @@ class MapRenderer {
                 c.setLineDash([5, 4]);
                 c.beginPath();
                 c.arc(0, 0, r * 1.72, 0, Math.PI * 2);
+                c.stroke();
+                c.restore();
+            }
+
+            if (t.factionAttackActive) {
+                const siegePulse = 1 + (Math.sin(this._time * 5.4 + Number(t.id || 0)) * 0.09);
+                c.save();
+                c.rotate(this._time * 0.42);
+                c.strokeStyle = 'rgba(255, 74, 94, 0.95)';
+                c.lineWidth = 2.5;
+                c.setLineDash([6, 5]);
+                c.beginPath();
+                c.arc(0, 0, r * 1.98 * siegePulse, 0, Math.PI * 2);
+                c.stroke();
+                c.restore();
+
+                c.save();
+                c.strokeStyle = 'rgba(255, 130, 140, 0.6)';
+                c.lineWidth = 1.8;
+                c.beginPath();
+                c.arc(0, 0, r * 1.45, 0, Math.PI * 2);
                 c.stroke();
                 c.restore();
             }
