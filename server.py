@@ -66,6 +66,11 @@ TERRITORY_RESOURCE_GATHER_COOLDOWN_SECONDS = 45
 TERRITORY_FACTION_ATTACK_MIN_INTERVAL_SECONDS = 1800
 TERRITORY_FACTION_ATTACK_DURATION_MINUTES = 15
 TERRITORY_TOTAL_MAPS = 48
+TERRITORY_SLOTS_PER_MAP = 10
+TERRITORY_PENALTY_OWNERSHIP_THRESHOLD = 4
+TERRITORY_PENALTY_SEASON_POINTS_MULTIPLIER = 0.7
+TERRITORY_DEFENSE_DRAIN_INTERVAL_BASE_SECONDS = 240
+TERRITORY_DEFENSE_DRAIN_INTERVAL_PENALTY_SECONDS = 90
 
 TERRITORY_FACTION_PROFILES: list[dict[str, str]] = [
     {
@@ -1366,6 +1371,7 @@ async def _ensure_dashboard_tables(pool: Any) -> None:
             await connection.execute("ALTER TABLE territories ADD COLUMN IF NOT EXISTS faction_attack_started_at TIMESTAMP")
             await connection.execute("ALTER TABLE territories ADD COLUMN IF NOT EXISTS faction_attack_ends_at TIMESTAMP")
             await connection.execute("ALTER TABLE territories ADD COLUMN IF NOT EXISTS last_faction_attack_at TIMESTAMP")
+            await connection.execute("ALTER TABLE territories ADD COLUMN IF NOT EXISTS last_defense_drain_at TIMESTAMP")
             await connection.execute("ALTER TABLE territories ADD COLUMN IF NOT EXISTS last_faction_result VARCHAR(32)")
             await connection.execute("ALTER TABLE territories ADD COLUMN IF NOT EXISTS last_faction_result_at TIMESTAMP")
             await connection.execute(
@@ -1520,6 +1526,30 @@ def _territory_prime_window_closed(map_id: int, now: datetime | None = None) -> 
     return current_minutes >= end_minutes
 
 
+def _territory_is_prime_window(map_id: int, now: datetime | None = None) -> bool:
+    moment = now or datetime.utcnow()
+    schedule = TERRITORY_PRIME_SCHEDULE_BY_MAP.get(int(map_id))
+    if schedule is None:
+        return False
+    end_minutes = int(schedule["end_hour"]) * 60 + int(schedule.get("end_minute", 0))
+    start_minutes = (end_minutes - 120) % (24 * 60)
+    current_minutes = moment.hour * 60 + moment.minute
+    if start_minutes <= end_minutes:
+        return start_minutes <= current_minutes < end_minutes
+    return current_minutes >= start_minutes or current_minutes < end_minutes
+
+
+def _territory_map_id_from_db_id(territory_id: int) -> int:
+    if territory_id <= 0:
+        return 0
+    map_id = (int(territory_id) - 1) // max(1, int(TERRITORY_SLOTS_PER_MAP))
+    if map_id < 0:
+        return 0
+    if map_id >= TERRITORY_TOTAL_MAPS:
+        return TERRITORY_TOTAL_MAPS - 1
+    return map_id
+
+
 async def _process_faction_activity(connection: Any) -> list[dict[str, Any]]:
     now = datetime.utcnow()
     alerts_started: list[dict[str, Any]] = []
@@ -1534,11 +1564,25 @@ async def _process_faction_activity(connection: Any) -> list[dict[str, Any]]:
             faction_attack_active,
             faction_name,
             faction_attack_ends_at,
-            last_faction_attack_at
+            last_faction_attack_at,
+            last_defense_drain_at
         FROM territories
         FOR UPDATE
         """
     )
+    owner_rows = await connection.fetch(
+        """
+        SELECT owner_id, COUNT(*) AS owned_count
+        FROM territories
+        WHERE owner_id IS NOT NULL
+        GROUP BY owner_id
+        """
+    )
+    owned_count_by_user = {
+        int(item.get("owner_id")): int(item.get("owned_count") or 0)
+        for item in owner_rows
+        if item.get("owner_id") is not None
+    }
 
     for row in rows:
         territory_id = int(row.get("id") or 0)
@@ -1549,13 +1593,42 @@ async def _process_faction_activity(connection: Any) -> list[dict[str, Any]]:
         faction_name = str(row.get("faction_name") or "").strip() or random.choice(TERRITORY_FACTIONS)
         ends_at = row.get("faction_attack_ends_at")
         last_attack_at = row.get("last_faction_attack_at")
+        last_defense_drain_at = row.get("last_defense_drain_at")
+        owner_territory_count = int(owned_count_by_user.get(owner_id, 0)) if owner_id is not None else 0
+        penalty_active = owner_territory_count >= TERRITORY_PENALTY_OWNERSHIP_THRESHOLD
+
+        if active and owner_id is not None and defense_level > 1:
+            drain_interval = (
+                TERRITORY_DEFENSE_DRAIN_INTERVAL_PENALTY_SECONDS
+                if penalty_active
+                else TERRITORY_DEFENSE_DRAIN_INTERVAL_BASE_SECONDS
+            )
+            baseline_time = last_defense_drain_at or last_attack_at
+            baseline_dt = (
+                baseline_time.replace(tzinfo=None)
+                if baseline_time is not None and getattr(baseline_time, "tzinfo", None)
+                else baseline_time
+            )
+            elapsed_since_drain = (now - baseline_dt).total_seconds() if baseline_dt is not None else (drain_interval + 1)
+            if elapsed_since_drain >= drain_interval:
+                defense_level = max(1, defense_level - 1)
+                await connection.execute(
+                    """
+                    UPDATE territories
+                    SET defense_level = $1,
+                        last_defense_drain_at = CURRENT_TIMESTAMP
+                    WHERE id = $2
+                    """,
+                    defense_level,
+                    territory_id,
+                )
 
         if active and ends_at is not None:
             ends_dt = ends_at.replace(tzinfo=None) if getattr(ends_at, "tzinfo", None) else ends_at
             if ends_dt <= now:
                 faction_wins = False
                 if owner_id is not None:
-                    faction_win_chance = min(0.8, max(0.22, 0.66 - (defense_level * 0.08)))
+                    faction_win_chance = min(0.88, max(0.22, 0.66 - (defense_level * 0.08) + (0.08 if penalty_active else 0.0)))
                     faction_wins = random.random() < faction_win_chance
 
                 if faction_wins:
@@ -1571,6 +1644,7 @@ async def _process_faction_activity(connection: Any) -> list[dict[str, Any]]:
                             faction_name = NULL,
                             faction_attack_started_at = NULL,
                             faction_attack_ends_at = NULL,
+                            last_defense_drain_at = NULL,
                             last_faction_result = 'lost_to_faction',
                             last_faction_result_at = CURRENT_TIMESTAMP
                         WHERE id = $2
@@ -1587,6 +1661,7 @@ async def _process_faction_activity(connection: Any) -> list[dict[str, Any]]:
                             faction_name = NULL,
                             faction_attack_started_at = NULL,
                             faction_attack_ends_at = NULL,
+                            last_defense_drain_at = NULL,
                             last_faction_result = 'faction_failed',
                             last_faction_result_at = CURRENT_TIMESTAMP
                         WHERE id = $1
@@ -4420,6 +4495,7 @@ async def dashboard_territories_list(request: Request) -> dict[str, Any]:
                     if row.get("owner_id") is not None
                     else (f"⚔ {str(row.get('owner_faction') or '')}" if row.get("owner_faction") else None)
                 ),
+                "map_id": _territory_map_id_from_db_id(int(row["id"])),
                 "owner_faction": str(row.get("owner_faction") or "") or None,
                 "owner_faction_flag": (
                     TERRITORY_FACTION_BY_NAME.get(str(row.get("owner_faction") or ""), {}).get("flag")
@@ -4507,20 +4583,40 @@ async def dashboard_territories_season_claim(payload: TerritorySeasonClaimPayloa
                     "season_points": int(total_points or 0),
                 }
 
-            holdings = await connection.fetchrow(
+            holdings = await connection.fetch(
                 """
-                SELECT
-                    COALESCE(COUNT(*), 0) AS owned_count,
-                    COALESCE(SUM(defense_level), 0) AS defense_sum
+                SELECT id, defense_level
                 FROM territories
                 WHERE owner_id = $1
                 """,
                 user_id,
             )
-            owned_count = int(holdings.get("owned_count") or 0) if holdings else 0
-            defense_sum = int(holdings.get("defense_sum") or 0) if holdings else 0
+            owned_total = len(holdings)
+            holdings_in_map = [
+                item
+                for item in holdings
+                if _territory_map_id_from_db_id(int(item.get("id") or 0)) == map_id
+            ]
+            owned_count = len(holdings_in_map)
+            defense_sum = sum(int(item.get("defense_level") or 1) for item in holdings_in_map)
 
-            points = max(10, (owned_count * 25) + (defense_sum * 6))
+            if owned_count <= 0:
+                total_points = await connection.fetchval(
+                    "SELECT total_points FROM territory_season_points WHERE user_id = $1",
+                    user_id,
+                )
+                return {
+                    "ok": False,
+                    "message": "Você só pode resgatar pontos em mapas onde possui território.",
+                    "season_points": int(total_points or 0),
+                }
+
+            points_base = max(10, (owned_count * 25) + (defense_sum * 6))
+            penalty_applied = owned_total >= TERRITORY_PENALTY_OWNERSHIP_THRESHOLD
+            points = max(
+                5,
+                int(round(points_base * (TERRITORY_PENALTY_SEASON_POINTS_MULTIPLIER if penalty_applied else 1.0))),
+            )
 
             await connection.execute(
                 """
@@ -4556,7 +4652,11 @@ async def dashboard_territories_season_claim(payload: TerritorySeasonClaimPayloa
         "points": points,
         "season_points": int(season_points or 0),
         "map_id": map_id,
-        "message": f"Resgate concluído: +{points} pontos da temporada.",
+        "message": (
+            f"Resgate concluído: +{points} pontos da temporada."
+            if points >= points_base
+            else f"Resgate concluído: +{points} pontos da temporada (penalidade de domínio aplicada)."
+        ),
     }
 
 
@@ -5123,10 +5223,12 @@ async def dashboard_territories_claim(payload: TerritoryActionPayload, request: 
             )
             if territory is None:
                 raise HTTPException(status_code=404, detail="Territory not found")
-            if territory.get("owner_id") is not None:
-                return {"ok": False, "message": "Esse território já possui dono."}
-            if territory.get("owner_faction"):
-                return {"ok": False, "message": "Esse território está sob domínio de facção. Ataque para retomar."}
+            if territory.get("owner_id") == user_id:
+                return {"ok": False, "message": "Você já é dono desse território."}
+
+            map_id = _territory_map_id_from_db_id(int(territory.get("id") or 0))
+            if not _territory_is_prime_window(map_id, datetime.utcnow()):
+                return {"ok": False, "message": "Captura liberada apenas durante o prime time do mapa."}
 
             await connection.execute(
                 """

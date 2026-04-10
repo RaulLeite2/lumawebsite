@@ -1199,12 +1199,12 @@ function openPanel(territory, withAnimation = true) {
     const btnSellCity = document.getElementById('btnSellCity');
     const upgradeBox = document.getElementById('upgradeTierBox');
 
-    btnAttack.style.display = (!isFree && !isOwner) ? 'block' : 'none';
+    btnAttack.style.display = isOwner ? 'none' : 'block';
     btnAttack.disabled = cooldownRemaining > 0 || (primeState.isDeclaration ? territory.attackDeclared : (!primeState.isDeclaration && !primeState.isPrime));
     btnAttack.textContent = cooldownRemaining > 0
         ? `⏳ Ataque em ${formatCooldownCompact(cooldownRemaining)}`
         : (primeState.isDeclaration ? (territory.attackDeclared ? '⚑ Ataque Declarado' : '⚑ Declarar Ataque') : '⚔ Romper Defesas');
-    btnCapture.style.display = isFree ? 'block' : 'none';
+    btnCapture.style.display = isOwner ? 'none' : 'block';
     btnCapture.disabled = !primeState.isPrime;
     btnCollect.style.display = isOwner ? 'block' : 'none';
     btnDefend.style.display = isOwner ? 'block' : 'none';
@@ -1269,10 +1269,10 @@ function setupActionButtons() {
 
     const factionButton = document.getElementById('btnSetFactionAttack');
     if (factionButton) {
-        factionButton.disabled = true;
-        factionButton.title = 'Ataques de facção manuais desativados';
+        factionButton.disabled = false;
+        factionButton.title = 'Setar ataque de player no território selecionado';
         factionButton.addEventListener('click', async () => {
-            flash('Ataques de facção manuais estão desativados. Use o botão Atacar como player.', true);
+            await runTerritoryAction('attack');
         });
     }
 
