@@ -167,6 +167,7 @@ class MapRenderer {
         this.ctx    = canvas.getContext('2d');
         this.heightMap = null;
         this.mapDef    = null;
+        this._time = 0;
         // Pre-computed per tile: screen x/y of top vertex
         this._tileCache = [];
     }
@@ -212,9 +213,10 @@ class MapRenderer {
         return isoProject(gx, gy, elev, TILE_W, TILE_H, ox, oy);
     }
 
-    draw() {
+    draw(time = performance.now()) {
         const c = this.ctx;
         const w = this.canvas.width, h = this.canvas.height;
+        this._time = time * 0.001;
 
         c.clearRect(0, 0, w, h);
 
@@ -225,6 +227,8 @@ class MapRenderer {
         c.fillStyle = bg;
         c.fillRect(0, 0, w, h);
 
+        this._drawBackdropGlow();
+
         // Draw tiles back-to-front (painter's algorithm)
         for (let gy = 0; gy < GRID; gy++) {
             for (let gx = 0; gx < GRID; gx++) {
@@ -234,9 +238,12 @@ class MapRenderer {
 
         this._drawResources();
         this._drawPaths();
+        this._drawFog();
         this._drawTerritories();
         this._drawExits();
+        this._drawAmbientParticles();
         this._drawCardinals();
+        this._drawVignette();
     }
 
     _tileColor(h) {
@@ -267,6 +274,27 @@ class MapRenderer {
         c.fillStyle = col.base;
         c.fill();
 
+        const variation = Perlin.fbm(gx * 0.41 + 8.1, gy * 0.41 + 3.4, 3, 2.1, 0.56);
+        const shimmer = 0.025 + Math.max(0, variation) * 0.08 + hv * 0.03;
+        c.fillStyle = `rgba(255,255,255,${shimmer})`;
+        c.fill();
+
+        c.beginPath();
+        c.moveTo(sx, sy + 1);
+        c.lineTo(sx + tw * 0.92, sy + th * 0.92);
+        c.strokeStyle = `rgba(255,255,255,${0.04 + hv * 0.08})`;
+        c.lineWidth = 1;
+        c.stroke();
+
+        if (variation < -0.08) {
+            c.beginPath();
+            c.moveTo(sx - tw * 0.78, sy + th * 1.08);
+            c.lineTo(sx + tw * 0.1, sy + th * 1.78);
+            c.strokeStyle = `rgba(0,0,0,${0.05 + Math.abs(variation) * 0.08})`;
+            c.lineWidth = 1;
+            c.stroke();
+        }
+
         // left face (west shadow)
         const sideH = Math.max(4, hv * ELEV_SCALE * 0.55);
         c.beginPath();
@@ -288,6 +316,13 @@ class MapRenderer {
         // darken right side more
         c.fillStyle = this._darken(col.side, 0.72);
         c.fill();
+
+        c.beginPath();
+        c.moveTo(sx + tw, sy + th);
+        c.lineTo(sx, sy + th * 2);
+        c.strokeStyle = `rgba(0,0,0,${0.12 + hv * 0.08})`;
+        c.lineWidth = 1.1;
+        c.stroke();
 
         // subtle edge
         c.strokeStyle = 'rgba(0,0,0,0.18)';
@@ -317,11 +352,54 @@ class MapRenderer {
         return this._tilePos(t.gx, t.gy);
     }
 
+    _territoryMarker(t) {
+        const marks = ['✦', '◈', '✶', '⬡', '✹', '✷', '◉'];
+        if (/valoria/i.test(t.name || '')) {
+            return '✦';
+        }
+        return marks[Math.abs(Number(t.id || 0)) % marks.length];
+    }
+
+    _territoryRelation(t) {
+        if (t.relation) {
+            return t.relation;
+        }
+        return t.owner ? 'enemy' : 'neutral';
+    }
+
+    _territoryAura(t) {
+        const relation = this._territoryRelation(t);
+        if (relation === 'mine') {
+            return {
+                edge: '#63f0c5',
+                core: 'rgba(99, 240, 197, 0.34)',
+                ring: 'rgba(244, 196, 48, 0.68)',
+            };
+        }
+        if (relation === 'enemy') {
+            return {
+                edge: '#7f8cff',
+                core: 'rgba(123, 91, 255, 0.34)',
+                ring: 'rgba(102, 163, 255, 0.56)',
+            };
+        }
+        return {
+            edge: t.color || '#5865f2',
+            core: 'rgba(142, 77, 255, 0.18)',
+            ring: 'rgba(255, 255, 255, 0.18)',
+        };
+    }
+
+    _isFeaturedTerritory(t) {
+        return this._selected === t.id || /valoria/i.test(t.name || '');
+    }
+
     _drawPaths() {
         const c = this.ctx;
         const pal = this.mapDef.palette;
         const center = this.mapDef.territories[0];
         const [cx, cy] = this._screenTerritoryCenter(center);
+        const pulse = 0.75 + Math.sin(this._time * 1.4) * 0.08;
 
         c.save();
         c.strokeStyle = pal.low.path || 'rgba(120,80,20,0.45)';
@@ -335,6 +413,18 @@ class MapRenderer {
             c.stroke();
         });
         c.setLineDash([]);
+
+        c.strokeStyle = `rgba(255, 214, 122, ${0.08 + pulse * 0.05})`;
+        c.lineWidth = 4.5;
+        c.filter = 'blur(5px)';
+        this.mapDef.territories.slice(1).forEach(t => {
+            const [tx, ty] = this._screenTerritoryCenter(t);
+            c.beginPath();
+            c.moveTo(cx, cy);
+            c.lineTo(tx, ty);
+            c.stroke();
+        });
+        c.filter = 'none';
         c.restore();
     }
 
@@ -373,42 +463,64 @@ class MapRenderer {
             const [sx, sy] = this._screenTerritoryCenter(t);
             const r = r_base * t.r;
             const active = this._hovered === t.id || this._selected === t.id;
-            const sc = active ? 1.09 : 1.0;
+            const featured = this._isFeaturedTerritory(t);
+            const aura = this._territoryAura(t);
+            const pulse = 1 + Math.sin(this._time * (featured ? 2.6 : 1.3) + t.id * 0.7) * (featured ? 0.06 : 0.025);
+            const sc = (active ? 1.09 : 1.0) * pulse;
 
             c.save();
             c.translate(sx, sy);
             c.scale(sc, sc);
 
             if (t.owner) {
-                const glow = c.createRadialGradient(0,0,r*.3, 0,0,r*1.8);
-                glow.addColorStop(0, t.color + '40');
+                const glowRadius = r * (featured ? 2.45 : 1.85);
+                const glow = c.createRadialGradient(0,0,r*.2, 0,0,glowRadius);
+                glow.addColorStop(0, aura.core);
+                glow.addColorStop(0.58, `${t.color}55`);
                 glow.addColorStop(1, t.color + '00');
                 c.beginPath();
-                c.arc(0, 0, r*1.8, 0, Math.PI*2);
+                c.arc(0, 0, glowRadius, 0, Math.PI*2);
                 c.fillStyle = glow;
                 c.fill();
             }
 
+            if (featured) {
+                c.save();
+                c.rotate(this._time * 0.42);
+                c.strokeStyle = aura.ring;
+                c.lineWidth = 2.2;
+                c.setLineDash([8, 7]);
+                c.beginPath();
+                c.arc(0, 0, r * 1.48, 0, Math.PI * 2);
+                c.stroke();
+                c.restore();
+            }
+
             const bg = c.createRadialGradient(-r*.2,-r*.2,0, 0,0,r);
-            bg.addColorStop(0, t.color + 'cc');
+            bg.addColorStop(0, aura.edge + 'ee');
+            bg.addColorStop(0.45, t.color + 'cc');
             bg.addColorStop(1, t.color + '44');
             c.beginPath();
             c.arc(0, 0, r, 0, Math.PI*2);
             c.fillStyle = bg;
             c.fill();
 
-            c.strokeStyle = this._selected === t.id ? '#fff' : (t.owner ? t.color : '#3a3a6a');
-            c.lineWidth = this._selected === t.id ? 3 : 1.5;
+            c.strokeStyle = this._selected === t.id ? '#fff' : (t.owner ? aura.edge : '#3a3a6a');
+            c.lineWidth = this._selected === t.id ? 3.2 : (featured ? 2.3 : 1.5);
             c.stroke();
 
-            c.font = `${r*.48}px serif`;
+            c.shadowColor = featured ? aura.edge : 'transparent';
+            c.shadowBlur = featured ? 12 : 0;
+            c.font = `${r*.52}px "Plus Jakarta Sans", sans-serif`;
             c.textAlign = 'center';
             c.textBaseline = 'middle';
-            c.fillText('🛡', 0, -r*.12);
+            c.fillStyle = '#f7f8ff';
+            c.fillText(this._territoryMarker(t), 0, -r*.12);
 
             c.font = `bold ${r*.28}px "Plus Jakarta Sans",sans-serif`;
             c.fillStyle = '#fff';
             c.fillText(`Lv ${t.defense}`, 0, r*.38);
+            c.shadowBlur = 0;
 
             c.restore();
 
@@ -424,11 +536,80 @@ class MapRenderer {
 
             if (t.owner) {
                 c.font = `${fs*.85}px "Plus Jakarta Sans",sans-serif`;
-                c.fillStyle = t.color;
+                c.fillStyle = aura.edge;
                 c.fillText(t.owner, sx, sy + r*sc + 4 + fs + 2);
             }
             c.shadowBlur = 0;
         });
+    }
+
+    _drawBackdropGlow() {
+        const c = this.ctx;
+        const w = this.canvas.width;
+        const h = this.canvas.height;
+        const pulse = 0.12 + Math.sin(this._time * 0.8) * 0.03;
+
+        c.save();
+        c.fillStyle = `rgba(84, 95, 180, ${pulse})`;
+        c.beginPath();
+        c.ellipse(w * 0.52, h * 0.24, w * 0.32, h * 0.18, 0, 0, Math.PI * 2);
+        c.fill();
+
+        c.fillStyle = 'rgba(23, 15, 42, 0.22)';
+        c.fillRect(0, 0, w, h);
+        c.restore();
+    }
+
+    _drawFog() {
+        const c = this.ctx;
+        const w = this.canvas.width;
+        const h = this.canvas.height;
+
+        c.save();
+        c.globalCompositeOperation = 'screen';
+        for (let i = 0; i < 4; i += 1) {
+            const drift = ((this._time * (8 + i * 2)) + i * 80) % (w + 260);
+            const x = drift - 130;
+            const y = h * (0.34 + i * 0.11) + Math.sin(this._time * 0.55 + i) * 18;
+            const grad = c.createRadialGradient(x, y, 18, x, y, 150 + i * 24);
+            grad.addColorStop(0, `rgba(168, 196, 255, ${0.048 - i * 0.007})`);
+            grad.addColorStop(1, 'rgba(168, 196, 255, 0)');
+            c.fillStyle = grad;
+            c.beginPath();
+            c.ellipse(x, y, 180 + i * 24, 54 + i * 10, -0.12, 0, Math.PI * 2);
+            c.fill();
+        }
+        c.restore();
+    }
+
+    _drawAmbientParticles() {
+        const c = this.ctx;
+        const w = this.canvas.width;
+        const h = this.canvas.height;
+
+        c.save();
+        for (let i = 0; i < 26; i += 1) {
+            const x = (i * 57 + this._time * (10 + (i % 5) * 4)) % w;
+            const y = (i * 37 + Math.sin(this._time * 0.8 + i) * 22 + h * 0.18) % h;
+            const alpha = 0.06 + (Math.sin(this._time * 1.8 + i) + 1) * 0.025;
+            c.fillStyle = `rgba(255,255,255,${alpha})`;
+            c.beginPath();
+            c.arc(x, y, 1.2 + (i % 3) * 0.45, 0, Math.PI * 2);
+            c.fill();
+        }
+        c.restore();
+    }
+
+    _drawVignette() {
+        const c = this.ctx;
+        const w = this.canvas.width;
+        const h = this.canvas.height;
+        const vignette = c.createRadialGradient(w * 0.5, h * 0.48, h * 0.12, w * 0.5, h * 0.5, h * 0.74);
+        vignette.addColorStop(0, 'rgba(0,0,0,0)');
+        vignette.addColorStop(0.72, 'rgba(0,0,0,0.14)');
+        vignette.addColorStop(1, 'rgba(0,0,0,0.42)');
+        c.fillStyle = vignette;
+        c.fillRect(0, 0, w, h);
     }
 
     _drawExits() {

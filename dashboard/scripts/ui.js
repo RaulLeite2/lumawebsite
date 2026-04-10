@@ -10,6 +10,10 @@ let hudTickInterval = null;
 let territoryPresence = {};
 let inspectScene = null;
 let selectedBiome = 'snow';
+let mapAmbientFrame = null;
+let uiAudioContext = null;
+
+const TERRITORY_GLYPHS = ['✦', '◈', '✶', '⬡', '✹', '✷', '◉'];
 
 const BIOME_PRESETS = {
     snow: {
@@ -72,9 +76,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderer = new MapRenderer(canvas);
 
     loadMap(0, null);
+    startMapAmbientLoop();
     setupEvents(canvas);
     setupNavigation();
     setupActionButtons();
+    setupImpactFeedback();
     setupInspectModal();
     startPlayerSimulation();
     startTerritoryHudTick();
@@ -127,6 +133,75 @@ function ownerColor(ownerId, fallbackName) {
     return palette[Math.abs(seed) % palette.length];
 }
 
+function territoryGlyph(territory) {
+    if (/valoria/i.test(String(territory?.name || ''))) {
+        return '✦';
+    }
+    return TERRITORY_GLYPHS[Math.abs(Number(territory?.id || 0)) % TERRITORY_GLYPHS.length];
+}
+
+function territoryDisplayName(territory) {
+    return `${territoryGlyph(territory)} ${territory?.name || 'Território'}`;
+}
+
+function startMapAmbientLoop() {
+    const render = (time) => {
+        if (renderer) {
+            renderer.draw(time);
+        }
+        mapAmbientFrame = requestAnimationFrame(render);
+    };
+
+    if (mapAmbientFrame) {
+        cancelAnimationFrame(mapAmbientFrame);
+    }
+    mapAmbientFrame = requestAnimationFrame(render);
+}
+
+function playUiClickTone(intensity = 1) {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) {
+        return;
+    }
+
+    if (!uiAudioContext) {
+        uiAudioContext = new AudioContextClass();
+    }
+
+    const now = uiAudioContext.currentTime;
+    const osc = uiAudioContext.createOscillator();
+    const gain = uiAudioContext.createGain();
+
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(220 + (intensity * 30), now);
+    osc.frequency.exponentialRampToValueAtTime(150 + (intensity * 12), now + 0.08);
+
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.018 * intensity, now + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.09);
+
+    osc.connect(gain);
+    gain.connect(uiAudioContext.destination);
+    osc.start(now);
+    osc.stop(now + 0.1);
+}
+
+function setupImpactFeedback() {
+    const interactiveSelector = '.btn, .tier-btn, .map-nav, .leaderboard-refresh, .map-dot';
+
+    document.addEventListener('pointerdown', (event) => {
+        const control = event.target.closest(interactiveSelector);
+        if (!control) {
+            return;
+        }
+
+        const intensity = control.classList.contains('btn-attack') ? 1.25 : 1;
+        playUiClickTone(intensity);
+        control.classList.add('is-pressed');
+        window.setTimeout(() => control.classList.remove('is-pressed'), 140);
+    });
+}
+
 function allTerritorySlots() {
     const slots = [];
     for (const mapDef of MAPS) {
@@ -169,6 +244,9 @@ async function syncTerritoriesFromServer(showSuccessMessage = false) {
             slot.attackCooldownRemaining = Number(row.attack_cooldown_remaining_seconds || 0);
             slot.attackCooldownTotal = Number(row.attack_cooldown_total_seconds || 900);
             slot.color = ownerName ? ownerColor(ownerId, ownerName) : '#2a2a4b';
+            slot.relation = ownerName
+                ? (ownerId && Number(ownerId) === Number(currentUserId) ? 'mine' : 'enemy')
+                : 'neutral';
 
             if (!territoryPresence[slot.dbId || slot.id]) {
                 const base = ownerName ? (6 + (slot.defense * 2)) : (2 + slot.defense);
@@ -409,7 +487,7 @@ function setupEvents(canvas) {
         fresh.style.cursor = (territory || exit) ? 'pointer' : 'default';
 
         if (territory) {
-            showTooltip(tooltip, territory.owner ? `${territory.name} · ${territory.owner}` : `${territory.name} · Sem dono`, ox, oy);
+            showTooltip(tooltip, territory.owner ? `${territoryDisplayName(territory)} · ${territory.owner}` : `${territoryDisplayName(territory)} · Sem dono`, ox, oy);
         } else if (exit) {
             const destination = exit.target !== null ? MAPS[exit.target]?.name ?? '?' : 'Sem saída';
             showTooltip(tooltip, `Saída ${exit.dir} -> ${destination}`, ox, oy);
@@ -472,9 +550,14 @@ function hideTooltip(el) {
 function openPanel(territory, withAnimation = true) {
     const panel = document.getElementById('infoPanel');
     const inspectButton = document.getElementById('btnInspect');
+    const territoryCard = panel.querySelector('.territory-card');
+    const territoryCardTitle = panel.querySelector('.territory-card-title');
+    const healthTrack = panel.querySelector('.territory-health-track');
+    const healthValue = document.getElementById('panelHealthPercent');
 
     document.getElementById('panelDot').style.background = territory.color;
-    document.getElementById('panelName').textContent = territory.name;
+    document.getElementById('panelDot').style.boxShadow = `0 0 18px ${territory.color}99`;
+    document.getElementById('panelName').textContent = territoryDisplayName(territory);
 
     const ownerEl = document.getElementById('panelOwner');
     ownerEl.textContent = territory.owner ?? '—';
@@ -487,29 +570,47 @@ function openPanel(territory, withAnimation = true) {
     const ownerLeaderboardEntry = currentLeaderboard.find((entry) => Number(entry.user_id) === Number(territory.ownerId));
     const cooldownRemaining = Number(territory.attackCooldownRemaining || 0);
     const presenceCount = Number(territoryPresence[territory.dbId || territory.id] || 0);
+    const isCritical = healthPercent <= 35;
+    const isExposed = cooldownRemaining <= 0;
+    const isFeatured = /valoria/i.test(String(territory.name || ''));
+
+    if (territoryCardTitle) {
+        territoryCardTitle.textContent = `${territoryGlyph(territory)} Dossiê Territorial`;
+    }
 
     document.getElementById('panelDefense').textContent = `${'★'.repeat(defense)}${'☆'.repeat(5 - defense)} (${defense}/5)`;
     document.getElementById('panelHealthPercent').textContent = `${healthPercent}% de Saúde`;
     document.getElementById('panelHealthFill').style.width = `${healthPercent}%`;
     document.getElementById('panelCoins').textContent = `🪙 ${Number(territory.coins || 0).toLocaleString('pt-BR')}`;
-    document.getElementById('panelStatus').textContent = isFree ? '🟢 Disponível' : (isOwner ? '🏰 Seu território' : '🔒 Ocupado');
+    document.getElementById('panelStatus').textContent = isFree ? '◌ Disponível para tomada' : (isOwner ? '◈ Domínio ativo da sua guilda' : '⬡ Fortaleza hostil');
     document.getElementById('panelLeague').textContent = ownerLeaderboardEntry?.league || territory.league || 'Abismo';
     document.getElementById('panelAttackTimer').textContent = formatCooldown(cooldownRemaining);
-    document.getElementById('panelPresence').textContent = `${presenceCount} players na área`;
+    document.getElementById('panelPresence').textContent = isFeatured
+        ? `${presenceCount} players na área • epicentro em ebulição`
+        : `${presenceCount} players na área`;
     document.getElementById('panelOwnerAction').textContent = isOwner
         ? `Coleta: ${Number(territory.rewardCoins || 0)} coins`
         : 'Sem coleta';
 
     const safety = document.getElementById('panelSafety');
     if (cooldownRemaining > 0) {
-        safety.textContent = '🛡 Seguro';
+        safety.innerHTML = '<span class="state-ping state-ping-safe"></span> Seguro';
         safety.classList.remove('territory-state-hot');
         safety.classList.add('territory-state-safe');
     } else {
-        safety.textContent = '⚠ Exposto';
+        safety.innerHTML = '<span class="state-ping state-ping-hot"></span> Exposto';
         safety.classList.remove('territory-state-safe');
         safety.classList.add('territory-state-hot');
     }
+
+    panel.classList.toggle('is-critical', isCritical);
+    panel.classList.toggle('is-exposed', isExposed);
+    panel.classList.toggle('is-owned', isOwner);
+    panel.classList.toggle('is-enemy', !isFree && !isOwner);
+    panel.classList.toggle('is-featured', isFeatured);
+    territoryCard?.classList.toggle('is-critical', isCritical);
+    healthTrack?.classList.toggle('is-critical', isCritical);
+    healthValue?.classList.toggle('is-critical', isCritical);
 
     const btnAttack = document.getElementById('btnAttack');
     const btnCapture = document.getElementById('btnCapture');
@@ -522,7 +623,7 @@ function openPanel(territory, withAnimation = true) {
     btnAttack.disabled = cooldownRemaining > 0;
     btnAttack.textContent = cooldownRemaining > 0
         ? `⏳ Ataque em ${formatCooldownCompact(cooldownRemaining)}`
-        : '⚔ Atacar Território';
+        : '⚔ Romper Defesas';
     btnCapture.style.display = isFree ? 'block' : 'none';
     btnCollect.style.display = isOwner ? 'block' : 'none';
     btnDefend.style.display = isOwner ? 'block' : 'none';
