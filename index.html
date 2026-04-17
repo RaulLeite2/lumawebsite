@@ -1217,6 +1217,124 @@
             background: rgba(13, 13, 26, 0.68);
         }
 
+        /* ── Ritual section ── */
+        .ritual-section {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .ritual-section::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(circle at 70% 50%, rgba(120, 60, 220, 0.18), transparent 55%),
+                radial-gradient(circle at 20% 80%, rgba(165, 140, 255, 0.12), transparent 45%);
+            pointer-events: none;
+        }
+
+        .ritual-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: clamp(1.5rem, 4vw, 3.5rem);
+            align-items: center;
+        }
+
+        .ritual-copy {
+            display: flex;
+            flex-direction: column;
+            gap: 1.1rem;
+        }
+
+        .ritual-copy .section-sub {
+            margin-bottom: 0;
+        }
+
+        .ritual-points {
+            list-style: none;
+            display: grid;
+            gap: 0.7rem;
+        }
+
+        .ritual-points li {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            padding: 0.85rem 1rem;
+            border-radius: 16px;
+            border: 1px solid var(--glass-border);
+            background: rgba(18, 16, 40, 0.72);
+            backdrop-filter: blur(12px);
+            font-size: 0.92rem;
+            color: var(--text-soft);
+            transition: border-color 220ms ease;
+        }
+
+        .ritual-points li:hover {
+            border-color: rgba(165, 140, 255, 0.35);
+        }
+
+        .ritual-points li span.rp-icon {
+            font-size: 1.1rem;
+            flex-shrink: 0;
+            margin-top: 0.05rem;
+        }
+
+        .ritual-points li strong {
+            display: block;
+            color: var(--text-main);
+            margin-bottom: 0.15rem;
+            font-size: 0.94rem;
+        }
+
+        .ritual-visual {
+            position: relative;
+        }
+
+        .ritual-frame {
+            position: relative;
+            border-radius: 28px;
+            background: linear-gradient(160deg, rgba(14, 10, 36, 0.96), rgba(8, 6, 22, 0.9));
+            border: 1px solid rgba(140, 100, 255, 0.28);
+            padding: clamp(0.8rem, 1.5vw, 1.2rem);
+            box-shadow:
+                0 0 60px rgba(120, 60, 220, 0.22),
+                inset 0 0 30px rgba(120, 60, 220, 0.08),
+                0 30px 60px rgba(2, 0, 12, 0.5);
+        }
+
+        .ritual-frame::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            padding: 1px;
+            background: linear-gradient(140deg, rgba(165, 100, 255, 0.5), rgba(80, 40, 180, 0.3), transparent 65%);
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+        }
+
+        .ritual-frame img {
+            width: 100%;
+            border-radius: 18px;
+            display: block;
+            filter: brightness(1.05) saturate(1.1);
+        }
+
+        .ritual-glow {
+            position: absolute;
+            bottom: -1.5rem;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60%;
+            height: 3rem;
+            background: radial-gradient(ellipse at center, rgba(120, 60, 220, 0.45), transparent 70%);
+            pointer-events: none;
+            filter: blur(12px);
+        }
+
         .cta {
             padding-bottom: calc(var(--section-pad) + 1.5rem);
         }
@@ -1339,7 +1457,8 @@
             .moderation-wrap,
             .use-cases-grid,
             .faq-grid,
-            .dashboard-body {
+            .dashboard-body,
+            .ritual-grid {
                 grid-template-columns: 1fr;
             }
 
@@ -1807,6 +1926,52 @@
             </div>
         </section>
 
+        <section class="ritual-section container reveal" id="ritual">
+            <p class="section-kicker" data-i18n="ritualKicker">Community Power</p>
+            <h2 class="section-title" data-i18n="ritualTitle">Engagement, events and rituals for your server</h2>
+            <p class="section-sub" data-i18n="ritualSub">Luma goes beyond moderation — it fuels community energy with leveling, economy, shop systems and special events that keep members coming back.</p>
+            <div class="ritual-grid">
+                <div class="ritual-copy">
+                    <ul class="ritual-points">
+                        <li>
+                            <span class="rp-icon">⚡</span>
+                            <div>
+                                <strong data-i18n="ritualPoint1Title">XP & Leveling system</strong>
+                                <span data-i18n="ritualPoint1Desc">Members earn experience as they engage. Level-up roles and announcements keep the community active.</span>
+                            </div>
+                        </li>
+                        <li>
+                            <span class="rp-icon">🪙</span>
+                            <div>
+                                <strong data-i18n="ritualPoint2Title">Economy & Shop</strong>
+                                <span data-i18n="ritualPoint2Desc">A full coin economy with a configurable shop lets members spend their rewards on roles and perks.</span>
+                            </div>
+                        </li>
+                        <li>
+                            <span class="rp-icon">🛡️</span>
+                            <div>
+                                <strong data-i18n="ritualPoint3Title">Raid protection</strong>
+                                <span data-i18n="ritualPoint3Desc">Automatic raid detection and lockdown controls to protect your server when it matters most.</span>
+                            </div>
+                        </li>
+                        <li>
+                            <span class="rp-icon">🌐</span>
+                            <div>
+                                <strong data-i18n="ritualPoint4Title">Territory & community events</strong>
+                                <span data-i18n="ritualPoint4Desc">Territories, group competition and special event systems that reward participation and drive engagement.</span>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+                <div class="ritual-visual">
+                    <div class="ritual-frame">
+                        <img src="assets/mascote-segurando-orbe-arte-ritualista.png" alt="Luma ritual mascot holding a glowing orb" data-i18n-alt="ritualMascotAlt">
+                    </div>
+                    <div class="ritual-glow" aria-hidden="true"></div>
+                </div>
+            </div>
+        </section>
+
         <section class="container reveal" id="faq">
             <p class="section-kicker" data-i18n="faqKicker">FAQ</p>
             <h2 class="section-title" data-i18n="faqTitle">Questions people usually ask before inviting Luma</h2>
@@ -2002,6 +2167,18 @@
                 useCase3Item1: "Ticket panels and closure flow for organized support",
                 useCase3Item2: "Modmail replies connected to staff workflow",
                 useCase3Item3: "Clear logs so the next moderator can continue the case",
+                ritualKicker: "Community Power",
+                ritualTitle: "Engagement, events and rituals for your server",
+                ritualSub: "Luma goes beyond moderation — it fuels community energy with leveling, economy, shop systems and special events that keep members coming back.",
+                ritualPoint1Title: "XP & Leveling system",
+                ritualPoint1Desc: "Members earn experience as they engage. Level-up roles and announcements keep the community active.",
+                ritualPoint2Title: "Economy & Shop",
+                ritualPoint2Desc: "A full coin economy with a configurable shop lets members spend their rewards on roles and perks.",
+                ritualPoint3Title: "Raid protection",
+                ritualPoint3Desc: "Automatic raid detection and lockdown controls to protect your server when it matters most.",
+                ritualPoint4Title: "Territory & community events",
+                ritualPoint4Desc: "Territories, group competition and special event systems that reward participation and drive engagement.",
+                ritualMascotAlt: "Luma ritual mascot holding a glowing orb",
                 miniCtaTitle: "Not sure where to start?",
                 miniCtaSub: "Use the command hub to see what Luma already does, then join the community if you want to shape the next features directly.",
                 miniCtaCommandsBtn: "Open command hub",
@@ -2178,6 +2355,18 @@
                 useCase3Item1: "Painéis de ticket e fluxo de encerramento para suporte organizado",
                 useCase3Item2: "Respostas de modmail conectadas ao fluxo da staff",
                 useCase3Item3: "Logs claros para o próximo moderador continuar o caso",
+                ritualKicker: "Poder da Comunidade",
+                ritualTitle: "Engajamento, eventos e rituais para o seu servidor",
+                ritualSub: "A Luma vai além da moderação — ela alimenta a energia da comunidade com leveling, economia, sistema de loja e eventos especiais que fazem os membros voltarem.",
+                ritualPoint1Title: "Sistema de XP e Níveis",
+                ritualPoint1Desc: "Membros ganham experiência conforme interagem. Cargos de level-up e anúncios mantêm a comunidade ativa.",
+                ritualPoint2Title: "Economia e Loja",
+                ritualPoint2Desc: "Uma economia completa de moedas com loja configurável deixa os membros gastarem suas recompensas em cargos e benefícios.",
+                ritualPoint3Title: "Proteção contra raids",
+                ritualPoint3Desc: "Detecção automática de raid e controles de bloqueio para proteger seu servidor quando mais importa.",
+                ritualPoint4Title: "Territórios e eventos de comunidade",
+                ritualPoint4Desc: "Territórios, competição entre grupos e sistemas de eventos especiais que recompensam participação e impulsionam engajamento.",
+                ritualMascotAlt: "Mascote ritual da Luma segurando um orbe brilhante",
                 miniCtaTitle: "Nao sabe por onde começar?",
                 miniCtaSub: "Use a central de comandos para ver o que a Luma já faz e entre na comunidade se quiser influenciar as próximas features diretamente.",
                 miniCtaCommandsBtn: "Abrir central de comandos",
@@ -2354,6 +2543,18 @@
                 useCase3Item1: "Paneles de ticket y flujo de cierre para soporte ordenado",
                 useCase3Item2: "Respuestas de modmail conectadas al flujo del staff",
                 useCase3Item3: "Logs claros para que el siguiente moderador continúe el caso",
+                ritualKicker: "Poder de la Comunidad",
+                ritualTitle: "Engagement, eventos y rituales para tu servidor",
+                ritualSub: "Luma va más allá de la moderación — impulsa la energía de la comunidad con leveling, economía, tienda y eventos especiales que hacen que los miembros vuelvan.",
+                ritualPoint1Title: "Sistema de XP y Niveles",
+                ritualPoint1Desc: "Los miembros ganan experiencia al interactuar. Roles de nivel y anuncios mantienen a la comunidad activa.",
+                ritualPoint2Title: "Economía y Tienda",
+                ritualPoint2Desc: "Una economía completa de monedas con tienda configurable permite a los miembros gastar sus recompensas en roles y beneficios.",
+                ritualPoint3Title: "Protección contra raids",
+                ritualPoint3Desc: "Detección automática de raids y controles de bloqueo para proteger tu servidor cuando más importa.",
+                ritualPoint4Title: "Territorios y eventos de comunidad",
+                ritualPoint4Desc: "Territorios, competición en grupo y sistemas de eventos especiales que premian la participación e impulsan el engagement.",
+                ritualMascotAlt: "Mascota ritual de Luma sosteniendo un orbe brillante",
                 miniCtaTitle: "No sabes por dónde empezar?",
                 miniCtaSub: "Usa el centro de comandos para ver lo que Luma ya hace y entra a la comunidad si quieres influir directamente en las próximas funciones.",
                 miniCtaCommandsBtn: "Abrir centro de comandos",

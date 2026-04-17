@@ -6144,7 +6144,7 @@ async def dashboard_mk_script_status(request: Request) -> dict[str, Any]:
     active_guild = _require_active_guild(request)
     guild_id = str(active_guild.get("id"))
     dashboard_role = await _dashboard_role_for_user(request, active_guild)
-    can_launch = _role_rank(dashboard_role) >= _role_rank("moderator")
+    can_launch = _role_level(dashboard_role) >= _role_level("moderator")
 
     mk_status = _get_mk_script_status_for_guild(guild_id)
     message = (
