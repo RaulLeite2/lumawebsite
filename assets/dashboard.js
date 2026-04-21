@@ -191,7 +191,11 @@ const STATIC_TRANSLATIONS = {
     "Welcome and leave embeds for member movement.": { pt: "Embeds de entrada e saida para movimento de membros.", en: "Welcome and leave embeds for member movement.", es: "Embeds de entrada y salida para el movimiento de miembros." },
     "Audit trail, snapshots and dashboard permissions.": { pt: "Trilha de auditoria, snapshots e permissoes do dashboard.", en: "Audit trail, snapshots and dashboard permissions.", es: "Rastro de auditoria, snapshots y permisos del dashboard." },
     "Select the server you want to configure.": { pt: "Selecione o servidor que deseja configurar.", en: "Select the server you want to configure.", es: "Selecciona el servidor que deseas configurar." },
-    "<manageable> configurable servers, <total> servers total.": { pt: "<manageable> servidores configuraveis, <total> servidores no total.", en: "<manageable> configurable servers, <total> servers total.", es: "<manageable> servidores configurables, <total> servidores en total." },
+    "{manageable} configurable servers, {total} servers total.": { pt: "{manageable} servidores configuraveis, {total} servidores no total.", en: "{manageable} configurable servers, {total} servers total.", es: "{manageable} servidores configurables, {total} servidores en total." },
+    "Access Ready": { pt: "Acesso Liberado", en: "Access Ready", es: "Acceso Listo" },
+    "Limited": { pt: "Limitado", en: "Limited", es: "Limitado" },
+    "Setup enabled": { pt: "Setup ativo", en: "Setup enabled", es: "Setup activo" },
+    "Read-only access": { pt: "Somente leitura", en: "Read-only access", es: "Solo lectura" },
     "Narrative overview with risk, incidents and operational status.": { pt: "Visao narrativa com risco, incidentes e status operacional.", en: "Narrative overview with risk, incidents and operational status.", es: "Resumen narrativo con riesgo, incidentes y estado operativo." },
     "Status of the Day": { pt: "Status do Dia", en: "Status of the Day", es: "Estado del Dia" },
     "Operational Pulse": { pt: "Pulso Operacional", en: "Operational Pulse", es: "Pulso Operativo" },
@@ -1675,7 +1679,7 @@ function renderServers(context) {
     if (manageableEl) manageableEl.textContent = String(manageableCount);
     const summary = document.querySelector("body[data-page='servers'] .section .lead");
     if (summary) {
-        summary.innerHTML = tx(translateStaticText("<manageable> configurable servers, <total> servers total."), {
+        summary.innerHTML = tx(translateStaticText("{manageable} configurable servers, {total} servers total."), {
             manageable: `<span id=\"servers-manageable\">${manageableCount}</span>`,
             total: `<span id=\"servers-total\">${totalCount}</span>`,
         });
@@ -1724,8 +1728,8 @@ function renderServers(context) {
         const buttonLabel = guild.configurable
             ? (String(guild.id) === activeGuildId ? translateStaticText("Selection active") : t("configure", "Configure"))
             : t("no_access", "No Access");
-        const accessTag = guild.configurable ? "Access Ready" : "Limited";
-        const onlineText = guild.configurable ? "Setup enabled" : "Read-only access";
+        const accessTag = guild.configurable ? translateStaticText("Access Ready") : translateStaticText("Limited");
+        const onlineText = guild.configurable ? translateStaticText("Setup enabled") : translateStaticText("Read-only access");
         card.innerHTML = `
             <div class="server-head">
                 <div class="server-meta">
