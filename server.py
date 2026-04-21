@@ -29,7 +29,8 @@ STATE_FILE = WEB_ROOT / "dashboard_state.json"
 DISCORD_API_BASE = "https://discord.com/api/v10"
 DISCORD_OAUTH_BASE = "https://discord.com/api"
 HTTP_USER_AGENT = "LumaDashboard/1.0 (+https://github.com/RaulLeite2/lumawebsite)"
-SESSION_GUILD_LIMIT = int(os.getenv("SESSION_GUILD_LIMIT", "25"))
+SESSION_GUILD_LIMIT = int(os.getenv("SESSION_GUILD_LIMIT", "8"))
+SESSION_COOKIE_GUILDS_BUDGET_BYTES = int(os.getenv("SESSION_COOKIE_GUILDS_BUDGET_BYTES", "2200"))
 
 PERM_ADMINISTRATOR = 0x8
 PERM_MANAGE_GUILD = 0x20
@@ -2381,21 +2382,38 @@ def _session_guild_counts(request: Request) -> dict[str, int]:
 
 def _compact_guilds_for_session(guilds: list[dict[str, Any]]) -> list[dict[str, Any]]:
     # SessionMiddleware stores session in a signed cookie; keep payload intentionally small.
-    compact: list[dict[str, Any]] = []
+    compact_candidates: list[dict[str, Any]] = []
     for guild in guilds:
-        compact.append(
+        compact_candidates.append(
             {
                 "id": str(guild.get("id", "")),
-                "name": str(guild.get("name", "Unknown Guild")),
-                "icon": guild.get("icon"),
+                # Trim long names to reduce cookie size while keeping the selector readable.
+                "name": str(guild.get("name", "Unknown Guild"))[:48],
+                # Icon is omitted from session payload because it significantly increases cookie size.
                 "owner": bool(guild.get("owner")),
                 "configurable": bool(guild.get("configurable")),
             }
         )
 
-    compact = [g for g in compact if g.get("id")]
-    compact.sort(key=lambda g: (not g["configurable"], g["name"].lower()))
-    return compact[: max(1, SESSION_GUILD_LIMIT)]
+    compact_candidates = [g for g in compact_candidates if g.get("id")]
+    compact_candidates.sort(key=lambda g: (not g["configurable"], g["name"].lower()))
+
+    limit = max(1, SESSION_GUILD_LIMIT)
+    budget = max(512, SESSION_COOKIE_GUILDS_BUDGET_BYTES)
+    selected: list[dict[str, Any]] = []
+
+    for guild in compact_candidates:
+        if len(selected) >= limit:
+            break
+
+        trial = selected + [guild]
+        # Keep a conservative byte budget because session also stores user and metadata.
+        trial_size = len(json.dumps(trial, separators=(",", ":"), ensure_ascii=False).encode("utf-8"))
+        if trial_size > budget:
+            break
+        selected.append(guild)
+
+    return selected if selected else compact_candidates[:1]
 
 
 def _active_guild_from_session(request: Request) -> dict[str, Any] | None:
@@ -3459,6 +3477,7 @@ async def privacy_page() -> Response:
     return HTMLResponse(content=fallback)
 
 
+@app.get("/login")
 @app.get("/auth/login")
 async def auth_login(request: Request, next_path: str = Query(default="/dashboard/servers", alias="next")) -> RedirectResponse:
     config = _oauth_config()
@@ -3480,6 +3499,9 @@ async def auth_login(request: Request, next_path: str = Query(default="/dashboar
     return RedirectResponse(url=f"https://discord.com/oauth2/authorize?{params}", status_code=302)
 
 
+@app.get("/callback")
+@app.get("/oauth/callback")
+@app.get("/discord/callback")
 @app.get("/auth/callback")
 async def auth_callback(request: Request, code: str = "", state: str = "") -> RedirectResponse:
     config = _oauth_config()
