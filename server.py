@@ -31,6 +31,12 @@ DISCORD_OAUTH_BASE = "https://discord.com/api"
 HTTP_USER_AGENT = "LumaDashboard/1.0 (+https://github.com/RaulLeite2/lumawebsite)"
 SESSION_GUILD_LIMIT = int(os.getenv("SESSION_GUILD_LIMIT", "8"))
 SESSION_COOKIE_GUILDS_BUDGET_BYTES = int(os.getenv("SESSION_COOKIE_GUILDS_BUDGET_BYTES", "2200"))
+SESSION_HTTPS_ONLY = os.getenv("SESSION_HTTPS_ONLY", "false").strip().lower() == "true"
+
+_session_secret = os.getenv("SESSION_SECRET")
+if not _session_secret:
+    _session_secret = secrets.token_urlsafe(32)
+    print("[Security] SESSION_SECRET not set. Using ephemeral session secret; configure SESSION_SECRET in production.")
 
 PERM_ADMINISTRATOR = 0x8
 PERM_MANAGE_GUILD = 0x20
@@ -3401,9 +3407,9 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Luma Site", lifespan=lifespan)
 app.add_middleware(
     SessionMiddleware,
-    secret_key=os.getenv("SESSION_SECRET", "dev-insecure-session-secret-change-me"),
+    secret_key=_session_secret,
     same_site="lax",
-    https_only=False,
+    https_only=SESSION_HTTPS_ONLY,
 )
 app.mount("/assets", StaticFiles(directory=str(WEB_ROOT / "assets")), name="assets")
 
