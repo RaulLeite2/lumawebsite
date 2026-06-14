@@ -18,6 +18,7 @@ const I18N = {
         nav_cogs: "Cogs",
         nav_levels: "Levels",
         nav_economy: "Economy",
+        nav_shop: "Shop",
         nav_mkscript: "MK Script",
         nav_blog: "Blog",
         nav_audit: "Audit Center",
@@ -51,6 +52,7 @@ const I18N = {
         nav_cogs: "Cogs",
         nav_levels: "Levels",
         nav_economy: "Economia",
+        nav_shop: "Shop",
         nav_mkscript: "MK Script",
         nav_blog: "Blog",
         nav_audit: "Central de Auditoria",
@@ -84,6 +86,7 @@ const I18N = {
         nav_cogs: "Cogs",
         nav_levels: "Niveles",
         nav_economy: "Economia",
+        nav_shop: "Shop",
         nav_mkscript: "MK Script",
         nav_blog: "Blog",
         nav_audit: "Centro de Auditoria",
@@ -845,6 +848,7 @@ function applyStaticTranslations() {
         "/dashboard/cogs": t("nav_cogs", "Cogs"),
         "/dashboard/levels": t("nav_levels", "Levels"),
         "/dashboard/economy": t("nav_economy", "Economy"),
+        "/dashboard/shop": t("nav_shop", "Shop"),
         "/dashboard/territories": translateStaticText("Territories"),
         "/dashboard/mk-script": t("nav_mkscript", "MK Script"),
         "/dashboard/blog": t("nav_blog", "Blog"),
@@ -912,6 +916,7 @@ function applyStaticTranslations() {
         cogs: { pt: "Luma Dashboard - Cogs", en: "Luma Dashboard - Cogs", es: "Luma Dashboard - Cogs" },
         levels: { pt: "Luma Dashboard - Levels", en: "Luma Dashboard - Levels", es: "Luma Dashboard - Niveles" },
         economy: { pt: "Luma Dashboard - Economia", en: "Luma Dashboard - Economy", es: "Luma Dashboard - Economia" },
+        shop: { pt: "Luma Dashboard - Shop", en: "Luma Dashboard - Shop", es: "Luma Dashboard - Shop" },
         "mk-script": { pt: "Luma Dashboard - MK Script", en: "Luma Dashboard - MK Script", es: "Luma Dashboard - MK Script" },
         blog: { pt: "Luma Dashboard - Blog", en: "Luma Dashboard - Blog", es: "Luma Dashboard - Blog" },
         "config-logs": { pt: "Luma Dashboard - Central de Auditoria", en: "Luma Dashboard - Audit Center", es: "Luma Dashboard - Centro de Auditoria" },
@@ -1081,6 +1086,7 @@ const SERVER_CONFIGURATION_MODULES = [
     { href: "/dashboard/guild-settings", icon: "BT", title: "Bot Setup", description: "Language, logs, modmail and the bot foundation." },
     { href: "/dashboard/cogs", icon: "CG", title: "Modules", description: "Module toggles and activation state for this server." },
     { href: "/dashboard/economy", icon: "EC", title: "Economy", description: "Coins, shop and economic progression for the guild." },
+    { href: "/dashboard/shop", icon: "SH", title: "Shop", description: "Catalog, prices and direct purchase workflows." },
     { href: "/dashboard/territories", icon: "TR", title: "Territories", description: "Territory wars, seasonal points and faction pressure." },
     { href: "/dashboard/mk-script", icon: "MK", title: "MK Script", description: "Visual scripting and guided automation flows." },
     { href: "/dashboard/blog", icon: "BL", title: "Blog", description: "Public posts, featured content and publishing flow." },
@@ -3007,7 +3013,7 @@ async function loadState() {
     if (page === "levels") {
         await loadLevels();
     }
-    if (page === "economy") {
+    if (page === "economy" || page === "shop") {
         await loadEconomyDashboard();
     }
     if (page === "blog") {

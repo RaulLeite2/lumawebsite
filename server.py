@@ -3666,6 +3666,13 @@ async def dashboard_economy(request: Request) -> Response:
     return FileResponse(WEB_ROOT / "dashboard" / "economy.html")
 
 
+@app.get("/dashboard/shop")
+async def dashboard_shop(request: Request) -> Response:
+    if not _is_authenticated(request):
+        return RedirectResponse(url="/auth/login?next=/dashboard/shop", status_code=302)
+    return FileResponse(WEB_ROOT / "dashboard" / "shop.html")
+
+
 @app.get("/dashboard/territories")
 async def dashboard_territories(request: Request) -> Response:
     if not _is_authenticated(request):

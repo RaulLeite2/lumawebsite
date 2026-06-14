@@ -133,6 +133,7 @@ body {
 .nav a[href$="/cogs"]::before { content: "CG"; }
 .nav a[href$="/levels"]::before { content: "LV"; }
 .nav a[href$="/economy"]::before { content: "EC"; }
+.nav a[href$="/shop"]::before { content: "SH"; }
 .nav a[href$="/territories"]::before { content: "TR"; }
 .nav a[href$="/blog"]::before { content: "BL"; }
 .nav a[href$="/mk-script"]::before { content: "MK"; }
