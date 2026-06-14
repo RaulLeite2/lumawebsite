@@ -2792,20 +2792,20 @@ function renderEconomyDashboard(overview, shop, stats, season, transactions) {
             const row = document.createElement("article");
             row.className = "log-item";
             row.dataset.shopItemKey = item.item_key;
-            const showBuy = currencyType === "lumicoins";
+            const isDrops = currencyType === "drops";
             row.innerHTML = `
                 <h3>${item.item_name} <small>(${item.item_key})</small></h3>
                 <p>${item.item_description}</p>
                 <p>
                     <span class="shop-price-tag">
                         <strong>${Number(item.price || 0).toLocaleString()}</strong>
-                        <span class="shop-currency ${currencyType === "drops" ? "is-drops" : "is-lumicoins"}">${currencyType === "drops" ? "Drops" : "Lumicoins"}</span>
+                        <span class="shop-currency ${isDrops ? "is-drops" : "is-lumicoins"}">${isDrops ? "Drops" : "Lumicoins"}</span>
                     </span>
                     • ${item.category || "utility"}
                 </p>
                 <div class="actions">
-                    ${showBuy ? '<input type="number" min="1" max="50" value="1" class="shop-qty" style="max-width:90px;">' : ""}
-                    <button class="btn ${showBuy ? "primary" : ""}" ${showBuy ? `data-econ-buy="${item.item_key}"` : "disabled"} type="button">${showBuy ? "Buy" : "Soon"}</button>
+                    <input type="number" min="1" max="50" value="1" class="shop-qty" style="max-width:90px;">
+                    <button class="btn primary" ${isDrops ? `data-econ-buy-drops="${item.item_key}"` : `data-econ-buy="${item.item_key}"`} type="button">Buy</button>
                 </div>
             `;
             target.appendChild(row);
@@ -3654,6 +3654,31 @@ function bindPageActions() {
                 await loadEconomyDashboard();
             } catch (error) {
                 flash("Failed to buy item", "error");
+            }
+        });
+    }
+
+    const economyDropsShopList = document.getElementById("econ-drops-shop-list");
+    if (economyDropsShopList) {
+        economyDropsShopList.addEventListener("click", async (event) => {
+            const target = event.target;
+            if (!(target instanceof HTMLElement)) return;
+            const itemKey = target.dataset.econBuyDrops;
+            if (!itemKey) return;
+
+            const parent = target.closest("article");
+            const qtyInput = parent ? parent.querySelector(".shop-qty") : null;
+            const quantity = Math.max(1, Number(qtyInput?.value || 1));
+
+            try {
+                await api("/api/dashboard/economy/buy-drops", {
+                    method: "POST",
+                    body: JSON.stringify({ item_key: itemKey, quantity }),
+                });
+                flash("Drops purchase completed", "success");
+                await loadEconomyDashboard();
+            } catch (error) {
+                flash("Failed to buy drops item", "error");
             }
         });
     }

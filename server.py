@@ -1186,6 +1186,7 @@ async def _ensure_dashboard_tables(pool: Any) -> None:
                 CREATE TABLE IF NOT EXISTS economy (
                     user_id BIGINT PRIMARY KEY,
                     balance INT NOT NULL DEFAULT 0,
+                    drop_balance INT NOT NULL DEFAULT 0,
                     last_daily TIMESTAMPTZ,
                     last_weekly TIMESTAMPTZ,
                     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -1193,6 +1194,7 @@ async def _ensure_dashboard_tables(pool: Any) -> None:
                 )
                 """
             )
+            await connection.execute("ALTER TABLE economy ADD COLUMN IF NOT EXISTS drop_balance INT NOT NULL DEFAULT 0")
             await connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS shop_items (
@@ -1201,10 +1203,19 @@ async def _ensure_dashboard_tables(pool: Any) -> None:
                     item_description TEXT NOT NULL,
                     price INT NOT NULL,
                     category VARCHAR(32) NOT NULL DEFAULT 'utility',
+                    currency_type VARCHAR(16) NOT NULL DEFAULT 'lumicoins',
                     is_active BOOLEAN NOT NULL DEFAULT TRUE,
                     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
                 )
+                """
+            )
+            await connection.execute("ALTER TABLE shop_items ADD COLUMN IF NOT EXISTS currency_type VARCHAR(16) NOT NULL DEFAULT 'lumicoins'")
+            await connection.execute(
+                """
+                UPDATE shop_items
+                SET currency_type = 'lumicoins'
+                WHERE currency_type IS NULL OR TRIM(currency_type) = ''
                 """
             )
             await connection.execute(
@@ -1410,11 +1421,21 @@ async def _ensure_dashboard_tables(pool: Any) -> None:
             )
             await connection.execute(
                 """
-                INSERT INTO shop_items (item_key, item_name, item_description, price, category, is_active)
+                INSERT INTO shop_items (item_key, item_name, item_description, price, category, currency_type, is_active)
                 VALUES
-                    ('xp_boost_1h', 'XP Boost 1h', 'Active your leveling journey: grants a personal XP bonus token for 1 hour.', 350, 'boost', TRUE),
-                    ('lucky_crate', 'Lucky Crate', 'A crate with random economy surprises (future expansion item).', 500, 'crate', TRUE),
-                    ('profile_badge', 'Profile Badge', 'Collectible profile badge to show your support in profile cards.', 750, 'cosmetic', TRUE)
+                    ('xp_boost_1h', 'XP Boost 1h', 'Active your leveling journey: grants a personal XP bonus token for 1 hour.', 350, 'boost', 'lumicoins', TRUE),
+                    ('lucky_crate', 'Lucky Crate', 'A crate with random economy surprises (future expansion item).', 500, 'crate', 'lumicoins', TRUE),
+                    ('profile_badge', 'Profile Badge', 'Collectible profile badge to show your support in profile cards.', 750, 'cosmetic', 'lumicoins', TRUE)
+                ON CONFLICT (item_key) DO NOTHING
+                """
+            )
+            await connection.execute(
+                """
+                INSERT INTO shop_items (item_key, item_name, item_description, price, category, currency_type, is_active)
+                VALUES
+                    ('drop_focus_30m', 'Drop Focus 30m', 'Boost your next drop streak with a lightweight focus enhancer.', 120, 'drop_boost', 'drops', TRUE),
+                    ('drop_radar', 'Drop Radar', 'Improves your visibility on upcoming wave windows.', 240, 'drop_utility', 'drops', TRUE),
+                    ('drop_badge_neon', 'Neon Drop Badge', 'Exclusive badge style unlocked through drop currency.', 360, 'drop_cosmetic', 'drops', TRUE)
                 ON CONFLICT (item_key) DO NOTHING
                 """
             )
@@ -3772,7 +3793,7 @@ async def dashboard_economy_overview(request: Request) -> dict[str, Any]:
             user_id,
         )
         row = await connection.fetchrow(
-            "SELECT balance, last_daily FROM economy WHERE user_id = $1",
+            "SELECT balance, drop_balance, last_daily FROM economy WHERE user_id = $1",
             user_id,
         )
         inventory = await connection.fetch(
@@ -3837,6 +3858,7 @@ async def dashboard_economy_overview(request: Request) -> dict[str, Any]:
         "ok": True,
         "user_id": str(user_id),
         "balance": balance,
+        "drops_balance": int(row.get("drop_balance") or 0) if row else 0,
         "daily_remaining_seconds": daily_remaining_seconds,
         "inventory": [
             {
@@ -4046,7 +4068,7 @@ async def dashboard_economy_shop(request: Request) -> dict[str, Any]:
     async with pool.acquire() as connection:
         rows = await connection.fetch(
             """
-            SELECT item_key, item_name, item_description, price, category
+            SELECT item_key, item_name, item_description, price, category, COALESCE(currency_type, 'lumicoins') AS currency_type
             FROM shop_items
             WHERE is_active = TRUE
             ORDER BY price ASC
@@ -4060,16 +4082,19 @@ async def dashboard_economy_shop(request: Request) -> dict[str, Any]:
             "item_description": str(item.get("item_description") or ""),
             "price": int(item.get("price") or 0),
             "category": str(item.get("category") or "utility"),
-            "currency": "lumicoins",
+            "currency": str(item.get("currency_type") or "lumicoins").lower(),
         }
         for item in rows
     ]
 
+    lumicoins_items = [item for item in items if item.get("currency") != "drops"]
+    drops_items = [item for item in items if item.get("currency") == "drops"]
+
     return {
         "ok": True,
         "items": items,
-        "lumicoins_items": items,
-        "drops_items": [],
+        "lumicoins_items": lumicoins_items,
+        "drops_items": drops_items,
     }
 
 
@@ -4176,7 +4201,7 @@ async def dashboard_economy_buy(payload: EconomyBuyPayload, request: Request) ->
             )
             item = await connection.fetchrow(
                 """
-                SELECT item_key, item_name, price, is_active
+                SELECT item_key, item_name, price, is_active, COALESCE(currency_type, 'lumicoins') AS currency_type
                 FROM shop_items
                 WHERE LOWER(item_key) = LOWER($1)
                 """,
@@ -4184,6 +4209,8 @@ async def dashboard_economy_buy(payload: EconomyBuyPayload, request: Request) ->
             )
             if item is None or not bool(item.get("is_active")):
                 raise HTTPException(status_code=404, detail="Item unavailable")
+            if str(item.get("currency_type") or "lumicoins").lower() == "drops":
+                raise HTTPException(status_code=400, detail="Item requires drops checkout")
 
             total_cost = int(item.get("price") or 0) * int(payload.quantity)
             current_balance = await connection.fetchval(
@@ -4240,6 +4267,105 @@ async def dashboard_economy_buy(payload: EconomyBuyPayload, request: Request) ->
         "total_cost": int(total_cost),
         "inventory_quantity": int(new_quantity or 0),
         "balance": int(new_balance or 0),
+    }
+
+
+@app.post("/api/dashboard/economy/buy-drops")
+async def dashboard_economy_buy_drops(payload: EconomyBuyPayload, request: Request) -> dict[str, Any]:
+    _require_auth(request)
+    user_id = _require_session_user_id(request)
+    active_guild = _require_active_guild(request)
+    guild_id_int = _extract_discord_id(active_guild.get("id"))
+    pool = _db_pool()
+    if pool is None or guild_id_int is None:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
+    async with pool.acquire() as connection:
+        async with connection.transaction():
+            await connection.execute(
+                """
+                INSERT INTO economy (user_id, balance, drop_balance)
+                VALUES ($1, 0, 0)
+                ON CONFLICT (user_id) DO NOTHING
+                """,
+                user_id,
+            )
+            item = await connection.fetchrow(
+                """
+                SELECT item_key, item_name, price, is_active, COALESCE(currency_type, 'lumicoins') AS currency_type
+                FROM shop_items
+                WHERE LOWER(item_key) = LOWER($1)
+                """,
+                payload.item_key,
+            )
+            if item is None or not bool(item.get("is_active")):
+                raise HTTPException(status_code=404, detail="Item unavailable")
+
+            if str(item.get("currency_type") or "lumicoins").lower() != "drops":
+                raise HTTPException(status_code=400, detail="Item is not priced in drops")
+
+            total_cost = int(item.get("price") or 0) * int(payload.quantity)
+            current_drop_balance = await connection.fetchval(
+                "SELECT drop_balance FROM economy WHERE user_id = $1 FOR UPDATE",
+                user_id,
+            )
+            current_drop_balance = int(current_drop_balance or 0)
+            if current_drop_balance < total_cost:
+                raise HTTPException(status_code=400, detail="Insufficient drops balance")
+
+            new_drop_balance = await connection.fetchval(
+                """
+                UPDATE economy
+                SET drop_balance = drop_balance - $1,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE user_id = $2
+                RETURNING drop_balance
+                """,
+                total_cost,
+                user_id,
+            )
+
+            new_quantity = await connection.fetchval(
+                """
+                INSERT INTO user_inventory (user_id, item_key, quantity, updated_at)
+                VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+                ON CONFLICT (user_id, item_key)
+                DO UPDATE SET
+                    quantity = user_inventory.quantity + EXCLUDED.quantity,
+                    updated_at = CURRENT_TIMESTAMP
+                RETURNING quantity
+                """,
+                user_id,
+                str(item.get("item_key")),
+                int(payload.quantity),
+            )
+            await connection.execute(
+                """
+                INSERT INTO economy_transactions (user_id, guild_id, delta, balance_after, tx_type, metadata)
+                VALUES ($1, $2, 0, NULL, 'shop_buy_drops', $3::jsonb)
+                """,
+                user_id,
+                guild_id_int,
+                json.dumps(
+                    {
+                        "source": "dashboard",
+                        "item_key": str(item.get("item_key")),
+                        "quantity": int(payload.quantity),
+                        "currency": "drops",
+                        "drops_spent": int(total_cost),
+                        "drop_balance_after": int(new_drop_balance or 0),
+                    }
+                ),
+            )
+
+    return {
+        "ok": True,
+        "item_key": str(item.get("item_key") or ""),
+        "item_name": str(item.get("item_name") or ""),
+        "quantity": int(payload.quantity),
+        "total_cost": int(total_cost),
+        "inventory_quantity": int(new_quantity or 0),
+        "drops_balance": int(new_drop_balance or 0),
     }
 
 
