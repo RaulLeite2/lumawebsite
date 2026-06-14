@@ -840,6 +840,60 @@ textarea {
     gap: 0.7rem;
 }
 
+.shop-columns {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.8rem;
+}
+
+.shop-column {
+    border: 1px solid rgba(157, 176, 217, 0.2);
+    border-radius: 12px;
+    padding: 0.75rem;
+    background: rgba(17, 17, 37, 0.6);
+}
+
+.shop-column h3 {
+    font-size: 0.98rem;
+    margin-bottom: 0.22rem;
+}
+
+.shop-column .lead {
+    margin-bottom: 0.6rem;
+}
+
+.shop-price-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-weight: 700;
+}
+
+.shop-price-tag .shop-currency {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    padding: 0.08rem 0.45rem;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border: 1px solid rgba(157, 176, 217, 0.24);
+}
+
+.shop-currency.is-lumicoins {
+    color: #f2e6ff;
+    border-color: rgba(194, 107, 255, 0.5);
+    background: rgba(194, 107, 255, 0.16);
+}
+
+.shop-currency.is-drops {
+    color: #dcfbf0;
+    border-color: rgba(71, 215, 172, 0.45);
+    background: rgba(71, 215, 172, 0.16);
+}
+
 .log-item {
     border: 1px solid rgba(157, 176, 217, 0.22);
     border-radius: 12px;
@@ -2759,6 +2813,7 @@ body.mk-script-fullsize .mk-right {
 
     .metrics,
     .grid-2,
+    .shop-columns,
     .cogs-list,
     .servers-grid,
     .server-config-grid,

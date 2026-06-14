@@ -2742,45 +2742,78 @@ function renderVoiceDropsSettings(context, overview) {
 
 function renderEconomyDashboard(overview, shop, stats, season, transactions) {
     const balanceEl = document.getElementById("econ-balance");
+    const dropsBalanceEl = document.getElementById("econ-drops-balance");
     const timerEl = document.getElementById("econ-daily-timer");
-    const shopList = document.getElementById("econ-shop-list");
+    const lumicoinsShopList = document.getElementById("econ-lumicoins-shop-list");
+    const dropsShopList = document.getElementById("econ-drops-shop-list");
     const inventoryList = document.getElementById("econ-inventory-list");
     const badgesList = document.getElementById("econ-badges-list");
     const statsList = document.getElementById("econ-stats-list");
     const seasonList = document.getElementById("econ-season-list");
     const txList = document.getElementById("econ-transactions-list");
-    if (!balanceEl || !timerEl || !shopList || !inventoryList || !badgesList) return;
+    if (!balanceEl || !timerEl || !lumicoinsShopList || !dropsShopList || !inventoryList || !badgesList) return;
 
     renderVoiceDropsSettings(dashboardContext, overview);
 
     balanceEl.textContent = `${Number(overview?.balance || 0).toLocaleString()} Lumicoins`;
+    if (dropsBalanceEl) {
+        dropsBalanceEl.textContent = `${Number(overview?.drops_balance || 0).toLocaleString()} Drops`;
+    }
     const remaining = Number(overview?.daily_remaining_seconds || 0);
     timerEl.textContent = remaining > 0 ? formatSecondsToHhMm(remaining) : "Available now";
 
-    const items = Array.isArray(shop?.items) ? shop.items : [];
-    shopList.innerHTML = "";
-    if (!items.length) {
-        const empty = document.createElement("article");
-        empty.className = "log-item";
-        empty.innerHTML = "<h3>No shop items</h3><p>Shop is empty right now.</p>";
-        shopList.appendChild(empty);
-    } else {
+    const allItems = Array.isArray(shop?.items) ? shop.items : [];
+    const isDropItem = (item) => {
+        const currency = String(item?.currency || "").toLowerCase();
+        const category = String(item?.category || "").toLowerCase();
+        return currency === "drops" || category.includes("drop");
+    };
+
+    const dropsItems = Array.isArray(shop?.drops_items)
+        ? shop.drops_items
+        : allItems.filter((item) => isDropItem(item));
+    const lumicoinsItems = Array.isArray(shop?.lumicoins_items)
+        ? shop.lumicoins_items
+        : allItems.filter((item) => !isDropItem(item));
+
+    const renderShopItems = (target, items, currencyType) => {
+        target.innerHTML = "";
+        if (!items.length) {
+            const empty = document.createElement("article");
+            empty.className = "log-item";
+            empty.innerHTML = currencyType === "drops"
+                ? "<h3>No drops items yet</h3><p>Drop-based offers will appear here when enabled.</p>"
+                : "<h3>No lumicoins items</h3><p>Shop is empty right now.</p>";
+            target.appendChild(empty);
+            return;
+        }
+
         items.forEach((item) => {
             const row = document.createElement("article");
             row.className = "log-item";
             row.dataset.shopItemKey = item.item_key;
+            const showBuy = currencyType === "lumicoins";
             row.innerHTML = `
                 <h3>${item.item_name} <small>(${item.item_key})</small></h3>
                 <p>${item.item_description}</p>
-                <p><strong>${Number(item.price || 0).toLocaleString()} Lumicoins</strong> • ${item.category || "utility"}</p>
+                <p>
+                    <span class="shop-price-tag">
+                        <strong>${Number(item.price || 0).toLocaleString()}</strong>
+                        <span class="shop-currency ${currencyType === "drops" ? "is-drops" : "is-lumicoins"}">${currencyType === "drops" ? "Drops" : "Lumicoins"}</span>
+                    </span>
+                    • ${item.category || "utility"}
+                </p>
                 <div class="actions">
-                    <input type="number" min="1" max="50" value="1" class="shop-qty" style="max-width:90px;">
-                    <button class="btn primary" data-econ-buy="${item.item_key}" type="button">Buy</button>
+                    ${showBuy ? '<input type="number" min="1" max="50" value="1" class="shop-qty" style="max-width:90px;">' : ""}
+                    <button class="btn ${showBuy ? "primary" : ""}" ${showBuy ? `data-econ-buy="${item.item_key}"` : "disabled"} type="button">${showBuy ? "Buy" : "Soon"}</button>
                 </div>
             `;
-            shopList.appendChild(row);
+            target.appendChild(row);
         });
-    }
+    };
+
+    renderShopItems(lumicoinsShopList, lumicoinsItems, "lumicoins");
+    renderShopItems(dropsShopList, dropsItems, "drops");
 
     const inventory = Array.isArray(overview?.inventory) ? overview.inventory : [];
     inventoryList.innerHTML = "";
@@ -3600,9 +3633,9 @@ function bindPageActions() {
         });
     }
 
-    const economyShopList = document.getElementById("econ-shop-list");
-    if (economyShopList) {
-        economyShopList.addEventListener("click", async (event) => {
+    const economyLumicoinsShopList = document.getElementById("econ-lumicoins-shop-list");
+    if (economyLumicoinsShopList) {
+        economyLumicoinsShopList.addEventListener("click", async (event) => {
             const target = event.target;
             if (!(target instanceof HTMLElement)) return;
             const itemKey = target.dataset.econBuy;

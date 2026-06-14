@@ -48,6 +48,7 @@
                 <p class="lead">Your current economy status for this account.</p>
                 <div class="metrics">
                     <div class="metric"><span>Balance</span><strong id="econ-balance">-</strong></div>
+                    <div class="metric"><span>Drops balance</span><strong id="econ-drops-balance">-</strong></div>
                     <div class="metric"><span>Daily cooldown</span><strong id="econ-daily-timer">-</strong></div>
                 </div>
                 <div class="actions" style="margin-top:0.9rem;">
@@ -126,9 +127,20 @@
             </section>
 
             <section class="section">
-                <h2>Shop</h2>
-                <p class="lead">Buy economy items and consumables.</p>
-                <div id="econ-shop-list" class="log-feed"></div>
+                <h2>Shops</h2>
+                <p class="lead">Prepare and manage independent catalogs for Lumicoins and Drops.</p>
+                <div class="shop-columns">
+                    <article class="shop-column">
+                        <h3>Shop de Lumicoins</h3>
+                        <p class="lead">Items that can be bought right now using Lumicoins.</p>
+                        <div id="econ-lumicoins-shop-list" class="log-feed"></div>
+                    </article>
+                    <article class="shop-column">
+                        <h3>Shop de Drops</h3>
+                        <p class="lead">Structure ready for drop-based products and bundles.</p>
+                        <div id="econ-drops-shop-list" class="log-feed"></div>
+                    </article>
+                </div>
             </section>
 
             <section class="section">

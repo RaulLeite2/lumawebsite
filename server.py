@@ -4053,18 +4053,23 @@ async def dashboard_economy_shop(request: Request) -> dict[str, Any]:
             """
         )
 
+    items = [
+        {
+            "item_key": str(item.get("item_key") or ""),
+            "item_name": str(item.get("item_name") or ""),
+            "item_description": str(item.get("item_description") or ""),
+            "price": int(item.get("price") or 0),
+            "category": str(item.get("category") or "utility"),
+            "currency": "lumicoins",
+        }
+        for item in rows
+    ]
+
     return {
         "ok": True,
-        "items": [
-            {
-                "item_key": str(item.get("item_key") or ""),
-                "item_name": str(item.get("item_name") or ""),
-                "item_description": str(item.get("item_description") or ""),
-                "price": int(item.get("price") or 0),
-                "category": str(item.get("category") or "utility"),
-            }
-            for item in rows
-        ],
+        "items": items,
+        "lumicoins_items": items,
+        "drops_items": [],
     }
 
 
